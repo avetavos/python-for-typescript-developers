@@ -1,0 +1,207 @@
+---
+title: None & Truthiness
+description: None, is None และ truthiness ของ container ใน Python เทียบกับ null/undefined และค่า falsy ของ JavaScript
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## None: ค่า "ไม่มีอะไร" หนึ่งเดียวของ Python
+
+TypeScript มีค่า "ไม่มี" อยู่สองตัว — `null` และ `undefined` — พร้อมกฎ linting ทั้งชุด (`strictNullChecks`) ไว้จัดการมัน ส่วน Python มีแค่ตัวเดียว: `None` มันเป็นทั้ง sentinel ที่หมายถึง "ไม่มีค่า" และเป็นสิ่งที่ฟังก์ชัน return กลับมาโดยปริยายเมื่อไม่ได้ return อะไรอย่างชัดเจน
+
+คุณเปรียบเทียบกับ `None` ด้วย `is` (ไม่ใช่ `==`) — รายละเอียดเพิ่มเติมอยู่ด้านล่าง
+
+## None เทียบกับ null / undefined
+
+export const noneTs = `// TypeScript
+let user: string | null = null;
+let config: string | undefined = undefined;
+
+// Nullish coalescing
+const name = user ?? "Guest";
+
+// Optional chaining
+const len = user?.length ?? 0;
+
+// Type narrowing
+if (user !== null && user !== undefined) {
+  console.log(user.toUpperCase());
+}`;
+
+export const nonePy = `# Python
+user: str | None = None   # str | None = Optional[str]
+
+# Fallback with "or"
+name = user or "Guest"
+
+# Conditional expression (ternary)
+length = len(user) if user is not None else 0
+
+# Type narrowing
+if user is not None:
+    print(user.upper())`;
+
+<TsGo client:visible ts={noneTs} go={nonePy} />
+
+## Truthiness: ค่า falsy ของ Python
+
+กฎ falsy ของ Python คล้ายกับ JavaScript แต่เข้มงวดและสม่ำเสมอกว่า **container ที่ว่างเปล่า** ใด ๆ เป็น falsy ส่วน **ตัวเลขที่ไม่ใช่ศูนย์** ใด ๆ เป็น truthy
+
+| ค่า | Falsy ใน Python? | Falsy ใน JS/TS? |
+|---|---|---|
+| `None` | ใช่ | `null` / `undefined` — ใช่ |
+| `0` | ใช่ | ใช่ |
+| `0.0` | ใช่ | ใช่ |
+| `""` (string ว่าง) | ใช่ | ใช่ |
+| `[]` (list ว่าง) | ใช่ | ไม่ — `[]` เป็น truthy ใน JS |
+| `{}` (dict ว่าง) | ใช่ | ไม่ — `{}` เป็น truthy ใน JS |
+| `set()` (set ว่าง) | ใช่ | ไม่มี |
+| `()` (tuple ว่าง) | ใช่ | ไม่มี |
+
+สังเกต: **array และ object ที่ว่างเปล่าเป็น truthy ใน JavaScript แต่เป็น falsy ใน Python** เรื่องนี้ทำให้นักพัฒนา TS หลายคนสะดุดบ่อย ๆ
+
+export const truthyTs = `// TypeScript
+console.log(Boolean([]));   // true  — empty array is truthy!
+console.log(Boolean({}));   // true  — empty object is truthy!
+console.log(Boolean(0));    // false
+console.log(Boolean(""));   // false
+console.log(Boolean(null)); // false
+
+if ([]) console.log("truthy");  // prints!`;
+
+export const truthyPy = `# Python
+print(bool([]))    # False — empty list is FALSY
+print(bool({}))    # False — empty dict is FALSY
+print(bool(0))     # False
+print(bool(""))    # False
+print(bool(None))  # False
+
+if []:
+    print("truthy")   # does NOT print
+else:
+    print("falsy")    # prints
+
+# Idiomatic: guard against empty containers
+items = []
+if not items:
+    print("No items found")`;
+
+<TsGo client:visible ts={truthyTs} go={truthyPy} />
+
+## การเช็ค None: ใช้ `is` ไม่ใช่ `==`
+
+ใน Python `is` เช็ค **identity** (object เดียวกันในหน่วยความจำ) ส่วน `==` เช็ค **equality** (ค่าเท่ากัน) สำหรับ `None` ให้ใช้ `is` เสมอ — มี object `None` เพียงตัวเดียวในโปรเซส Python ดังนั้นการเช็ค identity จึงเป็นวิธีที่ถูกต้อง
+
+export const isNoneTs = `// TypeScript — use strict equality
+function process(data: string | null | undefined): void {
+  if (data === null || data === undefined) {
+    console.log("No data");
+    return;
+  }
+  console.log(data.toUpperCase());
+}`;
+
+export const isNonePy = `# Python — use "is None" / "is not None"
+def process(data: str | None) -> None:
+    if data is None:
+        print("No data")
+        return
+    print(data.upper())
+
+# Common pattern: default if None
+def greet(name: str | None = None) -> str:
+    name = name or "World"   # replaces None (or falsy) with default
+    return f"Hello, {name}!"
+
+print(greet())          # Hello, World!
+print(greet("Alice"))   # Hello, Alice!`;
+
+<TsGo client:visible ts={isNoneTs} go={isNonePy} />
+
+## ลองเล่นดู
+
+export const noneCode = `# None checks
+x = None
+print(x is None)       # True
+print(x is not None)   # False
+
+# Truthiness
+print(bool([]))        # False  — empty list
+print(bool([1]))       # True   — non-empty list
+print(bool({}))        # False  — empty dict
+print(bool({"a": 1}))  # True
+print(bool(""))        # False  — empty string
+print(bool("hi"))      # True
+print(bool(0))         # False
+print(bool(1))         # True
+
+# None in function return
+def get_user(user_id: int):
+    if user_id == 1:
+        return {"name": "Alice"}
+    return None   # implicit in Python, but explicit is fine
+
+user = get_user(99)
+if user is None:
+    print("User not found")
+
+user2 = get_user(1)
+if user2 is not None:
+    print(f"Found: {user2['name']}")
+`;
+
+<Playground client:visible code={noneCode} />
+
+<PyOnly title="None ตัวเดียว, is แบบ identity และการ return None โดยปริยาย">
+
+Python มี object `None` เพียงตัวเดียวเท่านั้น — มันเป็น singleton นั่นคือเหตุผลว่าทำไม `is None` จึงเป็นสำนวนที่ถูกต้อง: คุณกำลังถามว่า "นี่คือ None ตัวเดียวในจักรวาลใช่ไหม?" ไม่ใช่ "สิ่งนี้เท่ากับ None หรือเปล่า?"
+
+TypeScript มีแนวคิดแยกกันสองตัว (`null` และ `undefined`) สำหรับ "ไม่มีค่า" และ "ยังไม่ได้กำหนดค่า" ส่วน Python ยุบทั้งสองให้เป็น `None` ฟังก์ชันที่ไม่ได้ return ค่าจะ return `None` โดยอัตโนมัติ — คุณจะไม่มีวันได้ `undefined`
+
+```python
+def no_return() -> None:
+    print("I do nothing")
+
+result = no_return()
+print(result)         # None
+print(result is None) # True
+```
+
+operator `is` ยังสำคัญเมื่อคุณนิยามคลาสที่กำหนดเองพร้อม `__eq__` คลาสหนึ่งอาจนิยาม `__eq__` ให้ return `True` เมื่อเทียบกับ `None` (อย่าทำแบบนี้ แต่มันทำได้) `is None` ข้าม `__eq__` ไปทั้งหมด — มันเป็นการเช็ค identity แบบดิบ ๆ
+
+</PyOnly>
+
+export const quizNone = [
+  {
+    q: 'ค่าใดของ Python ที่เทียบเท่าทั้ง `null` และ `undefined` ใน TypeScript?',
+    options: ['null', 'undefined', 'None', 'NaN'],
+    answer: 2,
+  },
+  {
+    q: '`bool([])` คืนค่าอะไรใน Python?',
+    options: ['True', 'False', 'None', 'TypeError'],
+    answer: 1,
+  },
+  {
+    q: 'ทำไมคุณจึงควรใช้ `x is None` แทน `x == None` ใน Python?',
+    options: [
+      '`==` ช้ากว่า',
+      '`is` เช็ค identity — มันทำงานถูกต้องแม้คลาสจะ override `__eq__`',
+      '`==` โยน TypeError สำหรับ None',
+      'มันใช้แทนกันได้ — เป็นแค่เรื่องสไตล์',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'dict ว่าง `{}` ถูกประเมินเป็นอะไรในบริบท truthiness ของ Python?',
+    options: ['True', 'False', 'None', 'โยน KeyError'],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="python-101/none-truthiness" questions={quizNone} />
+
+<ProgressTracker client:visible id="python-101/none-truthiness" />

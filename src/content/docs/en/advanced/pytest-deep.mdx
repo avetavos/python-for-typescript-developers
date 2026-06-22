@@ -1,0 +1,239 @@
+---
+title: pytest — Deep Dive
+description: Fixtures, parametrize, and assertion introspection in pytest — compared to Jest's beforeEach, it.each, and expect matchers.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+
+> Playground note: pytest requires the `pytest` binary and test discovery context — run locally with `pytest`. Code blocks below are verified with `python3` where applicable; full test runs require a local environment.
+
+## pytest vs Jest: conceptual map
+
+| Jest concept | pytest equivalent |
+|---|---|
+| `describe` block | module or class grouping (optional) |
+| `it` / `test` | function named `test_*` |
+| `beforeEach` / `afterEach` | fixture with `yield` |
+| `beforeAll` / `afterAll` | session/module-scoped fixture |
+| `it.each` / `test.each` | `@pytest.mark.parametrize` |
+| `expect(x).toBe(y)` | `assert x == y` (with introspection) |
+| `jest.fn()` / `jest.mock()` | `monkeypatch` fixture / `unittest.mock` |
+
+## Fixtures: the pytest superpower
+
+A **fixture** is a function decorated with `@pytest.fixture`. pytest injects it into any test that declares it as a parameter. It is the equivalent of Jest's `beforeEach` — but more powerful because fixtures are composable: a fixture can depend on other fixtures.
+
+export const fixtureTs = `// Jest — beforeEach for setup
+describe("UserService", () => {
+  let db: Database;
+  let service: UserService;
+
+  beforeEach(async () => {
+    db = await Database.connect(":memory:");
+    service = new UserService(db);
+  });
+
+  afterEach(async () => {
+    await db.close();
+  });
+
+  it("creates a user", async () => {
+    const user = await service.create({ name: "Alice" });
+    expect(user.id).toBeDefined();
+  });
+});`;
+
+export const fixturePy = `# pytest — fixture with yield (setup + teardown)
+import pytest
+
+@pytest.fixture
+def db():
+    connection = {"connected": True, "data": {}}
+    yield connection             # test receives this value
+    connection["connected"] = False  # teardown after yield
+
+@pytest.fixture
+def user_service(db):            # fixture depending on fixture
+    return {"db": db, "users": db["data"]}
+
+def test_create_user(user_service):
+    user_service["users"]["alice"] = {"name": "Alice"}
+    assert "alice" in user_service["users"]
+
+def test_db_connected(db):
+    assert db["connected"] is True`;
+
+<TsGo client:visible ts={fixtureTs} go={fixturePy} />
+
+Run locally:
+
+```bash
+pip install pytest
+pytest test_users.py -v
+```
+
+## Fixture scopes
+
+Fixtures default to `scope="function"` (recreated per test). Wider scopes avoid expensive setup:
+
+```python
+@pytest.fixture(scope="module")   # once per test module
+def db_connection():
+    conn = create_db_connection()
+    yield conn
+    conn.close()
+
+@pytest.fixture(scope="session")  # once for the entire test run
+def auth_token():
+    return get_test_token()
+```
+
+| Scope | Created |
+|---|---|
+| `function` (default) | Before every test |
+| `class` | Once per test class |
+| `module` | Once per `.py` file |
+| `session` | Once per `pytest` invocation |
+
+## parametrize: data-driven tests
+
+`@pytest.mark.parametrize` is Jest's `it.each` — run the same test with multiple input/output pairs.
+
+export const paramTs = `// Jest — test.each
+test.each([
+  [2, 3, 5],
+  [0, 0, 0],
+  [-1, 1, 0],
+])("add(%i, %i) = %i", (a, b, expected) => {
+  expect(add(a, b)).toBe(expected);
+});`;
+
+export const paramPy = `import pytest
+
+def add(a: int, b: int) -> int:
+    return a + b
+
+@pytest.mark.parametrize("a,b,expected", [
+    (2,  3,  5),
+    (0,  0,  0),
+    (-1, 1,  0),
+    (10, -5, 5),
+])
+def test_add(a, b, expected):
+    assert add(a, b) == expected`;
+
+<TsGo client:visible ts={paramTs} go={paramPy} />
+
+Combine `parametrize` with fixtures for full combinatorial testing:
+
+```python
+@pytest.mark.parametrize("role", ["admin", "user", "guest"])
+def test_permissions(role, user_service):
+    # user_service fixture injected; role parametrized
+    perms = user_service.get_permissions(role)
+    assert isinstance(perms, list)
+```
+
+## Assertions: plain assert with introspection
+
+Unlike Jest's `.toBe()`, `.toEqual()`, `.toContain()` chain, pytest uses a plain `assert` statement. It rewrites the assertion at collection time and shows a detailed diff on failure — no matcher library needed.
+
+export const assertTs = `// Jest assertions
+expect(user.name).toBe("Alice");
+expect(users).toHaveLength(3);
+expect(users).toContain("Bob");
+expect(order.total).toBeGreaterThan(0);
+expect(fn).toThrow(TypeError);`;
+
+export const assertPy = `# pytest — plain assert, rich diffs on failure
+assert user["name"] == "Alice"
+assert len(users) == 3
+assert "Bob" in users
+assert order["total"] > 0
+
+# Testing exceptions
+import pytest
+with pytest.raises(ValueError, match="negative"):
+    parse_price(-5)`;
+
+<TsGo client:visible ts={assertTs} go={assertPy} />
+
+When an assertion fails, pytest shows the actual values, the full diff for containers, and the expression tree — far more detail than you get with a plain `AssertionError`.
+
+## conftest.py: shared fixtures
+
+Place shared fixtures in `conftest.py` at any directory level. pytest discovers them automatically — no import needed.
+
+```
+tests/
+├── conftest.py      # fixtures available to ALL tests below
+├── unit/
+│   ├── conftest.py  # fixtures only for unit/ tests
+│   └── test_math.py
+└── integration/
+    └── test_api.py
+```
+
+```python
+# tests/conftest.py
+import pytest
+
+@pytest.fixture(scope="session")
+def api_client():
+    from myapp import create_app
+    app = create_app(testing=True)
+    with app.test_client() as client:
+        yield client
+```
+
+## monkeypatch: the built-in mock
+
+`monkeypatch` is a built-in fixture for patching objects, environment variables, and files — the equivalent of `jest.spyOn` or `jest.mock`.
+
+```python
+def test_calls_external_api(monkeypatch):
+    def fake_fetch(url):
+        return {"status": 200, "data": "mocked"}
+
+    monkeypatch.setattr("mymodule.fetch", fake_fetch)
+    result = mymodule.process()
+    assert result["status"] == 200
+```
+
+export const quizPytestDeep = [
+  {
+    q: 'What is the pytest equivalent of Jest\'s `beforeEach`/`afterEach` for a single test?',
+    options: [
+      'A function named `setup_function` and `teardown_function`',
+      'A `@pytest.fixture` function with a `yield` statement',
+      'A `@pytest.setup` decorator',
+      'A `conftest.py` file',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'Which decorator creates data-driven / parametrized tests in pytest?',
+    options: [
+      '@pytest.mark.skip',
+      '@pytest.mark.parametrize',
+      '@pytest.fixture(params=[...])',
+      '@pytest.mark.xfail',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'What is the default fixture scope in pytest?',
+    options: ['session', 'module', 'class', 'function'],
+    answer: 3,
+  },
+  {
+    q: 'Where do you place shared fixtures so pytest discovers them automatically without importing?',
+    options: ['fixtures.py', 'conftest.py', 'pytest.ini', 'setup.cfg'],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="advanced/pytest-deep" questions={quizPytestDeep} />
+
+<ProgressTracker client:visible id="advanced/pytest-deep" />

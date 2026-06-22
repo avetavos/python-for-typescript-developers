@@ -1,0 +1,212 @@
+---
+title: Hello World — โปรแกรม Python แรกของคุณ
+description: เขียนและรัน Python script แรก ทำความเข้าใจ print() และเรียนรู้ if __name__ == "__main__" entry-point guard
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## โปรแกรมที่ง่ายที่สุด
+
+ใน TypeScript คุณมักต้องตั้งค่าโปรเจกต์ก่อนจะเขียนโค้ดบรรทัดแรก ใน Python คุณสามารถไปจากศูนย์สู่การรันได้ด้วยไฟล์เดียวและคำสั่งเดียว
+
+export const helloTs = `// hello.ts
+const name: string = "TypeScript Developer";
+console.log(\`Hello, \${name}!\`);
+
+// Run: npx ts-node hello.ts
+// Output: Hello, TypeScript Developer!`;
+
+export const helloPy = `# hello.py
+name: str = "TypeScript Developer"
+print(f"Hello, {name}!")
+
+# Run: python3 hello.py
+# Output: Hello, TypeScript Developer!`;
+
+<TsGo client:visible ts={helloTs} go={helloPy} />
+
+## ฟังก์ชัน `print`
+
+`console.log` ใน TypeScript กลายเป็น `print` ใน Python ทั้งคู่รับ arguments หลายตัว แต่รายละเอียดแตกต่างกัน:
+
+export const printTs = `// TypeScript console.log
+console.log("a", "b", "c");          // a b c (space separated)
+console.log("count:", 42);           // count: 42
+console.log(\`sum = \${1 + 2}\`);       // sum = 3 (template literal)`;
+
+export const printPy = `# Python print
+print("a", "b", "c")                 # a b c (space separated)
+print("count:", 42)                  # count: 42
+print(f"sum = {1 + 2}")              # sum = 3 (f-string)
+
+# print has keyword args:
+print("a", "b", sep="-")            # a-b  (custom separator)
+print("loading", end="...")         # loading... (no newline)`;
+
+<TsGo client:visible ts={printTs} go={printPy} />
+
+## F-strings — template literals ของ Python
+
+f-string ของ Python (`f"..."`) เทียบเท่ากับ template literal ของ TypeScript (`` `...` ``) ใส่ prefix `f` หน้า string และใส่ expressions ใน `{}`
+
+export const fstringTs = `// TypeScript template literal
+const user = { name: "Alice", age: 30 };
+const msg = \`\${user.name} is \${user.age} years old\`;
+console.log(msg);  // Alice is 30 years old
+
+// Format number
+const pi = 3.14159;
+console.log(\`pi ≈ \${pi.toFixed(2)}\`);  // pi ≈ 3.14`;
+
+export const fstringPy = `# Python f-string
+user = {"name": "Alice", "age": 30}
+msg = f"{user['name']} is {user['age']} years old"
+print(msg)   # Alice is 30 years old
+
+# Format specifier inside {}
+pi = 3.14159
+print(f"pi ≈ {pi:.2f}")   # pi ≈ 3.14
+
+# Any expression works
+print(f"2 + 2 = {2 + 2}")  # 2 + 2 = 4`;
+
+<TsGo client:visible ts={fstringTs} go={fstringPy} />
+
+## การรัน script
+
+export const runfileTs = `# TypeScript
+# 1. Compile and run
+tsc hello.ts && node hello.js
+
+# 2. Direct with ts-node
+npx ts-node hello.ts
+
+# 3. Via npm script (package.json)
+npm start`;
+
+export const runfilePy = `# Python
+# 1. Direct — no compilation step
+python3 hello.py
+
+# 2. Make the file executable (Unix)
+chmod +x hello.py   # add #!/usr/bin/env python3 as line 1
+./hello.py
+
+# 3. Run as a module (inside a package)
+python3 -m mypackage.hello`;
+
+<TsGo client:visible ts={runfileTs} go={runfilePy} />
+
+## Entry-point guard: `if __name__ == "__main__":`
+
+นี่คือ Python pattern ที่ไม่มีสิ่งเทียบเคียงโดยตรงใน TypeScript ดังนั้นจึงสมควรอธิบายอย่างละเอียด
+
+เมื่อ Python รัน file โดยตรง (`python3 hello.py`) มันจะตั้งค่า `__name__` ของ module เป็น string `"__main__"` เมื่อ file อื่น import `hello.py` ด้วย `import hello` นั้น `__name__` จะถูกตั้งค่าเป็น `"hello"` (ชื่อ module) แทน
+
+Guard `if __name__ == "__main__":` หมายความว่า "รันโค้ดนี้เฉพาะเมื่อ file นี้คือ entry point ไม่ใช่เมื่อมันถูก import"
+
+export const guardTs = `// TypeScript: no direct equivalent
+// In Node, top-level code always runs when the file is imported
+// You work around this with explicit exports:
+
+export function greet(name: string) {
+  return \`Hello, \${name}!\`;
+}
+
+// This runs unconditionally on import — often undesirable:
+// console.log(greet("world"));`;
+
+export const guardPy = `# Python: the entry-point guard
+def greet(name: str) -> str:
+    return f"Hello, {name}!"
+
+if __name__ == "__main__":
+    # This block ONLY runs when you do: python3 hello.py
+    # It does NOT run when another file does: import hello
+    print(greet("world"))`;
+
+<TsGo client:visible ts={guardTs} go={guardPy} />
+
+<PyOnly title="ทำไม __name__ ถึงสำคัญ?">
+
+พิจารณาไฟล์ utility `utils.py` ที่กำหนด helpers และยังพิมพ์ debug message ด้วย ถ้า module อื่น import มัน debug message นั้นจะทำงานโดยไม่คาดคิด Guard `if __name__ == "__main__":` ป้องกันเรื่องนี้ — เฉพาะ entry point สุดท้ายเท่านั้นที่รัน block นั้น
+
+นี่ยังเป็นเหตุผลที่ test runners ของ Python (เช่น `pytest`) สามารถ import source files ของคุณได้โดยไม่ trigger logic `main()` ของคุณ: guard ทำให้ side effects แยกออกมา
+
+Best practice: ห่อโค้ด executable ระดับบนสุดทั้งหมดไว้ใน guard นี้
+
+</PyOnly>
+
+## Script แรกฉบับสมบูรณ์
+
+export const completeHelloCode = `# hello.py — a complete first Python script
+
+def greet(name: str) -> str:
+    """Return a personalised greeting."""
+    return f"Hello, {name}!"
+
+def main() -> None:
+    names = ["Alice", "Bob", "TypeScript Developer"]
+    for name in names:
+        message = greet(name)
+        print(message)
+
+    # f-string formatting
+    count = len(names)
+    print(f"\\nGreeted {count} people.")
+
+if __name__ == "__main__":
+    main()
+`;
+
+<Playground client:visible code={completeHelloCode} />
+
+export const quizHello = [
+  {
+    q: '`console.log` ใน Python คืออะไร?',
+    options: [
+      '`log()`',
+      '`echo()`',
+      '`print()`',
+      '`stdout()`',
+    ],
+    answer: 2,
+  },
+  {
+    q: '`__name__` มีค่าเป็นอะไรเมื่อรัน file โดยตรงด้วย `python3 hello.py`?',
+    options: [
+      '`"hello"`',
+      '`"hello.py"`',
+      '`None`',
+      '`"__main__"`',
+    ],
+    answer: 3,
+  },
+  {
+    q: 'Python string prefix ไหนสร้างสิ่งเทียบเท่า template literal?',
+    options: [
+      '`t"..."`',
+      '`f"..."`',
+      '`r"..."`',
+      '`b"..."`',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'เกิดอะไรขึ้นกับ block `if __name__ == "__main__":` เมื่อ module อื่น import file?',
+    options: [
+      'มัน raise ImportError',
+      'มันรันเพียงครั้งเดียวใน import แรก',
+      'มันถูกข้ามไปทั้งหมด — ไม่รัน',
+      'มันรันใน subprocess',
+    ],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="intro/hello-world" questions={quizHello} />
+
+<ProgressTracker client:visible id="intro/hello-world" />

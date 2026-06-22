@@ -1,5 +1,88 @@
 ---
-title: Python 101
-description: Python fundamentals for TypeScript developers.
+title: Python 101 — พื้นฐาน
+description: ภาพรวมของโมดูลและตัวอย่างเปรียบเทียบ TypeScript↔Python แบบรวดเร็วสำหรับนักพัฒนา JS/TS ที่ทำงานจริง
 ---
-Coming soon.
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+
+## ยินดีต้อนรับสู่ Python 101
+
+ถ้าคุณเคยส่งงาน TypeScript ขึ้น production มาแล้ว แสดงว่าคุณรู้จัก Python มากกว่าที่คิด ทั้งสองภาษาต่างก็เป็น dynamically typed ในแก่นของมัน (TypeScript เพิ่มเลเยอร์ type ตอน compile-time ส่วน Python 3 เพิ่ม hint แบบ optional) ทั้งคู่ใช้ garbage collection และทั้งคู่ก็เน้น syntax ที่สื่อความหมายมากกว่าพิธีรีตอง การปรับมุมมองที่ใหญ่ที่สุดเป็นแค่เรื่องผิวเผิน คือ indentation เข้ามาแทนปีกกา และ syntactic sugar หลายอย่างของ JavaScript ก็มีเวอร์ชัน Python ที่สะอาดกว่า
+
+โมดูลนี้จะพาคุณผ่านบทเรียนเก้าบท แต่ละบทยึดโยงกับโค้ดที่คุณรู้จักอยู่แล้ว เมื่อจบลงคุณจะมี Python มากพอที่จะอ่านโปรเจกต์จริง เขียนสคริปต์ และสร้าง REST API ด้วย FastAPI ได้
+
+## ลองชิมรสชาติแบบเร็ว ๆ: โปรแกรมเดียวกันในทั้งสองภาษา
+
+นี่คือโปรแกรมเล็ก ๆ — รายชื่อที่ถูก filter แล้วทักทาย — เขียนด้วย TypeScript ก่อน แล้วตามด้วย Python ตรรกะเดียวกัน ผลลัพธ์เดียวกัน แต่ syntax ต่างกัน
+
+export const tasterTs = `const names: string[] = ["Alice", "Bob", "Carol", "Dave"];
+
+const short = names.filter((n) => n.length <= 4);
+
+for (const name of short) {
+  console.log(\`Hello, \${name}!\`);
+}
+
+// Hello, Bob!
+// Hello, Dave!`;
+
+export const tasterPy = `names: list[str] = ["Alice", "Bob", "Carol", "Dave"]
+
+short = [n for n in names if len(n) <= 4]
+
+for name in short:
+    print(f"Hello, {name}!")
+
+# Hello, Bob!
+# Hello, Dave!`;
+
+<TsGo client:visible ts={tasterTs} go={tasterPy} />
+
+## ลองเล่นดู
+
+export const tasterCode = `names: list[str] = ["Alice", "Bob", "Carol", "Dave"]
+
+short = [n for n in names if len(n) <= 4]
+
+for name in short:
+    print(f"Hello, {name}!")
+`;
+
+<Playground client:visible code={tasterCode} />
+
+## สิ่งที่คุณจะได้เรียนรู้
+
+| บทเรียน | สิ่งที่คุณรู้อยู่แล้ว (TS) | สิ่งที่คุณจะได้เรียน (Python) |
+|---|---|---|
+| Variables | `let` / `const` + static types | Dynamic typing, type hints, ค่าคงที่แบบ UPPER_CASE |
+| Functions | Arrow & `function` | `def`, default args, keyword args, `*args`/`**kwargs` |
+| Control Flow | `if`/`else`, `for`, `switch` | `if`/`elif`, `for...in`, `match`/`case` |
+| Collections | `Array`, `object`, `Map`, `Set` | `list`, `tuple`, `dict`, `set`, slicing |
+| Classes | `class`, constructor, `this` | `class`, `__init__`, `self`, dunders |
+| Modules | ESM `import`/`export`, npm | `import`, `from ... import`, pip |
+| Errors | `try`/`catch`/`finally` | `try`/`except`/`else`/`finally`, `raise` |
+| None & Truthiness | `null`, `undefined`, ค่า falsy | `None`, `is None`, truthiness ของ Python |
+
+export const quizIndex = [
+  {
+    q: 'อะไรเข้ามาแทนปีกกาในการกำหนดบล็อกโค้ดใน Python?',
+    options: ['วงเล็บ', 'การย่อหน้า (Indentation)', 'วงเล็บเหลี่ยม', 'คีย์เวิร์ด BEGIN/END'],
+    answer: 1,
+  },
+  {
+    q: 'Type hints ของ Python (เช่น `name: str`) ถูกบังคับใช้ตอน:',
+    options: ['ตอน compile', 'ตอน import', 'ตอน runtime โดย interpreter', 'มันไม่ถูกบังคับใช้โดย interpreter'],
+    answer: 3,
+  },
+  {
+    q: 'โครงสร้างใดของ Python ที่ใกล้เคียงที่สุดกับ `Array.filter()` แบบบรรทัดเดียวของ TypeScript?',
+    options: ['Generator expression', 'List comprehension', 'การเรียก `map()`', 'การเรียก `filter()` พร้อม `list()`'],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="python-101/index" questions={quizIndex} />
+
+<ProgressTracker client:visible id="python-101/index" />

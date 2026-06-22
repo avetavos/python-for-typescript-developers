@@ -1,0 +1,142 @@
+---
+title: Python You Won't Find in TypeScript
+description: Overview of Python-only concepts that have no direct TypeScript equivalent.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## Python-only territory
+
+TypeScript is a superset of JavaScript — it adds types, but the runtime is still JS. Python, by contrast, was designed from scratch with a different philosophy: code should read like executable pseudocode. The result is a language with several concepts that simply have no equivalent in TypeScript or JavaScript.
+
+This module walks through ten of those concepts:
+
+1. **Significant whitespace** — indentation is syntax, not style.
+2. **Duck typing and EAFP** — structural behavior without interfaces, plus try-first error handling.
+3. **Dunder methods** — operator overloading via `__add__`, `__str__`, and friends.
+4. **Decorators** — first-class function wrappers, used heavily in frameworks like FastAPI.
+5. **Comprehensions** — concise list, dict, and set construction.
+6. **Generators and `yield`** — lazy sequences that produce values on demand.
+7. **Unpacking, `*args`, `**kwargs`** — flexible function signatures and iterable destructuring.
+8. **Context managers** — `with` blocks that guarantee resource cleanup.
+9. **Slicing** — powerful subsequence syntax for lists, strings, and more.
+10. **The GIL** — the Global Interpreter Lock and what it means for concurrency.
+
+## The feel: braces vs whitespace
+
+The most immediately visible difference between TypeScript and Python is syntax. TypeScript inherits JavaScript's C-style braces and semicolons. Python uses neither.
+
+export const tsFeelIndex = `// TypeScript: braces and semicolons everywhere
+function greet(name: string): string {
+  if (name) {
+    return \`Hello, \${name}!\`;
+  } else {
+    return "Hello, stranger!";
+  }
+}
+
+const items: number[] = [1, 2, 3];
+for (const item of items) {
+  console.log(item);
+}`;
+
+export const pyFeelIndex = `# Python: indentation defines blocks
+def greet(name: str) -> str:
+    if name:
+        return f"Hello, \${name}!"
+    else:
+        return "Hello, stranger!"
+
+items: list[int] = [1, 2, 3]
+for item in items:
+    print(item)`;
+
+<TsGo client:visible ts={tsFeelIndex} go={pyFeelIndex} />
+
+## Try it
+
+export const playgroundIndex = `# A taste of Python's feel
+def describe(value):
+    if isinstance(value, int):
+        print(f"\${value} is an integer")
+    elif isinstance(value, str):
+        print(f'"\${value}" is a string')
+    elif isinstance(value, list):
+        print(f"\${value} is a list with \${len(value)} items")
+    else:
+        print(f"\${value} is something else")
+
+describe(42)
+describe("hello")
+describe([1, 2, 3])
+describe(3.14)
+
+# Python reads like prose
+numbers = [1, 2, 3, 4, 5]
+evens = [n for n in numbers if n % 2 == 0]
+print(f"Even numbers: \${evens}")
+`;
+
+<Playground client:visible code={playgroundIndex} />
+
+<PyOnly title="Batteries included: Python's design philosophy">
+
+TypeScript inherits JavaScript's ecosystem model: the language core is minimal and you reach for npm packages for almost everything. Python was designed with the opposite philosophy — the standard library ships with tools for HTTP, JSON, CSV, ZIP, databases, email, HTML parsing, cryptography, and much more. This principle is called "batteries included."
+
+The second pillar is readability. Guido van Rossum, Python's creator, wrote the Zen of Python (accessible by running `import this` in any Python interpreter). Its first and most quoted line is:
+
+> Beautiful is better than ugly. Explicit is better than implicit. Simple is better than complex.
+
+The practical consequence for TypeScript developers: you will often find yourself reaching for a standard library module instead of installing a package. Check `import os`, `import pathlib`, `import json`, `import csv`, `import http.client`, and `import dataclasses` before searching PyPI.
+
+</PyOnly>
+
+export const quizIndex = [
+  {
+    q: 'Which Python concept replaces curly braces for defining code blocks?',
+    options: [
+      'Parentheses',
+      'Significant whitespace (indentation)',
+      'BEGIN/END keywords',
+      'Square brackets',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'What does "batteries included" mean in the context of Python?',
+    options: [
+      'Python ships with a built-in code editor',
+      'Python requires no hardware to run',
+      'The Python standard library provides tools for most common tasks without external packages',
+      'Python automatically installs dependencies',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'Which of the following is a Python-only concept with no direct TypeScript equivalent?',
+    options: [
+      'Arrow functions',
+      'Generics',
+      'Context managers (`with` blocks)',
+      'Template literals',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'Where can you read the Zen of Python?',
+    options: [
+      'By running `python --zen`',
+      'By running `import this` in a Python interpreter',
+      'In the Python README on GitHub',
+      'By running `help(zen)` in a Python interpreter',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="py-only/index" questions={quizIndex} />
+
+<ProgressTracker client:visible id="py-only/index" />

@@ -1,0 +1,226 @@
+---
+title: "Unpacking, *args & **kwargs"
+description: Python's tuple unpacking, starred assignment, *args/**kwargs, and dict merge with ** vs TypeScript spread and destructuring.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## Spread in TypeScript, * and ** in Python
+
+TypeScript's `...` spread operator handles both arrays and objects. Python splits the concept into two operators: `*` for sequences (lists, tuples, iterables) and `**` for dictionaries. The `*` operator maps closely to what you already know from TypeScript destructuring and spread. The `**` operator for dicts has no direct TypeScript equivalent — it is Python-specific, and it is also the syntax for variadic keyword arguments in function signatures.
+
+## Tuple unpacking
+
+Python lets you unpack any iterable into variables in a single assignment. This is more powerful than TypeScript destructuring because it works on any iterable, not just arrays and objects.
+
+export const tsUnpacking = `// TypeScript: array destructuring
+const [x, y, z] = [1, 2, 3];
+console.log(x, y, z); // 1 2 3
+
+// Rest element
+const [first, ...rest] = [10, 20, 30, 40, 50];
+console.log(first, rest); // 10 [20, 30, 40, 50]
+
+// Swap with destructuring
+let a = 5, b = 10;
+[a, b] = [b, a];
+console.log(a, b); // 10 5`;
+
+export const pyUnpacking = `# Python: tuple unpacking
+x, y, z = 1, 2, 3
+print(x, y, z)  # 1 2 3
+
+# Starred assignment (captures middle or end)
+first, *middle, last = [10, 20, 30, 40, 50]
+print(first, middle, last)  # 10 [20, 30, 40] 50
+
+# Swap without a temp variable
+a, b = 5, 10
+a, b = b, a
+print(a, b)  # 10 5`;
+
+<TsGo client:visible ts={tsUnpacking} go={pyUnpacking} />
+
+Python's starred assignment (`*middle`) is more flexible than TypeScript's rest element — you can place it anywhere (first, middle, or last position), and Python figures out what goes where.
+
+## *args: variadic positional arguments
+
+`*args` in a function signature collects any number of positional arguments into a tuple. The name `args` is a convention — the `*` is what matters.
+
+export const tsArgs = `// TypeScript: rest parameters
+function sumAll(...args: number[]): number {
+  return args.reduce((acc, n) => acc + n, 0);
+}
+
+console.log(sumAll(1, 2, 3, 4, 5)); // 15
+
+// Spreading an array into a function call
+const nums = [1, 2, 3];
+console.log(Math.max(...nums)); // 3`;
+
+export const pyArgs = `# Python: *args collects positional arguments into a tuple
+def sum_all(*args):
+    return sum(args)
+
+print(sum_all(1, 2, 3, 4, 5))  # 15
+
+# Spreading a list into a function call with *
+nums = [1, 2, 3]
+print(max(*nums))  # 3`;
+
+<TsGo client:visible ts={tsArgs} go={pyArgs} />
+
+## **kwargs: variadic keyword arguments
+
+TypeScript has no built-in equivalent to `**kwargs`. The closest pattern is accepting an `options` object and destructuring it. In Python, `**kwargs` collects any keyword arguments not matched by named parameters into a dict.
+
+export const tsKwargs = `// TypeScript: simulate kwargs with an options object
+function greet(options: Record<string, string | number>): void {
+  for (const [key, val] of Object.entries(options)) {
+    console.log(\`\${key}: \${val}\`);
+  }
+}
+
+greet({ name: "Alice", age: 30, city: "Bangkok" });
+
+// Object spread / merge
+const defaults = { color: "blue", size: "medium" };
+const overrides = { color: "red", weight: "heavy" };
+const merged = { ...defaults, ...overrides };
+console.log(merged);`;
+
+export const pyKwargs = `# Python: **kwargs collects keyword arguments into a dict
+def greet(**kwargs):
+    for key, val in kwargs.items():
+        print(f"\${key}: \${val}")
+
+greet(name="Alice", age=30, city="Bangkok")
+
+# Dict merge with **
+defaults = {"color": "blue", "size": "medium"}
+overrides = {"color": "red", "weight": "heavy"}
+merged = {**defaults, **overrides}
+print(merged)`;
+
+<TsGo client:visible ts={tsKwargs} go={pyKwargs} />
+
+## Try it
+
+export const playgroundUnpacking = `# Tuple unpacking
+x, y, z = 1, 2, 3
+print(x, y, z)
+
+# Starred assignment
+first, *middle, last = [10, 20, 30, 40, 50]
+print(first, middle, last)
+
+# Swap without temp variable
+a, b = 5, 10
+a, b = b, a
+print(a, b)
+
+def sum_all(*args):
+    return sum(args)
+
+print(sum_all(1, 2, 3, 4, 5))
+
+def greet(**kwargs):
+    for key, val in kwargs.items():
+        print(f"\${key}: \${val}")
+
+greet(name="Alice", age=30, city="Bangkok")
+
+defaults = {"color": "blue", "size": "medium"}
+overrides = {"color": "red", "weight": "heavy"}
+merged = {**defaults, **overrides}
+print(merged)
+`;
+
+<Playground client:visible code={playgroundUnpacking} />
+
+<PyOnly title="Parameter ordering rules: positional, *args, keyword-only, **kwargs">
+
+Python enforces a strict ordering for function parameters. Mixing them up raises a `SyntaxError` at parse time. The full allowed order is:
+
+```
+def f(pos1, pos2, *args, kw_only1, kw_only2=default, **kwargs):
+```
+
+Breaking this down:
+
+1. **Positional parameters** — filled left-to-right by position or by name.
+2. **`*args`** — captures all remaining positional arguments as a tuple. Once defined, any parameters after it become keyword-only.
+3. **Keyword-only parameters** — must be passed by name; they appear after `*args` (or after a bare `*` if you want keyword-only without a variadic collector).
+4. **`**kwargs`** — must be last; captures all remaining keyword arguments as a dict.
+
+A bare `*` with no name forces all following parameters to be keyword-only without collecting positional arguments:
+
+```python
+def connect(host, port, *, timeout=30, retries=3):
+    ...
+
+connect("localhost", 5432, timeout=10)  # OK
+connect("localhost", 5432, 10)          # TypeError: too many positional arguments
+```
+
+This is a useful API design technique: callers must spell out argument names, making call sites self-documenting and resistant to argument-order bugs.
+
+When calling a function, you can also use `*` and `**` to unpack sequences and dicts into arguments:
+
+```python
+args = (1, 2, 3)
+kwargs = {"sep": "-"}
+print(*args, **kwargs)  # 1-2-3
+```
+
+</PyOnly>
+
+export const quizUnpacking = [
+  {
+    q: 'Given first, *middle, last = [1, 2, 3, 4, 5], what is middle?',
+    options: [
+      '[2, 3, 4]',
+      '(2, 3, 4)',
+      '[2, 3]',
+      '2',
+    ],
+    answer: 0,
+  },
+  {
+    q: 'What type does *args collect its arguments into inside the function?',
+    options: [
+      'list',
+      'tuple',
+      'set',
+      'dict',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'In the parameter list def f(a, *args, b, **kwargs), what kind of parameter is b?',
+    options: [
+      'A positional parameter',
+      'Part of *args',
+      'A keyword-only parameter',
+      'A default parameter',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'What does {**dict1, **dict2} produce when dict1 and dict2 share a key?',
+    options: [
+      'A KeyError is raised',
+      'The key from dict1 wins',
+      'The key from dict2 wins (later dict overrides earlier)',
+      'Both values are kept in a list',
+    ],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="py-only/unpacking" questions={quizUnpacking} />
+
+<ProgressTracker client:visible id="py-only/unpacking" />

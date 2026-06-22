@@ -1,0 +1,122 @@
+---
+title: Introduction — Why Python for TypeScript Developers
+description: Why Python is worth learning as a TypeScript developer, what it excels at, and what this course covers.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## You already know how to program
+
+You know TypeScript. You think in types, modules, async/await, and npm scripts. Python is not a new way of thinking — it is a second toolbox sitting next to yours, and many of the tools have familiar shapes. This course maps every Python concept back to the TypeScript equivalent you already understand.
+
+## Why Python is everywhere
+
+TypeScript dominates the frontend and Node backend world. Python dominates nearly everything else:
+
+- **Data science & machine learning** — NumPy, pandas, PyTorch, TensorFlow, scikit-learn. There is no JavaScript equivalent for production ML.
+- **Scripting & automation** — replacing bash with readable, typed code. Most CI/CD helpers, data pipelines, and ops tooling are Python.
+- **Backend APIs** — FastAPI is as ergonomic as Express/NestJS but with automatic OpenAPI docs and native async support.
+- **Scientific computing** — biology, finance, physics simulation. Python is the lingua franca of researchers.
+- **DevOps & cloud tooling** — AWS CDK (Python flavour), Ansible, Terraform providers, and most cloud SDKs ship Python first.
+
+GitHub's annual survey consistently puts Python in the top 2 most-used languages. Learning it doubles the surface area of projects you can contribute to.
+
+## Batteries included
+
+Node.js ships a small standard library and delegates the rest to npm. Python's philosophy is "batteries included" — the standard library covers HTTP clients, JSON, CSV parsing, argument parsing, zip files, SQLite, email, regular expressions, and much more. You can write a surprisingly complete script with zero external dependencies.
+
+export const batteriesTs = `// TypeScript: need external packages
+import axios from "axios";           // npm install axios
+import { parse } from "csv-parse";   // npm install csv-parse
+import { program } from "commander"; // npm install commander`;
+
+export const batteriesPy = `# Python: stdlib covers the basics
+import urllib.request   # built-in HTTP client
+import csv              # built-in CSV parser
+import argparse         # built-in CLI argument parser`;
+
+<TsGo client:visible ts={batteriesTs} go={batteriesPy} />
+
+## Readability as a design goal
+
+Python was designed with a single guiding principle: there should be one — and preferably only one — obvious way to do something. The community calls correct Python "Pythonic". You will encounter this word often. It roughly means: clear, idiomatic, and not fighting the language.
+
+As a TypeScript developer you will immediately appreciate Python's minimal syntax. No semicolons, no curly braces for blocks, no `function` keyword — just indentation and intent.
+
+## What this course covers
+
+This is not a general Python introduction. It is a fast-track for TypeScript developers who want to be productive quickly. Each lesson anchors the new concept in what you already know, shows the differences clearly, and gives you a runnable example.
+
+**Module: Intro (you are here)**
+- Mental model shifts from TypeScript/Node
+- Installing Python and setting up a project
+- Hello World and the entry-point guard
+- Project anatomy: `pyproject.toml` vs `package.json`
+
+**Module: Python 101**
+- Variables and types
+- Control flow
+- Functions
+- Collections (list, dict, tuple, set)
+- Classes and objects
+- Modules and imports
+- Error handling
+- `None` and truthiness
+
+<PyOnly title="The Python REPL — no equivalent in Node by default">
+
+Python ships with an interactive REPL (Read-Eval-Print Loop) that you start with `python3` in your terminal. Every expression you type is evaluated immediately and its result is printed.
+
+```bash
+$ python3
+>>> 2 + 2
+4
+>>> "hello".upper()
+'HELLO'
+>>> [x**2 for x in range(5)]
+[0, 1, 4, 9, 16]
+>>> quit()
+```
+
+Node.js has `node` REPL too, but the Python REPL is far more commonly used in day-to-day workflows — it is the primary way Python developers explore APIs and test snippets interactively.
+
+</PyOnly>
+
+export const quizIndex = [
+  {
+    q: 'Which domain is Python the dominant language for?',
+    options: [
+      'Mobile app development',
+      'Machine learning and data science',
+      'WebAssembly runtimes',
+      'Browser extension APIs',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'What does "batteries included" mean in the Python ecosystem?',
+    options: [
+      'Python compiles to native machine code by default',
+      'Python includes a wide standard library so many tasks need no external packages',
+      'Python automatically installs popular packages on first import',
+      'Python ships with a built-in database',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'What does the community term "Pythonic" mean?',
+    options: [
+      'Code that uses advanced metaprogramming features',
+      'Code written using only the standard library',
+      'Clear, idiomatic Python that follows the one-obvious-way principle',
+      'Code that avoids type hints entirely',
+    ],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="intro/index" questions={quizIndex} />
+
+<ProgressTracker client:visible id="intro/index" />

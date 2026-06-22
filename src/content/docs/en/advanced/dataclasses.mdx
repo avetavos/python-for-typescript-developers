@@ -1,0 +1,257 @@
+---
+title: Dataclasses
+description: Python's @dataclass decorator — automatic __init__, __repr__, __eq__, frozen records, and field defaults — compared to TypeScript classes and interfaces.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## The problem dataclasses solve
+
+In TypeScript, you often write a class just to hold data and get a constructor for free. Or you use an `interface` + object literal when you do not need methods. Python's `@dataclass` decorator bridges both: it is a class that auto-generates `__init__`, `__repr__`, and `__eq__` from field annotations, so you only write the fields.
+
+export const basicTs = `// TypeScript — class as data holder
+class Point {
+  constructor(
+    public x: number,
+    public y: number
+  ) {}
+
+  toString(): string {
+    return \`Point(\${this.x}, \${this.y})\`;
+  }
+}
+
+const p = new Point(3, 4);
+console.log(p);          // Point { x: 3, y: 4 }
+console.log(p.toString()); // Point(3, 4)`;
+
+export const basicPy = `from dataclasses import dataclass
+
+@dataclass
+class Point:
+    x: float
+    y: float
+
+    def distance_from_origin(self) -> float:
+        return (self.x ** 2 + self.y ** 2) ** 0.5
+
+p = Point(3.0, 4.0)
+print(p)                          # Point(x=3.0, y=4.0)
+print(p.distance_from_origin())   # 5.0
+
+# __eq__ generated automatically
+print(Point(1, 2) == Point(1, 2)) # True`;
+
+<TsGo client:visible ts={basicTs} go={basicPy} />
+
+You get `__init__`, `__repr__`, and `__eq__` for free — no boilerplate. The `@dataclass` decorator reads the field annotations at class definition time and generates them.
+
+## Default values and field()
+
+Default values work like TypeScript parameter defaults. For mutable defaults (lists, dicts), you **must** use `field(default_factory=...)` — never assign a mutable literal directly, because all instances would share the same object.
+
+export const defaultTs = `// TypeScript — parameter defaults
+class Config {
+  constructor(
+    public host: string = "localhost",
+    public port: number = 8080,
+    public tags: string[] = []  // ⚠ shared ref bug possible
+  ) {}
+}
+
+// Correct: factory pattern or spread copy
+class SafeConfig {
+  host: string;
+  port: number;
+  tags: string[];
+  constructor(opts: Partial<SafeConfig> = {}) {
+    this.host = opts.host ?? "localhost";
+    this.port = opts.port ?? 8080;
+    this.tags = [...(opts.tags ?? [])];
+  }
+}`;
+
+export const defaultPy = `from dataclasses import dataclass, field
+
+@dataclass
+class Config:
+    host: str = "localhost"
+    port: int = 8080
+    # field(default_factory=list) prevents shared-ref bug
+    tags: list[str] = field(default_factory=list)
+
+cfg1 = Config()
+cfg2 = Config(port=9000, tags=["prod"])
+
+print(cfg1)  # Config(host='localhost', port=8080, tags=[])
+print(cfg2)  # Config(host='localhost', port=9000, tags=['prod'])
+
+cfg1.tags.append("dev")
+print(cfg1.tags)  # ['dev'] — does NOT affect cfg2
+print(cfg2.tags)  # ['prod']`;
+
+<TsGo client:visible ts={defaultTs} go={defaultPy} />
+
+## frozen=True: immutable records
+
+`@dataclass(frozen=True)` makes all fields read-only after `__init__`. This is the Python equivalent of TypeScript's `Readonly<T>` or a `const` object — except Python actually enforces it at runtime.
+
+export const frozenTs = `// TypeScript — read-only interface
+interface Color {
+  readonly r: number;
+  readonly g: number;
+  readonly b: number;
+}
+
+const red: Readonly<{ r: number; g: number; b: number }> = {
+  r: 255, g: 0, b: 0
+};
+// red.r = 100; // TS compile error`;
+
+export const frozenPy = `from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class Color:
+    r: int
+    g: int
+    b: int
+
+red = Color(255, 0, 0)
+print(red)            # Color(r=255, g=0, b=0)
+
+# frozen=True makes instances hashable — usable as dict keys!
+palette = {red: "primary red"}
+print(palette[Color(255, 0, 0)])   # primary red
+
+try:
+    red.r = 100          # type: ignore
+except Exception as e:
+    print(f"Error: {e}") # cannot assign to field 'r'`;
+
+<TsGo client:visible ts={frozenTs} go={frozenPy} />
+
+## Try it
+
+export const dataclassPlaygroundCode = `from dataclasses import dataclass, field
+
+@dataclass
+class Point:
+    x: float
+    y: float
+
+    def distance_from_origin(self) -> float:
+        return (self.x ** 2 + self.y ** 2) ** 0.5
+
+@dataclass
+class Config:
+    host: str = "localhost"
+    port: int = 8080
+    tags: list[str] = field(default_factory=list)
+
+@dataclass(frozen=True)
+class Color:
+    r: int
+    g: int
+    b: int
+
+# Point demo
+p = Point(3.0, 4.0)
+print(p)
+print(f"Distance: {p.distance_from_origin()}")
+print(f"Equal: {Point(1, 2) == Point(1, 2)}")
+
+# Config demo
+cfg = Config(tags=["web"])
+print(cfg)
+cfg.tags.append("api")
+print(f"Tags: {cfg.tags}")
+
+# Frozen demo
+red = Color(255, 0, 0)
+print(red)
+print(f"Hashable: {hash(red)}")
+try:
+    red.r = 50          # type: ignore
+except Exception as e:
+    print(f"Caught: {e}")
+`;
+
+<Playground client:visible code={dataclassPlaygroundCode} />
+
+<PyOnly title="post_init and field metadata">
+
+`@dataclass` has two Python-specific escape hatches TypeScript does not have a direct equivalent for:
+
+**`__post_init__`** — a hook that runs after the generated `__init__`. Use it for derived fields or validation:
+
+```python
+from dataclasses import dataclass
+import math
+
+@dataclass
+class Circle:
+    radius: float
+
+    def __post_init__(self) -> None:
+        if self.radius <= 0:
+            raise ValueError(f"radius must be positive, got {self.radius}")
+        self.area: float = math.pi * self.radius ** 2
+
+c = Circle(5.0)
+print(c.area)      # 78.53...
+Circle(-1)         # ValueError
+```
+
+**`field(repr=False, compare=False)`** — fine-grained control over which fields participate in `__repr__` and `__eq__`. Useful for excluding large or sensitive data from comparisons.
+
+</PyOnly>
+
+export const quizDataclasses = [
+  {
+    q: 'Why must mutable default values (lists, dicts) use `field(default_factory=...)` in a dataclass?',
+    options: [
+      'Because Python requires it syntactically',
+      'To avoid all instances sharing the same mutable object',
+      'To enable frozen mode',
+      'Because `__init__` does not accept mutable arguments',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'What does `@dataclass(frozen=True)` add compared to a regular `@dataclass`?',
+    options: [
+      'It prevents subclassing',
+      'It makes instances immutable and hashable',
+      'It adds type-checking at runtime',
+      'It makes all fields optional',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'Which dunder methods does `@dataclass` generate automatically?',
+    options: [
+      '__str__, __hash__, __iter__',
+      '__init__, __repr__, __eq__',
+      '__new__, __del__, __call__',
+      '__enter__, __exit__, __len__',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'What is the purpose of `__post_init__` in a dataclass?',
+    options: [
+      'It replaces `__init__` entirely',
+      'It runs after the generated `__init__` for derived fields or validation',
+      'It is called when the object is garbage-collected',
+      'It is required for frozen dataclasses',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="advanced/dataclasses" questions={quizDataclasses} />
+
+<ProgressTracker client:visible id="advanced/dataclasses" />

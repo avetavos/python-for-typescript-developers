@@ -1,0 +1,232 @@
+---
+title: "Generators & yield"
+description: Python generators, the yield keyword, and lazy iteration vs TypeScript generators (similar but with key differences).
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## Generators exist in both languages — but Python leans on them harder
+
+TypeScript has generators too: `function*` with `yield` works almost identically at first glance. You get a lazy iterator, you can call `.next()`, and the function suspends between yields. But in Python, generators are not a niche feature — they are woven into the standard library. `range()`, file iteration, `zip()`, `map()`, `filter()`, and the entire `itertools` module all return lazy iterators built on the same generator protocol. Even `async`/`await` in Python is built on top of generators internally. If you understand Python generators, you understand a large slice of the language.
+
+## Defining and consuming a generator
+
+A Python generator is any function that contains a `yield` statement. Calling it returns a generator object — no code runs until you iterate.
+
+export const tsGen = `// TypeScript generator with function*
+function* countUp(start: number, stop: number): Generator<number> {
+  let current = start;
+  while (current <= stop) {
+    yield current;
+    current++;
+  }
+}
+
+const gen = countUp(1, 5);
+for (const val of gen) {
+  process.stdout.write(val + " ");
+}
+console.log();
+
+// Infinite generator
+function* fibonacci(): Generator<number> {
+  let [a, b] = [0, 1];
+  while (true) {
+    yield a;
+    [a, b] = [b, a + b];
+  }
+}
+
+const fib = fibonacci();
+const firstTen = Array.from({ length: 10 }, () => fib.next().value);
+console.log(firstTen);`;
+
+export const pyGen = `# Python generator with def + yield
+def count_up(start, stop):
+    current = start
+    while current <= stop:
+        yield current
+        current += 1
+
+gen = count_up(1, 5)
+for val in gen:
+    print(val, end=" ")
+print()
+
+# Infinite generator
+def fibonacci():
+    a, b = 0, 1
+    while True:
+        yield a
+        a, b = b, a + b
+
+fib = fibonacci()
+first_ten = [next(fib) for _ in range(10)]
+print(first_ten)`;
+
+<TsGo client:visible ts={tsGen} go={pyGen} />
+
+Key differences to notice:
+- Python uses a plain `def` — there is no `function*` syntax. The presence of `yield` anywhere in the function body makes it a generator automatically.
+- Python's `for` loop works directly with any iterable, including generators, without needing to call `.next()` manually.
+- TypeScript requires annotating the return type as `Generator<T>`; Python infers it automatically.
+
+## Two-way communication with send()
+
+Python generators support two-way data flow. You can send a value back into a paused generator using `.send()`. The sent value becomes the result of the `yield` expression inside the generator. TypeScript generators support this via `gen.next(value)`, but the feature is less commonly used in the TS ecosystem.
+
+export const tsGenSend = `// TypeScript: sending values into a generator
+function* accumulator(): Generator<number, void, number> {
+  let total = 0;
+  while (true) {
+    const value = yield total;
+    if (value === undefined) break;
+    total += value;
+  }
+}
+
+const acc = accumulator();
+acc.next();        // prime the generator
+console.log(acc.next(10).value); // 10
+console.log(acc.next(20).value); // 30
+console.log(acc.next(5).value);  // 35`;
+
+export const pyGenSend = `# Python: sending values into a generator with .send()
+def accumulator():
+    total = 0
+    while True:
+        value = yield total
+        if value is None:
+            break
+        total += value
+
+acc = accumulator()
+next(acc)           # prime the generator (advance to first yield)
+print(acc.send(10)) # 10
+print(acc.send(20)) # 30
+print(acc.send(5))  # 35`;
+
+<TsGo client:visible ts={tsGenSend} go={pyGenSend} />
+
+## Try it
+
+export const playgroundGen = `def count_up(start, stop):
+    current = start
+    while current <= stop:
+        yield current
+        current += 1
+
+gen = count_up(1, 5)
+for val in gen:
+    print(val, end=" ")
+print()
+
+def fibonacci():
+    a, b = 0, 1
+    while True:
+        yield a
+        a, b = b, a + b
+
+fib = fibonacci()
+first_ten = [next(fib) for _ in range(10)]
+print(first_ten)
+`;
+
+<Playground client:visible code={playgroundGen} />
+
+<PyOnly title="The generator protocol: __iter__ and __next__">
+
+When Python's `for` loop runs over any object, it calls two dunder methods behind the scenes:
+
+1. `__iter__(self)` — called once to get an iterator object. For a generator, this returns `self`.
+2. `__next__(self)` — called repeatedly to get the next value. When the generator is exhausted, it raises `StopIteration`, which signals the `for` loop to stop.
+
+A generator object implements both automatically. You can implement this protocol manually on any class to make it iterable:
+
+```python
+class CountUp:
+    def __init__(self, start, stop):
+        self.current = start
+        self.stop = stop
+
+    def __iter__(self):
+        return self  # the iterator is the object itself
+
+    def __next__(self):
+        if self.current > self.stop:
+            raise StopIteration
+        val = self.current
+        self.current += 1
+        return val
+
+for v in CountUp(1, 5):
+    print(v)
+```
+
+This is what generators save you from writing by hand.
+
+**`yield from` for delegation**
+
+`yield from` delegates to another iterable, forwarding each value through without a manual loop:
+
+```python
+def chain(*iterables):
+    for it in iterables:
+        yield from it
+
+list(chain([1, 2], [3, 4], [5]))  # [1, 2, 3, 4, 5]
+```
+
+`yield from` also threads `.send()` and `.throw()` through to the inner generator, which is how Python's `asyncio` originally composed coroutines before the `async`/`await` syntax was added.
+
+</PyOnly>
+
+export const quizGen = [
+  {
+    q: 'What makes a Python function a generator?',
+    options: [
+      'Decorating it with @generator',
+      'Using the function* syntax',
+      'The presence of a yield statement anywhere in the function body',
+      'Returning a list from the function',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'What exception does a generator raise when it is fully exhausted?',
+    options: [
+      'GeneratorExit',
+      'StopIteration',
+      'IndexError',
+      'RuntimeError',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'What does gen.send(value) do?',
+    options: [
+      'Appends a value to the generator\'s internal list',
+      'Restarts the generator from the beginning with value as the argument',
+      'Resumes the generator and makes value the result of the current yield expression',
+      'Sends a value to standard output',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'What is the purpose of yield from?',
+    options: [
+      'It imports a value from another module',
+      'It delegates iteration to another iterable, forwarding each yielded value',
+      'It creates a new generator from a list',
+      'It is an alias for return in generator functions',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="py-only/generators-yield" questions={quizGen} />
+
+<ProgressTracker client:visible id="py-only/generators-yield" />

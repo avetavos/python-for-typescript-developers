@@ -1,0 +1,199 @@
+---
+title: Responses & Status Codes
+description: response_model, status codes, and JSONResponse in FastAPI — compared to res.json() and res.status() in Express.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+
+## Returning JSON
+
+In Express you call `res.json(data)`. In FastAPI you just return a Python dict, list, or Pydantic model from the handler function — FastAPI serializes it to JSON automatically.
+
+export const returnTs = `// Express
+app.get('/items/:id', (req, res) => {
+  res.json({ id: Number(req.params.id), name: 'Widget' });
+});
+
+// With status code
+app.post('/items', (req, res) => {
+  res.status(201).json({ id: 42, ...req.body });
+});`;
+
+export const returnPy = `# FastAPI
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.get("/items/{item_id}")
+async def get_item(item_id: int):
+    return {"id": item_id, "name": "Widget"}   # auto-serialized
+
+@app.post("/items", status_code=201)           # default status via decorator
+async def create_item(item: dict):
+    return {"id": 42, **item}`;
+
+<TsGo client:visible ts={returnTs} go={returnPy} />
+
+## response_model — filtering and shaping the output
+
+`response_model` is a decorator argument that tells FastAPI which Pydantic model to use when serializing the response. It filters out any fields not in the model (useful for stripping passwords or internal fields) and validates outgoing data.
+
+export const respModelTs = `// TypeScript — you manually pick fields
+interface ItemPublic { id: number; name: string; price: number; }
+
+app.get('/items/:id', (req, res) => {
+  const dbRow = getFromDB(req.params.id);
+  const { id, name, price } = dbRow;   // manually strip secret fields
+  res.json({ id, name, price } as ItemPublic);
+});`;
+
+export const respModelPy = `# FastAPI response_model strips fields automatically
+from fastapi import FastAPI
+from pydantic import BaseModel
+
+class ItemInDB(BaseModel):     # full model with internal fields
+    id: int
+    name: str
+    price: float
+    hashed_password: str       # should NOT be returned
+
+class ItemPublic(BaseModel):   # public-safe model
+    id: int
+    name: str
+    price: float
+
+app = FastAPI()
+
+@app.get("/items/{item_id}", response_model=ItemPublic)
+async def get_item(item_id: int):
+    # hashed_password is stripped automatically
+    return ItemInDB(id=item_id, name="Widget",
+                    price=9.99, hashed_password="secret")`;
+
+<TsGo client:visible ts={respModelTs} go={respModelPy} />
+
+## Status codes
+
+FastAPI exposes the `status` module from Starlette for named constants — the equivalent of Node's `http-status` package.
+
+export const statusTs = `// Express with http-status
+import status from 'http-status';
+res.status(status.CREATED).json(data);      // 201
+res.status(status.NO_CONTENT).send();       // 204
+res.status(status.NOT_FOUND).json({...});   // 404`;
+
+export const statusPy = `# FastAPI status constants
+from fastapi import FastAPI
+from fastapi import status
+
+app = FastAPI()
+
+@app.post("/items", status_code=status.HTTP_201_CREATED)
+async def create_item(item: dict):
+    return item
+
+@app.delete("/items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_item(item_id: int):
+    return None   # 204 — no body`;
+
+<TsGo client:visible ts={statusTs} go={statusPy} />
+
+## JSONResponse — explicit control
+
+When you need to set custom headers or override the status code dynamically, use `JSONResponse` directly — the equivalent of constructing a `res` object manually in Express.
+
+export const jsonRespTs = `// Express — set headers manually
+app.get('/download', (req, res) => {
+  res.set('X-Custom-Header', 'value');
+  res.status(200).json({ url: 'https://...' });
+});`;
+
+export const jsonRespPy = `# FastAPI JSONResponse
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse
+
+app = FastAPI()
+
+@app.get("/download")
+async def download():
+    return JSONResponse(
+        content={"url": "https://example.com/file.zip"},
+        status_code=200,
+        headers={"X-Custom-Header": "value"},
+    )`;
+
+<TsGo client:visible ts={jsonRespTs} go={jsonRespPy} />
+
+## Try it — JSON serialization with stdlib
+
+> Run this locally for a real FastAPI response. The snippet below shows Python's built-in `json` module — the same serialization FastAPI uses under the hood.
+
+export const jsonCode = `import json
+from datetime import datetime
+
+# Simulate a Pydantic model's .model_dump() output
+item = {
+    "id": 1,
+    "name": "Widget",
+    "price": 9.99,
+    "in_stock": True,
+    "tags": ["sale", "new"],
+    "created_at": datetime.utcnow().isoformat() + "Z",
+}
+
+# Serialize — what FastAPI sends over the wire
+encoded = json.dumps(item, indent=2)
+print("Response body:")
+print(encoded)
+
+# Deserialize — what the client receives
+decoded = json.loads(encoded)
+print(f"\\nDecoded type: {type(decoded)}")
+print(f"name={decoded['name']}, price={decoded['price']}")
+
+# response_model filtering equivalent
+public_fields = {"id", "name", "price"}
+filtered = {k: v for k, v in decoded.items() if k in public_fields}
+print(f"\\nFiltered (response_model): {filtered}")
+`;
+
+<Playground client:visible code={jsonCode} />
+
+export const quizResponses = [
+  {
+    q: 'What does the `response_model` argument in a FastAPI route decorator do?',
+    options: [
+      'It validates the incoming request body',
+      'It filters and validates the outgoing response using a Pydantic model',
+      'It sets the Content-Type header',
+      'It defines which HTTP methods the route accepts',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'How do you return a 204 No Content response in FastAPI?',
+    options: [
+      'return Response(status_code=204)',
+      'raise HTTPException(status_code=204)',
+      'Set status_code=204 in the decorator and return None',
+      'return JSONResponse(content=None)',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'What is the FastAPI equivalent of Express\'s res.json()?',
+    options: [
+      'You must always use JSONResponse()',
+      'Just return a dict or Pydantic model from the handler',
+      'Use return json.dumps(data)',
+      'Call app.json(data) on the app instance',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="api-fastapi/responses" questions={quizResponses} />
+
+<ProgressTracker client:visible id="api-fastapi/responses" />

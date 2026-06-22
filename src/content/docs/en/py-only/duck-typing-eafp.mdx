@@ -1,0 +1,200 @@
+---
+title: Duck Typing & EAFP
+description: Python's structural duck typing and the ask-forgiveness-not-permission pattern vs TypeScript's structural types and LBYL.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## Two different takes on structural typing
+
+TypeScript and Python are both structurally typed — a value is compatible with a type if it has the right shape. But the mechanism is completely different.
+
+TypeScript verifies structure **at compile time** using interfaces and type aliases. If a value does not satisfy the interface, the compiler rejects it before the code runs. Python checks structure **at runtime** by simply trying to call the method or access the attribute. If the object has it, great. If not, you get an `AttributeError`.
+
+This runtime approach is called **duck typing**: if it walks like a duck and quacks like a duck, it is a duck. Python does not care about declared types — only about whether the object can do what you ask of it.
+
+## Duck typing: interfaces vs behavior
+
+export const tsDuckTyping = `// TypeScript: explicit interface required
+interface Speaker {
+  speak(): string;
+}
+
+class Dog implements Speaker {
+  speak(): string { return "Woof!"; }
+}
+
+class Cat implements Speaker {
+  speak(): string { return "Meow!"; }
+}
+
+// TypeScript verifies the interface at compile time
+function makeSound(animal: Speaker): void {
+  console.log(animal.speak());
+}
+
+makeSound(new Dog());
+makeSound(new Cat());`;
+
+export const pyDuckTyping = `# Python: no interface needed — just call the method
+class Dog:
+    def speak(self) -> str:
+        return "Woof!"
+
+class Cat:
+    def speak(self) -> str:
+        return "Meow!"
+
+class Duck:
+    def speak(self) -> str:
+        return "Quack!"
+
+# Python checks at runtime whether .speak() exists
+def make_sound(animal) -> None:
+    print(animal.speak())
+
+make_sound(Dog())
+make_sound(Cat())
+make_sound(Duck())  # works — Duck was never declared as Speaker`;
+
+<TsGo client:visible ts={tsDuckTyping} go={pyDuckTyping} />
+
+In TypeScript, `Duck` would need to explicitly `implement Speaker`. In Python, any object with a `.speak()` method works — no declaration required.
+
+## LBYL vs EAFP
+
+The structural difference extends to error handling. TypeScript developers tend to use **Look Before You Leap (LBYL)**: check whether an operation is safe before attempting it. Python culture favors **Easier to Ask Forgiveness than Permission (EAFP)**: just try it, and handle the exception if it fails.
+
+export const tsLbylEafp = `// TypeScript: LBYL — check first, then act
+function getValue(obj: Record<string, unknown>, key: string): unknown {
+  if (key in obj) {
+    return obj[key];
+  }
+  return undefined;
+}
+
+// Also common in TypeScript
+function parseNumber(s: string): number | null {
+  const n = Number(s);
+  return isNaN(n) ? null : n;
+}`;
+
+export const pyLbylEafp = `# Python: EAFP — try it and handle failure
+def get_value(d: dict, key: str):
+    try:
+        return d[key]
+    except KeyError:
+        return None
+
+# LBYL equivalent works too, but is less idiomatic
+def get_value_lbyl(d: dict, key: str):
+    if key in d:
+        return d[key]
+    return None
+
+# EAFP for type conversion
+def parse_number(s: str):
+    try:
+        return int(s)
+    except ValueError:
+        return None`;
+
+<TsGo client:visible ts={tsLbylEafp} go={pyLbylEafp} />
+
+## Try it
+
+export const playgroundDuckTypingEafp = `class Dog:
+    def speak(self):
+        return "Woof!"
+
+class Cat:
+    def speak(self):
+        return "Meow!"
+
+class Duck:
+    def speak(self):
+        return "Quack!"
+
+def make_sound(animal):
+    print(animal.speak())
+
+for animal in [Dog(), Cat(), Duck()]:
+    make_sound(animal)
+
+# EAFP pattern
+def get_value(d, key):
+    try:
+        return d[key]
+    except KeyError:
+        return "not found"
+
+data = {"name": "Alice", "age": 30}
+print(get_value(data, "name"))
+print(get_value(data, "email"))
+`;
+
+<Playground client:visible code={playgroundDuckTypingEafp} />
+
+<PyOnly title="Why Python culture prefers try/except over hasattr checks">
+
+TypeScript developers often react to EAFP with skepticism: "Why not just check with `hasattr` or `in` before accessing?" In Python, there are two concrete reasons to prefer `try/except`.
+
+**Race conditions.** In concurrent code, checking existence before accessing creates a window where the resource can disappear between the check and the use. EAFP eliminates this window entirely.
+
+**Readability and intent.** LBYL repeats the condition twice — once to check and once implicitly in the operation. EAFP states intent directly: "I expect this to work; here is what to do if it does not." Python's `try` block reads as the happy path, and the `except` block reads as the handled deviation.
+
+**Performance.** For cases where success is the common path, EAFP can be faster. A successful `try` block has almost no overhead. LBYL pays the cost of the check on every call, whether the value exists or not.
+
+The Python idiom is: use `try/except` for things that might genuinely fail. Use `if`/`in`/`hasattr` when you are actually branching on a condition that is equally likely to be true or false. The distinction is between an **expected error** and a **normal branch**.
+
+</PyOnly>
+
+export const quizDuckTypingEafp = [
+  {
+    q: 'What is "duck typing" in Python?',
+    options: [
+      'A type annotation system for bird classes',
+      'An object is used based on what it can do, not what type it declares',
+      'A way to convert one type to another',
+      'A compile-time type check for interfaces',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'What does EAFP stand for?',
+    options: [
+      'Every Attribute Found Properly',
+      'Easier to Ask Forgiveness than Permission',
+      'Exceptions Always Follow Patterns',
+      'Errors Are Forbidden in Production',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'In Python, if you call `.speak()` on an object that does not have that method, what happens?',
+    options: [
+      'Python returns `undefined`',
+      'Python returns `None` silently',
+      'Python raises an `AttributeError` at runtime',
+      'Python raises a compile-time error',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'Which pattern does Python culture prefer for accessing a dictionary key that might not exist?',
+    options: [
+      'Check with `in` before accessing (LBYL)',
+      'Use `try/except KeyError` (EAFP)',
+      'Use optional chaining with `?.`',
+      'Use `hasattr` before every access',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="py-only/duck-typing-eafp" questions={quizDuckTypingEafp} />
+
+<ProgressTracker client:visible id="py-only/duck-typing-eafp" />

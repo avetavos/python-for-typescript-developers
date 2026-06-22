@@ -1,0 +1,263 @@
+---
+title: Pattern Matching
+description: Python 3.10+ structural pattern matching with match/case — sequence, mapping, and class patterns — compared to TypeScript switch/case and destructuring.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## Beyond switch/case
+
+TypeScript's `switch` matches on a single value. Python's `match`/`case` (introduced in Python 3.10) is **structural** — it can destructure sequences, dictionaries, and class instances simultaneously. Think of it as TypeScript's `switch` + array/object destructuring fused into one statement.
+
+## Sequence patterns
+
+export const seqTs = `// TypeScript — switch + destructuring
+const command = ["move", 10, 20];
+
+if (Array.isArray(command) && command[0] === "move") {
+  const [, x, y] = command;
+  console.log(\`Move to (\${x}, \${y})\`);
+} else if (command[0] === "stop") {
+  console.log("Stopping");
+} else {
+  console.log("Unknown command");
+}`;
+
+export const seqPy = `command = ["move", 10, 20]
+
+match command:
+    case ["move", x, y]:
+        print(f"Move to ({x}, {y})")
+    case ["stop"]:
+        print("Stopping")
+    case _:
+        print("Unknown command")
+
+# Output: Move to (10, 20)`;
+
+<TsGo client:visible ts={seqTs} go={seqPy} />
+
+The `case ["move", x, y]` pattern checks the list length, checks that the first element equals `"move"`, and **binds** `x` and `y` to the second and third elements — all in one step.
+
+## Mapping patterns
+
+Mapping patterns match dictionary shapes, similar to TypeScript object destructuring in a switch.
+
+export const mapTs = `// TypeScript — discriminated union pattern
+type Event =
+  | { type: "click"; x: number; y: number }
+  | { type: "keypress"; key: string };
+
+function handle(event: Event) {
+  switch (event.type) {
+    case "click":
+      console.log(\`Click at (\${event.x}, \${event.y})\`);
+      break;
+    case "keypress":
+      console.log(\`Key: \${event.key}\`);
+      break;
+  }
+}`;
+
+export const mapPy = `event = {"type": "click", "x": 100, "y": 200}
+
+match event:
+    case {"type": "click", "x": x, "y": y}:
+        print(f"Click at ({x}, {y})")
+    case {"type": "keypress", "key": key}:
+        print(f"Key pressed: {key}")
+    case _:
+        print("Unknown event")
+
+# Output: Click at (100, 200)`;
+
+<TsGo client:visible ts={mapTs} go={mapPy} />
+
+## Class patterns
+
+Class patterns destructure dataclass (or any class with `__match_args__`) instances.
+
+export const classTs = `// TypeScript — instanceof + destructuring
+class Point { constructor(public x: number, public y: number) {} }
+
+function describe(p: Point): string {
+  if (p.x === 0 && p.y === 0) return "Origin";
+  if (p.x === 0) return \`Y-axis at \${p.y}\`;
+  if (p.y === 0) return \`X-axis at \${p.x}\`;
+  return \`At (\${p.x}, \${p.y})\`;
+}`;
+
+export const classPy = `from dataclasses import dataclass
+
+@dataclass
+class Point:
+    x: int
+    y: int
+
+point = Point(0, 5)
+
+match point:
+    case Point(x=0, y=0):
+        print("Origin")
+    case Point(x=0, y=y):
+        print(f"On Y-axis at {y}")
+    case Point(x=x, y=0):
+        print(f"On X-axis at {x}")
+    case Point(x=x, y=y):
+        print(f"At ({x}, {y})")
+
+# Output: On Y-axis at 5`;
+
+<TsGo client:visible ts={classTs} go={classPy} />
+
+## Guard conditions (if clauses)
+
+You can add an `if` guard to any case arm — the equivalent of TypeScript's conditional switch trick.
+
+export const guardTs = `// TypeScript — no clean guard syntax in switch
+function grade(score: number): string {
+  if (score >= 90) return "A";
+  if (score >= 80) return "B";
+  if (score >= 70) return "C";
+  return "F";
+}`;
+
+export const guardPy = `def grade(score: int) -> str:
+    match score:
+        case s if s >= 90:
+            return "A"
+        case s if s >= 80:
+            return "B"
+        case s if s >= 70:
+            return "C"
+        case _:
+            return "F"
+
+print(grade(85))   # B`;
+
+<TsGo client:visible ts={guardTs} go={guardPy} />
+
+## Try it
+
+export const patternMatchingPlaygroundCode = `from dataclasses import dataclass
+
+@dataclass
+class Point:
+    x: int
+    y: int
+
+# Sequence pattern
+for cmd in [["move", 5, 10], ["stop"], ["jump", 3], ["move", 0, 0]]:
+    match cmd:
+        case ["move", x, y]:
+            print(f"  move -> ({x}, {y})")
+        case ["stop"]:
+            print("  stop")
+        case _:
+            print(f"  unknown: {cmd}")
+
+print()
+
+# Mapping pattern
+events = [
+    {"type": "click", "x": 10, "y": 20},
+    {"type": "keypress", "key": "Enter"},
+    {"type": "resize", "w": 800, "h": 600},
+]
+for evt in events:
+    match evt:
+        case {"type": "click", "x": x, "y": y}:
+            print(f"  click ({x},{y})")
+        case {"type": "keypress", "key": k}:
+            print(f"  key: {k}")
+        case {"type": t}:
+            print(f"  other event: {t}")
+
+print()
+
+# Class pattern with guards
+for pt in [Point(0, 0), Point(0, 7), Point(3, 0), Point(3, 4)]:
+    match pt:
+        case Point(x=0, y=0):
+            print("  origin")
+        case Point(x=0, y=y) if y > 0:
+            print(f"  +Y axis at {y}")
+        case Point(x=x, y=0) if x > 0:
+            print(f"  +X axis at {x}")
+        case Point(x=x, y=y):
+            print(f"  quadrant ({x},{y})")
+`;
+
+<Playground client:visible code={patternMatchingPlaygroundCode} />
+
+<PyOnly title="OR patterns and AS patterns">
+
+Python's `match` has two extra pattern forms TypeScript switch/destructuring cannot express:
+
+**OR patterns** — match multiple structures in one arm:
+
+```python
+command = ["quit"]
+match command:
+    case ["quit"] | ["exit"] | ["q"]:
+        print("Exiting...")
+    case _:
+        print("Continue")
+```
+
+**AS patterns** — bind the entire match while also checking structure:
+
+```python
+match command:
+    case [action, *args] as full_command:
+        print(f"Action: {action}, Full: {full_command}")
+```
+
+These make `match`/`case` significantly more expressive than any switch statement.
+
+</PyOnly>
+
+export const quizPatternMatching = [
+  {
+    q: 'What Python version introduced structural pattern matching?',
+    options: ['Python 3.8', 'Python 3.9', 'Python 3.10', 'Python 3.12'],
+    answer: 2,
+  },
+  {
+    q: 'In `case ["move", x, y]`, what does `x` do?',
+    options: [
+      'It checks that the second element equals the variable x',
+      'It binds the second element to a new variable named x',
+      'It is a wildcard that ignores the second element',
+      'It checks that x is a number',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'How do you add a conditional check to a case arm?',
+    options: [
+      'case x when x > 0:',
+      'case x if x > 0:',
+      'case x and x > 0:',
+      'case x, guard=x > 0:',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'What does `case _:` match?',
+    options: [
+      'Only None values',
+      'Only empty sequences',
+      'Everything — it is the wildcard / default arm',
+      'Only strings',
+    ],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="advanced/pattern-matching" questions={quizPatternMatching} />
+
+<ProgressTracker client:visible id="advanced/pattern-matching" />

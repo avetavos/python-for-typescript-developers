@@ -1,0 +1,220 @@
+---
+title: asyncio Basics
+description: async def, await, and the event loop in Python — nearly identical to JavaScript async/await, with a few important differences.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## You already know this — almost
+
+Python's `async/await` syntax was deliberately designed to feel familiar to developers coming from JavaScript. The mental model is nearly identical:
+
+- An `async def` function returns a coroutine (not a value directly) — just like an `async function` returns a `Promise`.
+- `await` suspends the current coroutine and yields control to the event loop — exactly like `await` in JS.
+- The event loop runs coroutines cooperatively — one at a time, switching when something awaits.
+
+The differences are small but important — let's call them out explicitly.
+
+## Defining async functions
+
+export const asyncDefTs = `// TypeScript
+async function greet(name: string): Promise<string> {
+  // async function implicitly returns Promise<string>
+  return \`Hello, \${name}!\`;
+}
+
+const result = await greet("Alice");
+console.log(result); // Hello, Alice!`;
+
+export const asyncDefPy = `# Python
+import asyncio
+
+async def greet(name: str) -> str:
+    # async def returns a coroutine object
+    return f"Hello, {name}!"
+
+# Must await it to get the value
+result = await greet("Alice")
+print(result)  # Hello, Alice!`;
+
+<TsGo client:visible ts={asyncDefTs} go={asyncDefPy} />
+
+Key similarity: annotating the return type of an `async def` as `str` means "this coroutine will produce a `str` when awaited" — the same as `Promise<string>` in TypeScript.
+
+## await asyncio.sleep vs setTimeout/Promise delay
+
+The most common "wait without blocking" pattern:
+
+export const sleepTs = `// TypeScript — delay without blocking the thread
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function run(): Promise<void> {
+  console.log("start");
+  await delay(1000);
+  console.log("1 second later");
+}`;
+
+export const sleepPy = `# Python — asyncio.sleep is the direct equivalent
+import asyncio
+
+async def run() -> None:
+    print("start")
+    await asyncio.sleep(1)   # suspends, yields to event loop
+    print("1 second later")`;
+
+<TsGo client:visible ts={sleepTs} go={sleepPy} />
+
+`await asyncio.sleep(0)` (zero seconds) is the Python equivalent of `await Promise.resolve()` — it yields to the event loop for one cycle without actually waiting.
+
+## Running the event loop
+
+export const runLoopTs = `// TypeScript/Node.js
+// The runtime starts the event loop for you automatically.
+// Top-level await works in ESM modules:
+const result = await fetchSomething();
+
+// In CommonJS you wrap in an IIFE:
+(async () => {
+  const result = await fetchSomething();
+})();`;
+
+export const runLoopPy = `# Python — you must start the event loop explicitly
+import asyncio
+
+async def main() -> None:
+    print("running inside the event loop")
+
+# asyncio.run() creates a new event loop, runs main(), then closes it.
+# This is the standard entry point for asyncio programs.
+asyncio.run(main())
+
+# In a Jupyter notebook or interactive session, a loop is already
+# running — use top-level await directly instead of asyncio.run().`;
+
+<TsGo client:visible ts={runLoopTs} go={runLoopPy} />
+
+<PyOnly title="asyncio.run() vs top-level await">
+
+In Node.js (ESM), you can write `await something()` at the top level of a module and Node starts the event loop for you.
+
+In Python scripts and modules, you must explicitly call `asyncio.run(main())` to start the loop. If you call `asyncio.run()` inside a context where a loop is *already running* (e.g., inside a Jupyter notebook, or inside another coroutine), Python raises a `RuntimeError`.
+
+**The rule:** `asyncio.run()` is for the top-level entry point only. Inside `async def` functions, always just `await`.
+
+```python
+# WRONG — calling asyncio.run() inside a coroutine
+async def bad() -> None:
+    asyncio.run(other_coroutine())  # RuntimeError!
+
+# CORRECT
+async def good() -> None:
+    await other_coroutine()         # just await
+```
+
+</PyOnly>
+
+## A complete async example
+
+export const completeTs = `// TypeScript
+async function fetchData(url: string): Promise<string> {
+  const response = await fetch(url);
+  return response.text();
+}
+
+async function main(): Promise<void> {
+  console.log("fetching...");
+  // simulate with a delay
+  await new Promise((r) => setTimeout(r, 500));
+  console.log("done");
+}
+
+await main();`;
+
+export const completePy = `# Python
+import asyncio
+
+async def fetch_data(label: str) -> str:
+    # Simulate a network call
+    await asyncio.sleep(0.01)
+    return f"data from {label}"
+
+async def main() -> None:
+    print("fetching...")
+    result = await fetch_data("api.example.com")
+    print(result)
+    print("done")`;
+
+<TsGo client:visible ts={completeTs} go={completePy} />
+
+## Try it
+
+export const asyncBasicsCode = `import asyncio
+
+async def say_after(delay: float, message: str) -> str:
+    await asyncio.sleep(delay)
+    return message
+
+# Top-level await works here (Pyodide runs code as a coroutine)
+result = await say_after(0.05, "Hello from asyncio!")
+print(result)
+
+# Chain awaits
+a = await say_after(0.01, "first")
+b = await say_after(0.01, "second")
+print(a, "->", b)
+print("Event loop managed both without blocking")
+`;
+
+<Playground client:visible code={asyncBasicsCode} />
+
+export const quizAsyncioBasics = [
+  {
+    q: 'What does an `async def` function return when called without `await`?',
+    options: [
+      'The final return value directly',
+      'A coroutine object',
+      'A threading.Thread instance',
+      'None',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'What is the Python equivalent of JavaScript\'s `await new Promise(r => setTimeout(r, 1000))`?',
+    options: [
+      'time.sleep(1)',
+      'asyncio.sleep(1)',
+      'await asyncio.sleep(1)',
+      'await time.sleep(1)',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'When should you use `asyncio.run(main())` vs just `await main()`?',
+    options: [
+      '`asyncio.run()` is used inside other coroutines; `await` is used at the top level',
+      '`asyncio.run()` starts the event loop at the top-level entry point; `await` is used inside coroutines',
+      'They are interchangeable — use whichever you prefer',
+      '`asyncio.run()` is deprecated in Python 3.11+',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'What does `await asyncio.sleep(0)` do?',
+    options: [
+      'Nothing — a zero sleep is optimized away',
+      'Pauses for a full event loop cycle and yields to other waiting coroutines',
+      'Raises a ValueError because sleep duration must be positive',
+      'Blocks the thread for 1 millisecond',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="concurrency/asyncio-basics" questions={quizAsyncioBasics} />
+
+<ProgressTracker client:visible id="concurrency/asyncio-basics" />

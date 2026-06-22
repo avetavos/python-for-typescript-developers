@@ -1,0 +1,226 @@
+---
+title: "Unpacking, *args และ **kwargs"
+description: tuple unpacking, starred assignment, *args/**kwargs และการ merge dict ด้วย ** ของ Python
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## Spread ใน TypeScript, * และ ** ใน Python
+
+operator `...` ของ TypeScript จัดการทั้ง array และ object Python แบ่งแนวคิดนี้ออกเป็นสอง operator: `*` สำหรับ sequence (list, tuple, iterable) และ `**` สำหรับ dictionary operator `*` มีความใกล้เคียงกับสิ่งที่คุณรู้จากการ destructuring และ spread ของ TypeScript ส่วน operator `**` สำหรับ dict นั้นไม่มีสิ่งที่เทียบเท่าโดยตรงใน TypeScript — มันเป็นของ Python โดยเฉพาะ และยังเป็น syntax สำหรับ variadic keyword argument ใน function signature อีกด้วย
+
+## Tuple unpacking
+
+Python ให้คุณ unpack iterable ใดก็ตามลงใน variable ในการ assign ครั้งเดียว สิ่งนี้มีความสามารถมากกว่า destructuring ของ TypeScript เพราะทำงานได้กับ iterable ทุกชนิด ไม่ใช่แค่ array และ object
+
+export const tsUnpacking = `// TypeScript: array destructuring
+const [x, y, z] = [1, 2, 3];
+console.log(x, y, z); // 1 2 3
+
+// Rest element
+const [first, ...rest] = [10, 20, 30, 40, 50];
+console.log(first, rest); // 10 [20, 30, 40, 50]
+
+// Swap with destructuring
+let a = 5, b = 10;
+[a, b] = [b, a];
+console.log(a, b); // 10 5`;
+
+export const pyUnpacking = `# Python: tuple unpacking
+x, y, z = 1, 2, 3
+print(x, y, z)  # 1 2 3
+
+# Starred assignment (captures middle or end)
+first, *middle, last = [10, 20, 30, 40, 50]
+print(first, middle, last)  # 10 [20, 30, 40] 50
+
+# Swap without a temp variable
+a, b = 5, 10
+a, b = b, a
+print(a, b)  # 10 5`;
+
+<TsGo client:visible ts={tsUnpacking} go={pyUnpacking} />
+
+starred assignment ของ Python (`*middle`) มีความยืดหยุ่นกว่า rest element ของ TypeScript — คุณวางมันไว้ตำแหน่งใดก็ได้ (ต้น กลาง หรือท้าย) และ Python จะคิดเองว่าอะไรควรอยู่ที่ไหน
+
+## *args: variadic positional arguments
+
+`*args` ใน function signature จะรวบรวม positional argument จำนวนเท่าใดก็ได้เข้าเป็น tuple ชื่อ `args` เป็นแค่ convention — `*` คือสิ่งที่สำคัญ
+
+export const tsArgs = `// TypeScript: rest parameters
+function sumAll(...args: number[]): number {
+  return args.reduce((acc, n) => acc + n, 0);
+}
+
+console.log(sumAll(1, 2, 3, 4, 5)); // 15
+
+// Spreading an array into a function call
+const nums = [1, 2, 3];
+console.log(Math.max(...nums)); // 3`;
+
+export const pyArgs = `# Python: *args collects positional arguments into a tuple
+def sum_all(*args):
+    return sum(args)
+
+print(sum_all(1, 2, 3, 4, 5))  # 15
+
+# Spreading a list into a function call with *
+nums = [1, 2, 3]
+print(max(*nums))  # 3`;
+
+<TsGo client:visible ts={tsArgs} go={pyArgs} />
+
+## **kwargs: variadic keyword arguments
+
+TypeScript ไม่มีสิ่งที่เทียบเท่า `**kwargs` โดยตรง pattern ที่ใกล้เคียงที่สุดคือการรับ `options` object แล้ว destructure มัน ใน Python `**kwargs` จะรวบรวม keyword argument ทั้งหมดที่ไม่ตรงกับ parameter ที่ระบุชื่อเข้าเป็น dict
+
+export const tsKwargs = `// TypeScript: simulate kwargs with an options object
+function greet(options: Record<string, string | number>): void {
+  for (const [key, val] of Object.entries(options)) {
+    console.log(\`\${key}: \${val}\`);
+  }
+}
+
+greet({ name: "Alice", age: 30, city: "Bangkok" });
+
+// Object spread / merge
+const defaults = { color: "blue", size: "medium" };
+const overrides = { color: "red", weight: "heavy" };
+const merged = { ...defaults, ...overrides };
+console.log(merged);`;
+
+export const pyKwargs = `# Python: **kwargs collects keyword arguments into a dict
+def greet(**kwargs):
+    for key, val in kwargs.items():
+        print(f"\${key}: \${val}")
+
+greet(name="Alice", age=30, city="Bangkok")
+
+# Dict merge with **
+defaults = {"color": "blue", "size": "medium"}
+overrides = {"color": "red", "weight": "heavy"}
+merged = {**defaults, **overrides}
+print(merged)`;
+
+<TsGo client:visible ts={tsKwargs} go={pyKwargs} />
+
+## ลองด้วยตัวเอง
+
+export const playgroundUnpacking = `# Tuple unpacking
+x, y, z = 1, 2, 3
+print(x, y, z)
+
+# Starred assignment
+first, *middle, last = [10, 20, 30, 40, 50]
+print(first, middle, last)
+
+# Swap without temp variable
+a, b = 5, 10
+a, b = b, a
+print(a, b)
+
+def sum_all(*args):
+    return sum(args)
+
+print(sum_all(1, 2, 3, 4, 5))
+
+def greet(**kwargs):
+    for key, val in kwargs.items():
+        print(f"\${key}: \${val}")
+
+greet(name="Alice", age=30, city="Bangkok")
+
+defaults = {"color": "blue", "size": "medium"}
+overrides = {"color": "red", "weight": "heavy"}
+merged = {**defaults, **overrides}
+print(merged)
+`;
+
+<Playground client:visible code={playgroundUnpacking} />
+
+<PyOnly title="กฎการเรียงลำดับ parameter: positional, *args, keyword-only, **kwargs">
+
+Python บังคับใช้ลำดับที่เข้มงวดสำหรับ function parameter การผสมกันผิดแบบจะ raise `SyntaxError` ตอน parse ลำดับที่อนุญาตทั้งหมดคือ:
+
+```
+def f(pos1, pos2, *args, kw_only1, kw_only2=default, **kwargs):
+```
+
+แยกย่อยออกมาได้ดังนี้:
+
+1. **Positional parameters** — กรอกจากซ้ายไปขวาตามตำแหน่งหรือตามชื่อ
+2. **`*args`** — รวบรวม positional argument ที่เหลือทั้งหมดเป็น tuple เมื่อกำหนดแล้ว parameter ที่อยู่หลังจากนั้นจะกลายเป็น keyword-only
+3. **Keyword-only parameters** — ต้องส่งโดยระบุชื่อ อยู่หลัง `*args` (หรือหลัง `*` เดี่ยวถ้าต้องการ keyword-only โดยไม่มี variadic collector)
+4. **`**kwargs`** — ต้องอยู่ท้ายสุด รวบรวม keyword argument ที่เหลือทั้งหมดเป็น dict
+
+`*` เดี่ยวที่ไม่มีชื่อจะบังคับให้ parameter ที่ตามมาทั้งหมดเป็น keyword-only โดยไม่รวบรวม positional argument:
+
+```python
+def connect(host, port, *, timeout=30, retries=3):
+    ...
+
+connect("localhost", 5432, timeout=10)  # OK
+connect("localhost", 5432, 10)          # TypeError: too many positional arguments
+```
+
+นี่เป็นเทคนิคออกแบบ API ที่มีประโยชน์: ผู้เรียกต้องระบุชื่อ argument ทำให้ call site อ่านเข้าใจได้ในตัวเองและป้องกัน bug จากการใส่ argument ผิดลำดับ
+
+เมื่อเรียก function คุณยังใช้ `*` และ `**` เพื่อ unpack sequence และ dict เป็น argument ได้อีกด้วย:
+
+```python
+args = (1, 2, 3)
+kwargs = {"sep": "-"}
+print(*args, **kwargs)  # 1-2-3
+```
+
+</PyOnly>
+
+export const quizUnpacking = [
+  {
+    q: 'จาก first, *middle, last = [1, 2, 3, 4, 5], middle คืออะไร?',
+    options: [
+      '[2, 3, 4]',
+      '(2, 3, 4)',
+      '[2, 3]',
+      '2',
+    ],
+    answer: 0,
+  },
+  {
+    q: '*args รวบรวม argument เข้าใน type อะไรภายใน function?',
+    options: [
+      'list',
+      'tuple',
+      'set',
+      'dict',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'ใน parameter list def f(a, *args, b, **kwargs), b เป็น parameter ชนิดใด?',
+    options: [
+      'Positional parameter',
+      'ส่วนหนึ่งของ *args',
+      'Keyword-only parameter',
+      'Default parameter',
+    ],
+    answer: 2,
+  },
+  {
+    q: '{**dict1, **dict2} ให้ผลลัพธ์อย่างไรเมื่อ dict1 และ dict2 มี key ร่วมกัน?',
+    options: [
+      'จะ raise KeyError',
+      'key จาก dict1 ชนะ',
+      'key จาก dict2 ชนะ (dict ที่อยู่หลังจะ override dict ที่อยู่ก่อน)',
+      'ทั้งสอง value จะถูกเก็บใน list',
+    ],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="py-only/unpacking" questions={quizUnpacking} />
+
+<ProgressTracker client:visible id="py-only/unpacking" />

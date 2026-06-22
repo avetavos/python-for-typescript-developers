@@ -1,0 +1,239 @@
+---
+title: pytest — เชิงลึก
+description: Fixtures, parametrize, และ assertion introspection ใน pytest — เปรียบเทียบกับ beforeEach, it.each, และ expect matchers ของ Jest
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+
+> Playground note: pytest ต้องการ binary `pytest` และ test discovery context — รัน locally ด้วย `pytest` code blocks ด้านล่างได้รับการตรวจสอบด้วย `python3` ในส่วนที่ทำได้; การรัน test เต็มรูปแบบต้องใช้ environment ใน local
+
+## pytest vs Jest: แผนที่แนวคิด
+
+| แนวคิด Jest | คู่เทียบ pytest |
+|---|---|
+| `describe` block | การจัดกลุ่มด้วย module หรือ class (optional) |
+| `it` / `test` | ฟังก์ชันที่ชื่อขึ้นต้นด้วย `test_*` |
+| `beforeEach` / `afterEach` | fixture ที่มี `yield` |
+| `beforeAll` / `afterAll` | fixture ที่มี scope session/module |
+| `it.each` / `test.each` | `@pytest.mark.parametrize` |
+| `expect(x).toBe(y)` | `assert x == y` (พร้อม introspection) |
+| `jest.fn()` / `jest.mock()` | fixture `monkeypatch` / `unittest.mock` |
+
+## Fixtures: พลังพิเศษของ pytest
+
+**fixture** คือฟังก์ชันที่ decorated ด้วย `@pytest.fixture` pytest inject มันเข้าไปในทุก test ที่ประกาศเป็น parameter มันเทียบเท่ากับ `beforeEach` ของ Jest — แต่ทรงพลังกว่าเพราะ fixtures สามารถ compose ได้: fixture สามารถ depend บน fixtures อื่นได้
+
+export const fixtureTs = `// Jest — beforeEach for setup
+describe("UserService", () => {
+  let db: Database;
+  let service: UserService;
+
+  beforeEach(async () => {
+    db = await Database.connect(":memory:");
+    service = new UserService(db);
+  });
+
+  afterEach(async () => {
+    await db.close();
+  });
+
+  it("creates a user", async () => {
+    const user = await service.create({ name: "Alice" });
+    expect(user.id).toBeDefined();
+  });
+});`;
+
+export const fixturePy = `# pytest — fixture with yield (setup + teardown)
+import pytest
+
+@pytest.fixture
+def db():
+    connection = {"connected": True, "data": {}}
+    yield connection             # test ได้รับค่านี้
+    connection["connected"] = False  # teardown หลัง yield
+
+@pytest.fixture
+def user_service(db):            # fixture ที่ depend บน fixture อื่น
+    return {"db": db, "users": db["data"]}
+
+def test_create_user(user_service):
+    user_service["users"]["alice"] = {"name": "Alice"}
+    assert "alice" in user_service["users"]
+
+def test_db_connected(db):
+    assert db["connected"] is True`;
+
+<TsGo client:visible ts={fixtureTs} go={fixturePy} />
+
+รัน locally:
+
+```bash
+pip install pytest
+pytest test_users.py -v
+```
+
+## Fixture scopes
+
+Fixtures ค่าเริ่มต้นคือ `scope="function"` (สร้างใหม่ต่อ test) scopes ที่กว้างกว่าหลีกเลี่ยง setup ที่ cost สูง:
+
+```python
+@pytest.fixture(scope="module")   # ครั้งเดียวต่อ test module
+def db_connection():
+    conn = create_db_connection()
+    yield conn
+    conn.close()
+
+@pytest.fixture(scope="session")  # ครั้งเดียวตลอดการรัน pytest
+def auth_token():
+    return get_test_token()
+```
+
+| Scope | สร้างเมื่อไหร่ |
+|---|---|
+| `function` (ค่าเริ่มต้น) | ก่อนทุก test |
+| `class` | ครั้งเดียวต่อ test class |
+| `module` | ครั้งเดียวต่อ `.py` file |
+| `session` | ครั้งเดียวต่อการเรียก `pytest` |
+
+## parametrize: data-driven tests
+
+`@pytest.mark.parametrize` คือ `it.each` ของ Jest — รัน test เดียวกันด้วย input/output หลายคู่
+
+export const paramTs = `// Jest — test.each
+test.each([
+  [2, 3, 5],
+  [0, 0, 0],
+  [-1, 1, 0],
+])("add(%i, %i) = %i", (a, b, expected) => {
+  expect(add(a, b)).toBe(expected);
+});`;
+
+export const paramPy = `import pytest
+
+def add(a: int, b: int) -> int:
+    return a + b
+
+@pytest.mark.parametrize("a,b,expected", [
+    (2,  3,  5),
+    (0,  0,  0),
+    (-1, 1,  0),
+    (10, -5, 5),
+])
+def test_add(a, b, expected):
+    assert add(a, b) == expected`;
+
+<TsGo client:visible ts={paramTs} go={paramPy} />
+
+รวม `parametrize` กับ fixtures สำหรับการทดสอบแบบ combinatorial เต็มรูปแบบ:
+
+```python
+@pytest.mark.parametrize("role", ["admin", "user", "guest"])
+def test_permissions(role, user_service):
+    # user_service fixture inject; role parametrized
+    perms = user_service.get_permissions(role)
+    assert isinstance(perms, list)
+```
+
+## Assertions: assert ธรรมดาพร้อม introspection
+
+ต่างจาก Jest's `.toBe()`, `.toEqual()`, `.toContain()` chain, pytest ใช้ statement `assert` ธรรมดา มัน rewrite assertion ตอน collection time และแสดง diff โดยละเอียดเมื่อ fail — ไม่ต้องการ matcher library
+
+export const assertTs = `// Jest assertions
+expect(user.name).toBe("Alice");
+expect(users).toHaveLength(3);
+expect(users).toContain("Bob");
+expect(order.total).toBeGreaterThan(0);
+expect(fn).toThrow(TypeError);`;
+
+export const assertPy = `# pytest — plain assert, rich diffs เมื่อ fail
+assert user["name"] == "Alice"
+assert len(users) == 3
+assert "Bob" in users
+assert order["total"] > 0
+
+# ทดสอบ exceptions
+import pytest
+with pytest.raises(ValueError, match="negative"):
+    parse_price(-5)`;
+
+<TsGo client:visible ts={assertTs} go={assertPy} />
+
+เมื่อ assertion fail, pytest แสดงค่าจริง diff เต็มรูปแบบสำหรับ containers และ expression tree — รายละเอียดมากกว่า `AssertionError` ธรรมดามาก
+
+## conftest.py: shared fixtures
+
+วาง shared fixtures ใน `conftest.py` ที่ระดับ directory ใดก็ได้ pytest discover มันอัตโนมัติ — ไม่ต้อง import
+
+```
+tests/
+├── conftest.py      # fixtures สำหรับทุก tests ด้านล่าง
+├── unit/
+│   ├── conftest.py  # fixtures เฉพาะ unit/ tests
+│   └── test_math.py
+└── integration/
+    └── test_api.py
+```
+
+```python
+# tests/conftest.py
+import pytest
+
+@pytest.fixture(scope="session")
+def api_client():
+    from myapp import create_app
+    app = create_app(testing=True)
+    with app.test_client() as client:
+        yield client
+```
+
+## monkeypatch: built-in mock
+
+`monkeypatch` คือ built-in fixture สำหรับ patch objects, environment variables, และ files — เทียบเท่ากับ `jest.spyOn` หรือ `jest.mock`
+
+```python
+def test_calls_external_api(monkeypatch):
+    def fake_fetch(url):
+        return {"status": 200, "data": "mocked"}
+
+    monkeypatch.setattr("mymodule.fetch", fake_fetch)
+    result = mymodule.process()
+    assert result["status"] == 200
+```
+
+export const quizPytestDeep = [
+  {
+    q: 'คู่เทียบของ `beforeEach`/`afterEach` ของ Jest สำหรับ single test ใน pytest คืออะไร?',
+    options: [
+      'ฟังก์ชันที่ชื่อ `setup_function` และ `teardown_function`',
+      'ฟังก์ชัน `@pytest.fixture` ที่มี statement `yield`',
+      'decorator `@pytest.setup`',
+      'ไฟล์ `conftest.py`',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'decorator ใดที่สร้าง data-driven / parametrized tests ใน pytest?',
+    options: [
+      '@pytest.mark.skip',
+      '@pytest.mark.parametrize',
+      '@pytest.fixture(params=[...])',
+      '@pytest.mark.xfail',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'fixture scope เริ่มต้นใน pytest คืออะไร?',
+    options: ['session', 'module', 'class', 'function'],
+    answer: 3,
+  },
+  {
+    q: 'วาง shared fixtures ที่ไหนเพื่อให้ pytest discover อัตโนมัติโดยไม่ต้อง import?',
+    options: ['fixtures.py', 'conftest.py', 'pytest.ini', 'setup.cfg'],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="advanced/pytest-deep" questions={quizPytestDeep} />
+
+<ProgressTracker client:visible id="advanced/pytest-deep" />

@@ -1,0 +1,212 @@
+---
+title: Hello World — Your First Python Program
+description: Write and run your first Python script, understand print(), and learn the if __name__ == "__main__" entry-point guard.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## The simplest program
+
+In TypeScript you typically have a project setup before you write a first line. In Python you can go from zero to running in one file and one command.
+
+export const helloTs = `// hello.ts
+const name: string = "TypeScript Developer";
+console.log(\`Hello, \${name}!\`);
+
+// Run: npx ts-node hello.ts
+// Output: Hello, TypeScript Developer!`;
+
+export const helloPy = `# hello.py
+name: str = "TypeScript Developer"
+print(f"Hello, {name}!")
+
+# Run: python3 hello.py
+# Output: Hello, TypeScript Developer!`;
+
+<TsGo client:visible ts={helloTs} go={helloPy} />
+
+## The `print` function
+
+`console.log` in TypeScript becomes `print` in Python. Both accept multiple arguments, but the details differ:
+
+export const printTs = `// TypeScript console.log
+console.log("a", "b", "c");          // a b c (space separated)
+console.log("count:", 42);           // count: 42
+console.log(\`sum = \${1 + 2}\`);       // sum = 3 (template literal)`;
+
+export const printPy = `# Python print
+print("a", "b", "c")                 # a b c (space separated)
+print("count:", 42)                  # count: 42
+print(f"sum = {1 + 2}")              # sum = 3 (f-string)
+
+# print has keyword args:
+print("a", "b", sep="-")            # a-b  (custom separator)
+print("loading", end="...")         # loading... (no newline)`;
+
+<TsGo client:visible ts={printTs} go={printPy} />
+
+## F-strings — Python's template literals
+
+Python's f-string (`f"..."`) is the equivalent of TypeScript's template literal (`` `...` ``). Prefix the string with `f` and put expressions in `{}`.
+
+export const fstringTs = `// TypeScript template literal
+const user = { name: "Alice", age: 30 };
+const msg = \`\${user.name} is \${user.age} years old\`;
+console.log(msg);  // Alice is 30 years old
+
+// Format number
+const pi = 3.14159;
+console.log(\`pi ≈ \${pi.toFixed(2)}\`);  // pi ≈ 3.14`;
+
+export const fstringPy = `# Python f-string
+user = {"name": "Alice", "age": 30}
+msg = f"{user['name']} is {user['age']} years old"
+print(msg)   # Alice is 30 years old
+
+# Format specifier inside {}
+pi = 3.14159
+print(f"pi ≈ {pi:.2f}")   # pi ≈ 3.14
+
+# Any expression works
+print(f"2 + 2 = {2 + 2}")  # 2 + 2 = 4`;
+
+<TsGo client:visible ts={fstringTs} go={fstringPy} />
+
+## Running a script
+
+export const runfileTs = `# TypeScript
+# 1. Compile and run
+tsc hello.ts && node hello.js
+
+# 2. Direct with ts-node
+npx ts-node hello.ts
+
+# 3. Via npm script (package.json)
+npm start`;
+
+export const runfilePy = `# Python
+# 1. Direct — no compilation step
+python3 hello.py
+
+# 2. Make the file executable (Unix)
+chmod +x hello.py   # add #!/usr/bin/env python3 as line 1
+./hello.py
+
+# 3. Run as a module (inside a package)
+python3 -m mypackage.hello`;
+
+<TsGo client:visible ts={runfileTs} go={runfilePy} />
+
+## The entry-point guard: `if __name__ == "__main__":`
+
+This is a Python pattern with no direct TypeScript equivalent, so it deserves a careful explanation.
+
+When Python runs a file directly (`python3 hello.py`), it sets the module's `__name__` to the string `"__main__"`. When another file imports `hello.py` with `import hello`, `__name__` is set to `"hello"` (the module name) instead.
+
+The guard `if __name__ == "__main__":` means "only run this code if this file is the entry point, not when it is imported."
+
+export const guardTs = `// TypeScript: no direct equivalent
+// In Node, top-level code always runs when the file is imported
+// You work around this with explicit exports:
+
+export function greet(name: string) {
+  return \`Hello, \${name}!\`;
+}
+
+// This runs unconditionally on import — often undesirable:
+// console.log(greet("world"));`;
+
+export const guardPy = `# Python: the entry-point guard
+def greet(name: str) -> str:
+    return f"Hello, {name}!"
+
+if __name__ == "__main__":
+    # This block ONLY runs when you do: python3 hello.py
+    # It does NOT run when another file does: import hello
+    print(greet("world"))`;
+
+<TsGo client:visible ts={guardTs} go={guardPy} />
+
+<PyOnly title="Why does __name__ matter?">
+
+Consider a utility file `utils.py` that defines helpers and also prints a debug message. If another module imports it, that debug message would fire unexpectedly. The `if __name__ == "__main__":` guard prevents this — only the final entry point runs that block.
+
+This is also why Python test runners (like `pytest`) can import your source files without triggering your `main()` logic: the guard keeps the side effects isolated.
+
+Best practice: always wrap top-level executable code in this guard.
+
+</PyOnly>
+
+## A complete first script
+
+export const completeHelloCode = `# hello.py — a complete first Python script
+
+def greet(name: str) -> str:
+    """Return a personalised greeting."""
+    return f"Hello, {name}!"
+
+def main() -> None:
+    names = ["Alice", "Bob", "TypeScript Developer"]
+    for name in names:
+        message = greet(name)
+        print(message)
+
+    # f-string formatting
+    count = len(names)
+    print(f"\\nGreeted {count} people.")
+
+if __name__ == "__main__":
+    main()
+`;
+
+<Playground client:visible code={completeHelloCode} />
+
+export const quizHello = [
+  {
+    q: 'What is the Python equivalent of `console.log`?',
+    options: [
+      '`log()`',
+      '`echo()`',
+      '`print()`',
+      '`stdout()`',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'What is the value of `__name__` when a file is run directly with `python3 hello.py`?',
+    options: [
+      '`"hello"`',
+      '`"hello.py"`',
+      '`None`',
+      '`"__main__"`',
+    ],
+    answer: 3,
+  },
+  {
+    q: 'Which Python string prefix creates a template literal equivalent?',
+    options: [
+      '`t"..."`',
+      '`f"..."`',
+      '`r"..."`',
+      '`b"..."`',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'What happens to the `if __name__ == "__main__":` block when another module imports the file?',
+    options: [
+      'It raises an ImportError',
+      'It runs only once on the first import',
+      'It is skipped entirely — it does not run',
+      'It runs in a subprocess',
+    ],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="intro/hello-world" questions={quizHello} />
+
+<ProgressTracker client:visible id="intro/hello-world" />

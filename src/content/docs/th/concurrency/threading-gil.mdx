@@ -1,0 +1,231 @@
+---
+title: Threading & GIL
+description: threading module ของ Python, Global Interpreter Lock, เมื่อไหร่ที่ thread ช่วยได้ (I/O-bound) และเมื่อไหร่ที่ไม่ช่วย (CPU-bound) — เทียบกับ JavaScript Web Workers
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+> หมายเหตุเกี่ยวกับ Playground: `threading` ต้องการการสร้าง OS thread — browser sandbox ไม่สามารถทำได้ รัน code snippets ในเครื่องด้วย `python3` component `<TsGo>`, `<Quiz>` และ `<ProgressTracker>` ยังคงทำงานได้ตามปกติ
+
+## Thread vs event loop
+
+JavaScript ให้คุณ model เดียวสำหรับงาน concurrent I/O: single-threaded event loop กับ `async/await` สำหรับงาน CPU-heavy คุณ spawn `Worker` ซึ่ง run บน thread ที่แยกต่างหากโดยสิ้นเชิงพร้อม memory ของตัวเอง — ไม่มี shared state โดย default
+
+`threading` module ของ Python สร้าง OS thread ที่ **แชร์ memory space เดียวกัน** ทำให้การส่งข้อมูลระหว่าง thread ง่าย แต่ยังหมายความว่าคุณต้องปกป้อง shared data ด้วย lock เพื่อหลีกเลี่ยง race condition
+
+export const threadingTs = `// TypeScript — Web Worker (separate memory, message passing)
+const worker = new Worker(new URL("./worker.ts", import.meta.url));
+worker.postMessage({ numbers: [1, 2, 3, 4, 5] });
+worker.onmessage = (e) => console.log("result:", e.data);
+
+// Inside worker.ts:
+self.onmessage = (e) => {
+  const sum = e.data.numbers.reduce((a: number, b: number) => a + b, 0);
+  self.postMessage(sum);
+};`;
+
+export const threadingPy = `# Python — threads share memory directly
+import threading
+
+results: list[int] = []
+lock = threading.Lock()
+
+def worker(numbers: list[int]) -> None:
+    total = sum(numbers)
+    with lock:            # protect shared state
+        results.append(total)
+
+t = threading.Thread(target=worker, args=([1, 2, 3, 4, 5],))
+t.start()
+t.join()   # wait for thread to finish
+print(results)  # [15]`;
+
+<TsGo client:visible ts={threadingTs} go={threadingPy} />
+
+## Threading พื้นฐาน
+
+```python
+import threading
+import time
+
+def download(url: str) -> None:
+    print(f"Downloading {url}...")
+    time.sleep(1)  # simulate I/O wait
+    print(f"Done: {url}")
+
+urls = [
+    "https://api.example.com/users",
+    "https://api.example.com/posts",
+    "https://api.example.com/tags",
+]
+
+threads = [threading.Thread(target=download, args=(url,)) for url in urls]
+
+for t in threads:
+    t.start()        # start all threads
+
+for t in threads:
+    t.join()         # wait for all to finish
+
+print("All downloads complete")
+```
+
+รัน code นี้ในเครื่อง — browser sandbox ไม่สามารถ spawn OS thread/process ได้
+
+## Thread กับ return value
+
+Thread ไม่ return value โดยตรง (ต่างจาก `async/await`) pattern ที่พบบ่อยคือใช้ shared list หรือ `queue.Queue`:
+
+```python
+import threading
+import queue
+
+def fetch_data(label: str, result_queue: queue.Queue) -> None:
+    # simulate work
+    import time; time.sleep(0.1)
+    result_queue.put(f"data from {label}")
+
+q: queue.Queue[str] = queue.Queue()
+
+threads = [
+    threading.Thread(target=fetch_data, args=(label, q))
+    for label in ["users", "posts", "tags"]
+]
+for t in threads:
+    t.start()
+for t in threads:
+    t.join()
+
+results = [q.get() for _ in threads]
+print(results)
+```
+
+<PyOnly title="GIL — ทำไม thread ไม่ parallelize งาน CPU">
+
+**Global Interpreter Lock (GIL)** คือ mutex ภายใน CPython ที่อนุญาตให้ thread เดียวเท่านั้น execute Python bytecode ในเวลาหนึ่ง แม้บน machine ที่มีหลาย core
+
+**Thread แบบ I/O-bound ยังได้ประโยชน์:** เมื่อ thread ถูก block รอ I/O (network, disk, database) มันจะ release GIL thread อื่นสามารถ run ได้ในระหว่างนั้น นี่คือเหตุผลที่การใช้ thread สำหรับการ download ไฟล์หรือ HTTP request เร็วขึ้นจริงๆ
+
+**Thread แบบ CPU-bound ไม่ได้ประโยชน์:** เมื่อ thread กำลังคำนวณ (number crunching, string processing, pure Python loops) มันถือ GIL thread ที่สองไม่สามารถ run บน core อื่นได้ — มันแค่รอคิว การเพิ่ม thread สำหรับงาน CPU-bound อาจทำให้ *ช้าลง* เนื่องจาก GIL contention overhead
+
+```python
+import threading
+import time
+
+counter = 0
+
+def cpu_work(n: int) -> None:
+    global counter
+    for _ in range(n):
+        counter += 1   # GIL held the entire time — no true parallelism
+
+t1 = threading.Thread(target=cpu_work, args=(1_000_000,))
+t2 = threading.Thread(target=cpu_work, args=(1_000_000,))
+
+start = time.perf_counter()
+t1.start(); t2.start()
+t1.join(); t2.join()
+elapsed = time.perf_counter() - start
+
+print(f"Done in {elapsed:.2f}s — NOT faster than one thread")
+# Also: counter may be < 2_000_000 due to race condition!
+```
+
+**ทางแก้สำหรับงาน CPU-bound:** ใช้ `multiprocessing` (บทเรียนถัดไป) แต่ละ process มี GIL ของตัวเองและ memory ของตัวเอง ดังนั้นงาน CPU-bound จึงสามารถ run บนทุก core ที่มีได้จริงๆ
+
+</PyOnly>
+
+## เมื่อไหร่ควรใช้ threading
+
+export const whenThreadTs = `// TypeScript — you rarely think about this distinction because
+// JS is always single-threaded. Workers are for any heavy work.
+// asyncio/Promises handle all I/O natively.`;
+
+export const whenThreadPy = `# Python — choose the right tool
+# Use threading when:
+#   - Wrapping a blocking library that has no async version
+#     (e.g., an old database driver, a blocking SDK)
+#   - The task is I/O-bound (file reads, network calls, DB queries)
+#   - You need shared memory between tasks (vs multiprocessing)
+
+# Prefer asyncio when:
+#   - You control the code and can use async libraries
+#   - You need thousands of concurrent I/O tasks
+#     (threads have OS overhead; coroutines are cheap)
+
+# Use multiprocessing when:
+#   - The task is CPU-bound (math, image processing, ML inference)`;
+
+<TsGo client:visible ts={whenThreadTs} go={whenThreadPy} />
+
+## Thread safety และ locks
+
+```python
+import threading
+
+counter = 0
+lock = threading.Lock()
+
+def safe_increment() -> None:
+    global counter
+    with lock:      # acquire on enter, release on exit (even if exception)
+        counter += 1
+
+threads = [threading.Thread(target=safe_increment) for _ in range(100)]
+for t in threads:
+    t.start()
+for t in threads:
+    t.join()
+
+print(counter)  # always 100 — lock prevents race condition
+```
+
+export const quizThreadingGil = [
+  {
+    q: 'GIL ป้องกันอะไรใน CPython?',
+    options: [
+      'ใช้ CPU core มากกว่าหนึ่งสำหรับ I/O-bound threads',
+      'Thread สองอันจาก execute Python bytecode พร้อมกัน แม้บน multi-core hardware',
+      'สร้าง thread มากกว่า 64 อัน',
+      'ใช้ thread สำหรับ network I/O',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'สำหรับ workload ประเภทใดที่ Python thread ให้ speedup จริงๆ?',
+    options: [
+      'CPU-bound — heavy math และ number crunching',
+      'I/O-bound — รอ network, disk หรือ database',
+      'ทั้งสองเท่ากัน',
+      'ไม่มีเลย — thread มีไว้สำหรับ legacy compatibility เท่านั้น',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'Python thread แตกต่างจาก JavaScript Web Workers ในเรื่อง memory อย่างไร?',
+    options: [
+      'Python thread ใช้ message passing (ไม่มี shared memory) เหมือน Web Workers',
+      'Python thread แชร์ memory space เดียวกัน; Web Workers มี memory แยกต่างหาก',
+      'ทั้งคู่แชร์ memory — เทียบเท่ากัน',
+      'Python thread ถูก isolate ด้วย separate heap เสมอ',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'วิธีที่ถูกต้องในการปกป้อง shared variable ที่หลาย thread เข้าถึงคืออะไร?',
+    options: [
+      'ใช้ `asyncio.Lock`',
+      'Declare variable เป็น `global`',
+      'ใช้ `threading.Lock` กับ `with` statement',
+      'ใช้ `multiprocessing.Value`',
+    ],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="concurrency/threading-gil" questions={quizThreadingGil} />
+
+<ProgressTracker client:visible id="concurrency/threading-gil" />

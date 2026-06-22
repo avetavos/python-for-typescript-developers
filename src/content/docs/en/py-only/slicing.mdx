@@ -1,0 +1,222 @@
+---
+title: "Sequence Slicing"
+description: Python's powerful [start:stop:step] slice syntax, negative indices, and reversing sequences vs TypeScript's Array.slice().
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## TypeScript gives you .slice() — Python gives you [start:stop:step]
+
+TypeScript arrays have `Array.prototype.slice(start, end)`, which takes two arguments and returns a copy of the subarray. It is useful, but limited: no step parameter, and negative indices only work in a specific way (counting from the end). Strings have `String.prototype.slice()` with the same interface.
+
+Python's slice syntax `[start:stop:step]` is built into the language itself and works on any sequence type — lists, strings, tuples, bytes, and any class that implements `__getitem__`. The step parameter lets you skip elements or reverse a sequence in one expression. Negative indices count from the end, and any of the three parameters can be omitted.
+
+## Basic slicing
+
+export const tsSlicing = `// TypeScript: Array.slice(start, end)
+const data = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+console.log(data.slice(2, 5));  // [2, 3, 4]
+console.log(data.slice(0, 3));  // [0, 1, 2]
+console.log(data.slice(7));     // [7, 8, 9]
+
+// No built-in step — must use filter or manual loop
+const evens = data.filter((_, i) => i % 2 === 0);
+console.log(evens); // [0, 2, 4, 6, 8]
+
+// Reverse — no shorthand
+const reversed = [...data].reverse();
+console.log(reversed);
+
+// Negative index from end
+console.log(data[data.length - 1]);   // 9
+console.log(data.slice(-3));          // [7, 8, 9]`;
+
+export const pySlicing = `# Python: [start:stop:step] — works on any sequence
+data = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+print(data[2:5])    # [2, 3, 4]
+print(data[:3])     # [0, 1, 2]
+print(data[7:])     # [7, 8, 9]
+print(data[::2])    # [0, 2, 4, 6, 8]  (every 2nd element)
+print(data[::-1])   # [9, 8, 7, 6, 5, 4, 3, 2, 1, 0]  (reversed)
+
+# Negative indices count from the end
+print(data[-1])     # 9
+print(data[-3:])    # [7, 8, 9]
+print(data[1:-1])   # [1, 2, 3, 4, 5, 6, 7, 8]`;
+
+<TsGo client:visible ts={tsSlicing} go={pySlicing} />
+
+## Negative indices
+
+TypeScript requires `.at()` (ES2022) or manual `array.length - n` math for negative indexing. Python supports negative indices natively on all sequences.
+
+export const tsNeg = `// TypeScript: negative index requires .at() (ES2022) or length math
+const data = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+console.log(data.at(-1));           // 9  — last element
+console.log(data.at(-3));           // 7
+
+// Last 3 elements via slice
+console.log(data.slice(-3));        // [7, 8, 9]
+
+// All but first and last
+console.log(data.slice(1, -1));     // [1, 2, 3, 4, 5, 6, 7, 8]`;
+
+export const pyNeg = `# Python: negative index works natively everywhere
+data = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+print(data[-1])     # 9   — last element
+print(data[-3:])    # [7, 8, 9] — last 3 elements
+print(data[1:-1])   # [1, 2, 3, 4, 5, 6, 7, 8] — all but first and last`;
+
+<TsGo client:visible ts={tsNeg} go={pyNeg} />
+
+## Slicing strings and other sequences
+
+The same `[start:stop:step]` syntax works on strings, tuples, and any sequence — not just lists.
+
+export const tsSlicingStr = `// TypeScript: string slicing
+const text = "Hello, World!";
+
+console.log(text.slice(7, 12)); // "World"
+console.log(text.slice(0, 5));  // "Hello"
+
+// Reverse a string — no shorthand
+const reversed = text.split("").reverse().join("");
+console.log(reversed); // "!dlroW ,olleH"`;
+
+export const pySlicingStr = `# Python: slicing works on strings too
+text = "Hello, World!"
+
+print(text[7:12])   # World
+print(text[:5])     # Hello
+print(text[::-1])   # !dlroW ,olleH  (reversed in one expression)
+
+# Works on tuples too
+coords = (10, 20, 30, 40, 50)
+print(coords[1:4])  # (20, 30, 40)`;
+
+<TsGo client:visible ts={tsSlicingStr} go={pySlicingStr} />
+
+## Try it
+
+export const playgroundSlicing = `data = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+print(data[2:5])
+print(data[:3])
+print(data[7:])
+print(data[::2])
+print(data[::-1])
+
+print(data[-1])
+print(data[-3:])
+print(data[1:-1])
+
+text = "Hello, World!"
+print(text[7:12])
+print(text[::-1])
+`;
+
+<Playground client:visible code={playgroundSlicing} />
+
+<PyOnly title="The slice object and shallow copy semantics">
+
+**Slice objects**
+
+A slice expression like `[1:5:2]` is syntactic sugar. Python internally creates a `slice(1, 5, 2)` object and passes it to the sequence's `__getitem__` method. You can store a slice and reuse it:
+
+```python
+every_other = slice(None, None, 2)  # equivalent to [::2]
+data = list(range(10))
+print(data[every_other])            # [0, 2, 4, 6, 8]
+
+header_row = slice(0, 1)
+body_rows  = slice(1, None)
+table = [[1, 2], [3, 4], [5, 6]]
+print(table[header_row])            # [[1, 2]]
+print(table[body_rows])             # [[3, 4], [5, 6]]
+```
+
+Named slices are especially useful when working with fixed-format data or NumPy arrays, where you want to document what a particular slice means rather than leaving bare numbers in the code.
+
+**Slicing always returns a copy (shallow)**
+
+Slicing a list creates a new list object containing references to the same elements. This is a shallow copy — modifying the slice does not affect the original, but mutating a shared nested object will:
+
+```python
+original = [1, 2, 3, 4, 5]
+copy = original[:]    # common idiom for a shallow copy
+copy[0] = 99
+print(original)       # [1, 2, 3, 4, 5] — unaffected
+
+nested = [[1, 2], [3, 4]]
+flat_copy = nested[:]
+flat_copy[0][0] = 99
+print(nested)         # [[99, 2], [3, 4]] — inner list IS shared
+```
+
+For a full deep copy, use `copy.deepcopy()`.
+
+**Slice assignment**
+
+You can also assign to a slice, replacing a range of elements in place:
+
+```python
+data = [1, 2, 3, 4, 5]
+data[1:3] = [20, 30, 40]  # replace 2 elements with 3
+print(data)               # [1, 20, 30, 40, 4, 5]
+```
+
+</PyOnly>
+
+export const quizSlicing = [
+  {
+    q: 'What does data[::2] return for data = [0, 1, 2, 3, 4]?',
+    options: [
+      '[1, 3]',
+      '[0, 2, 4]',
+      '[0, 1, 2]',
+      '[2, 4]',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'What is the idiomatic Python way to reverse a list using slicing?',
+    options: [
+      'data[0:-1]',
+      'data[-1:0]',
+      'data[::-1]',
+      'data[::- 1]',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'What does slicing return in terms of memory?',
+    options: [
+      'A view into the original sequence (no copy)',
+      'A shallow copy (new container, shared element references)',
+      'A deep copy (new container and new element copies)',
+      'The original sequence with a different index',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'What is slice(1, 5, 2) equivalent to as a slice expression?',
+    options: [
+      '[1:5]',
+      '[1:2:5]',
+      '[1:5:2]',
+      '[2:5:1]',
+    ],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="py-only/slicing" questions={quizSlicing} />
+
+<ProgressTracker client:visible id="py-only/slicing" />

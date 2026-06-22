@@ -1,0 +1,201 @@
+---
+title: Multiprocessing
+description: Python's multiprocessing module for true CPU parallelism — each process has its own GIL and memory. Compared to JavaScript's child_process and Web Workers.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+> Playground note: `multiprocessing` spawns separate OS processes — browser sandboxes cannot do this. Run the code snippets locally with `python3`. The `<TsGo>`, `<Quiz>`, and `<ProgressTracker>` components still work normally.
+
+## The problem threading can't solve
+
+As you learned in the previous lesson, the GIL prevents Python threads from running Python bytecode in parallel on multiple cores. For CPU-bound work — number crunching, image processing, data transformation — threads give you no speedup.
+
+`multiprocessing` solves this by spawning entirely separate Python interpreter processes. Each process has its own GIL, its own memory, and its own Python runtime. They run truly in parallel across all available CPU cores.
+
+## Compared to JavaScript's isolation model
+
+export const mpTs = `// TypeScript — Web Workers / child_process
+// Each Worker has its own JS heap — no shared memory by default
+// Communicate via postMessage / structured clone
+
+import { Worker } from "worker_threads";
+
+const worker = new Worker(\`
+  const { parentPort } = require("worker_threads");
+  parentPort.on("message", (n) => {
+    let sum = 0;
+    for (let i = 0; i < n; i++) sum += i;
+    parentPort.postMessage(sum);
+  });
+\`, { eval: true });
+
+worker.postMessage(1_000_000);
+worker.on("message", (result) => console.log("sum:", result));`;
+
+export const mpPy = `# Python — multiprocessing
+# Each process has its own memory — no shared state by default
+# Communicate via Queue, Pipe, or Pool.map return values
+
+from multiprocessing import Process, Queue
+
+def compute_sum(n: int, result_queue: Queue) -> None:
+    total = sum(range(n))
+    result_queue.put(total)
+
+q: Queue[int] = Queue()
+p = Process(target=compute_sum, args=(1_000_000, q))
+p.start()
+p.join()
+print("sum:", q.get())`;
+
+<TsGo client:visible ts={mpTs} go={mpPy} />
+
+## Pool.map — the high-level API
+
+The most common pattern is `Pool.map`, which distributes a list of inputs across worker processes — like `Array.prototype.map` but parallel:
+
+```python
+from multiprocessing import Pool
+
+def square(n: int) -> int:
+    return n * n
+
+if __name__ == "__main__":
+    # IMPORTANT: always guard with if __name__ == "__main__"
+    # on Windows/macOS to prevent recursive process spawning
+    with Pool(processes=4) as pool:
+        results = pool.map(square, [1, 2, 3, 4, 5])
+    print(results)  # [1, 4, 9, 16, 25]
+```
+
+Run this locally — browser sandboxes can't spawn OS threads/processes.
+
+<PyOnly title="if __name__ == '__main__' guard is mandatory">
+
+When you use `multiprocessing`, the new process imports your script to find the target function. If you do not guard the spawning code with `if __name__ == "__main__":`, the child process will also try to spawn children, causing infinite recursion (a "fork bomb") on Windows and macOS.
+
+Linux uses `fork()` so the guard is not strictly necessary, but it is always best practice.
+
+```python
+# WRONG — will crash on Windows/macOS
+from multiprocessing import Pool
+
+def work(n: int) -> int:
+    return n * n
+
+pool = Pool()           # spawns processes here at import time!
+results = pool.map(work, range(5))
+
+# CORRECT
+from multiprocessing import Pool
+
+def work(n: int) -> int:
+    return n * n
+
+if __name__ == "__main__":
+    with Pool() as pool:
+        results = pool.map(work, range(5))
+    print(results)
+```
+
+</PyOnly>
+
+## Process vs Pool
+
+```python
+from multiprocessing import Process, Pool, Queue
+import os
+
+# --- Process: manual, low-level ---
+def task(name: str) -> None:
+    print(f"Process {name} running on PID {os.getpid()}")
+
+if __name__ == "__main__":
+    p1 = Process(target=task, args=("A",))
+    p2 = Process(target=task, args=("B",))
+    p1.start(); p2.start()
+    p1.join(); p2.join()
+
+    # --- Pool: managed pool of workers ---
+    def cpu_heavy(n: int) -> int:
+        return sum(i * i for i in range(n))
+
+    with Pool(processes=4) as pool:
+        # map blocks until all done
+        results = pool.map(cpu_heavy, [100_000, 200_000, 300_000, 400_000])
+    print(results)
+
+    # imap_unordered — results as they complete (like Promise.race-ish)
+    with Pool(processes=4) as pool:
+        for result in pool.imap_unordered(cpu_heavy, [10, 20, 30]):
+            print("got:", result)
+```
+
+## Sharing data between processes
+
+```python
+from multiprocessing import Pool, Manager
+
+def append_result(shared_list, value: int) -> None:
+    shared_list.append(value)  # Manager proxies the write safely
+
+if __name__ == "__main__":
+    with Manager() as manager:
+        shared = manager.list()
+        with Pool(processes=2) as pool:
+            pool.starmap(append_result, [(shared, i) for i in range(5)])
+        print(list(shared))
+
+# Simpler: just collect return values from pool.map — no shared state needed
+```
+
+export const quizMultiprocessing = [
+  {
+    q: 'Why does `multiprocessing` achieve true CPU parallelism when `threading` does not?',
+    options: [
+      'multiprocessing uses a faster GIL implementation',
+      'Each process has its own Python interpreter and its own GIL',
+      'multiprocessing bypasses the OS scheduler',
+      'multiprocessing only works on Linux',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'What is the purpose of the `if __name__ == "__main__":` guard in multiprocessing code?',
+    options: [
+      'It is a Python style convention with no functional effect',
+      'It prevents child processes from re-spawning workers when they import the script',
+      'It enables multiprocessing to use more than 4 cores',
+      'It is only required when using `Process`, not `Pool`',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'Which method distributes a list of inputs across a pool of worker processes and returns results in input order?',
+    options: [
+      'pool.apply()',
+      'pool.imap_unordered()',
+      'pool.map()',
+      'pool.starmap_async()',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'How do separate processes communicate in Python\'s multiprocessing (by default)?',
+    options: [
+      'Shared global variables',
+      'Direct memory access via ctypes',
+      'Message passing — Queue, Pipe, or return values from pool.map',
+      'asyncio events bridging the processes',
+    ],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="concurrency/multiprocessing" questions={quizMultiprocessing} />
+
+<ProgressTracker client:visible id="concurrency/multiprocessing" />

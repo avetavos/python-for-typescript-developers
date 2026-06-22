@@ -1,0 +1,167 @@
+---
+title: Middleware & CORS
+description: Writing middleware with @app.middleware, adding CORS — compared to Express and NestJS middleware patterns.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+
+## Middleware in FastAPI
+
+In Express, `app.use(fn)` registers middleware that wraps every request. FastAPI has the same concept: `@app.middleware("http")` decorates an `async` function that receives the request and a `call_next` callable. `call_next` invokes the next layer — exactly like calling `next()` in Express.
+
+export const middlewareTs = `// Express middleware
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const ms = Date.now() - start;
+    console.log(\`\${req.method} \${req.url} \${res.statusCode} \${ms}ms\`);
+  });
+  next();
+});`;
+
+export const middlewarePy = `# FastAPI middleware
+import time
+from fastapi import FastAPI, Request
+
+app = FastAPI()
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start = time.perf_counter()
+    response = await call_next(request)
+    ms = (time.perf_counter() - start) * 1000
+    print(f"{request.method} {request.url.path} "
+          f"{response.status_code} {ms:.1f}ms")
+    return response`;
+
+<TsGo client:visible ts={middlewareTs} go={middlewarePy} />
+
+## Adding custom headers
+
+A common middleware use-case is injecting headers into every response — for request tracing, caching hints, or security policies.
+
+export const headersTs = `// Express — add header in middleware
+app.use((req, res, next) => {
+  res.setHeader('X-Request-Id', crypto.randomUUID());
+  next();
+});`;
+
+export const headersPy = `# FastAPI — mutate response in middleware
+import uuid
+from fastapi import FastAPI, Request
+
+app = FastAPI()
+
+@app.middleware("http")
+async def add_request_id(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Request-Id"] = str(uuid.uuid4())
+    return response`;
+
+<TsGo client:visible ts={headersTs} go={headersPy} />
+
+## CORS
+
+Cross-Origin Resource Sharing (CORS) is configured via `CORSMiddleware` — FastAPI's equivalent of the `cors` npm package used in Express or `@nestjs/platform-express` CORS option in NestJS.
+
+export const corsTs = `// Express
+import cors from 'cors';
+app.use(cors({
+  origin: ['https://myapp.com', 'http://localhost:3000'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+}));
+
+// NestJS
+app.enableCors({
+  origin: ['https://myapp.com'],
+  credentials: true,
+});`;
+
+export const corsPy = `# FastAPI — CORSMiddleware
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://myapp.com", "http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)`;
+
+<TsGo client:visible ts={corsTs} go={corsPy} />
+
+## Starlette middleware (class-based)
+
+For reusable middleware you can also use Starlette's class-based `BaseHTTPMiddleware` — similar to NestJS `NestMiddleware` with a `use()` method.
+
+export const classMiddlewareTs = `// NestJS class middleware
+@Injectable()
+export class LoggerMiddleware implements NestMiddleware {
+  use(req: Request, res: Response, next: NextFunction) {
+    console.log('Request...', req.method, req.url);
+    next();
+  }
+}`;
+
+export const classMiddlewarePy = `# FastAPI — Starlette BaseHTTPMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from fastapi import FastAPI
+
+class LoggerMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        print(f"Request: {request.method} {request.url.path}")
+        response = await call_next(request)
+        print(f"Response: {response.status_code}")
+        return response
+
+app = FastAPI()
+app.add_middleware(LoggerMiddleware)`;
+
+<TsGo client:visible ts={classMiddlewareTs} go={classMiddlewarePy} />
+
+> **Run this locally — needs FastAPI + a server.**
+> Playground is skipped: middleware requires the ASGI request lifecycle and cannot be demonstrated with a plain Python script.
+
+export const quizMiddleware = [
+  {
+    q: 'What is the FastAPI equivalent of Express\'s next() function inside middleware?',
+    options: [
+      'await request.next()',
+      'await call_next(request)',
+      'return middleware.continue()',
+      'next(request)',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'Which FastAPI middleware class is used to enable CORS?',
+    options: [
+      'fastapi.middleware.CORSHandler',
+      'starlette.middleware.cors.CORSMiddleware',
+      'fastapi.middleware.cors.CORSMiddleware',
+      'Both B and C are correct — they are the same class',
+    ],
+    answer: 3,
+  },
+  {
+    q: 'How do you register middleware in FastAPI?',
+    options: [
+      '@app.middleware("http") decorator or app.add_middleware()',
+      'app.use() like Express',
+      'Only via app.add_middleware() — the decorator does not exist',
+      'Register it in a module like NestJS',
+    ],
+    answer: 0,
+  },
+];
+
+<Quiz client:visible id="api-fastapi/middleware" questions={quizMiddleware} />
+
+<ProgressTracker client:visible id="api-fastapi/middleware" />

@@ -1,0 +1,87 @@
+---
+title: Python ขั้นสูง — ภาพรวม
+description: ทัวร์เครื่องมือขั้นสูงของ Python สำหรับนักพัฒนา TypeScript — typing, dataclasses, descriptors, itertools, pattern matching, testing, และ profiling
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+
+## Python "ขั้นสูง" คืออะไร?
+
+คุณรู้พื้นฐานของ Python แล้ว — ตัวแปร ฟังก์ชัน คลาส collections และ async ระดับขั้นสูงคือจุดที่ปรัชญาการออกแบบของ Python เปล่งประกาย นี่คือเครื่องมือที่ทำให้โค้ดเบส Python ขนาดใหญ่อ่านง่าย เร็ว และดูแลรักษาได้
+
+ถ้าคุณมาจาก TypeScript คุณมีสัญชาตญาณที่แข็งแกร่งเกี่ยวกับ types, generics, decorators, และการทดสอบแบบมีโครงสร้างอยู่แล้ว โมดูลนี้จะแมปสัญชาตญาณเหล่านั้นโดยตรงกับสิ่งเทียบเท่าใน Python และชี้ให้เห็นจุดที่ Python มีความสามารถพิเศษที่ไม่มีคู่ขนานใน TS
+
+## สิ่งที่คุณจะได้เรียน
+
+| บทเรียน | แนวคิดหลัก | คู่ขนานใน TS |
+|---|---|---|
+| **Typing & Protocols** | `Protocol`, `TypeVar`, `TypedDict`, `Optional`/`Union` | Structural interfaces, generics, mapped types |
+| **Dataclasses** | `@dataclass`, `frozen`, `field()` | Class + interface hybrid, records |
+| **Metaclasses & Descriptors** | `__get__`/`__set__`, การสืบทอด `type` | ไม่มีคู่เทียบ — ฟีเจอร์เฉพาะ Python |
+| **itertools & functools** | `chain`, `groupby`, `lru_cache`, `partial` | Lodash / Array methods |
+| **Pattern Matching** | `match`/`case` กับ structural patterns | `switch` + destructuring |
+| **pytest เชิงลึก** | Fixtures, parametrize, assertions | Jest: `beforeEach`, `it.each`, `expect` |
+| **Profiling** | `timeit`, `cProfile`, การอ่าน stats | Node `--prof`, `console.time` |
+
+## Mental model สำหรับทั้งโมดูล
+
+ระบบ type ของ Python เป็นแบบ **opt-in และ runtime-invisible** — เช่นเดียวกับ type ใน TypeScript ที่หายไปหลัง compilation ความต่างคือ annotations ของ Python ยังคงอยู่เป็น metadata ที่สามารถ inspect ได้ ซึ่งตรงนี้เองที่ `dataclasses`, `Protocol`, และ `TypedDict` ใช้ประโยชน์
+
+export const overviewTs = `// TypeScript — types are a compiler concern
+interface Shape {
+  area(): number;
+}
+
+// Generics are erased at runtime
+function first<T>(arr: T[]): T {
+  return arr[0];
+}`;
+
+export const overviewPy = `# Python — types are annotations (not enforced)
+from typing import Protocol, TypeVar
+
+class Shape(Protocol):
+    def area(self) -> float: ...
+
+T = TypeVar('T')
+
+def first(arr: list[T]) -> T:
+    return arr[0]
+
+print(first([10, 20, 30]))  # 10`;
+
+<TsGo client:visible ts={overviewTs} go={overviewPy} />
+
+## วิธีอ่านโมดูลนี้
+
+แต่ละบทเรียนเป็นไปตามรูปแบบเดียวกัน:
+1. **TS analogy ก่อน** — ยึดกับสิ่งที่คุณรู้อยู่แล้ว
+2. **กลไกของ Python** — syntax และ semantics จริง
+3. **Interactive playground** (เมื่อแนวคิดนั้น self-contained)
+4. **PyOnly callouts** — สิ่งที่ไม่มีคู่เทียบใน TS
+5. **Quiz** — ทดสอบความเข้าใจอย่างรวดเร็ว
+
+เรียนตามลำดับ หรือข้ามไปยังบทเรียนที่เกี่ยวข้องกับโปรเจกต์ปัจจุบันของคุณได้เลย
+
+export const quizIndex = [
+  {
+    q: 'โมดูล Python ใดที่ให้ `Protocol`, `TypeVar`, และ `TypedDict`?',
+    options: ['builtins', 'typing', 'types', 'abc'],
+    answer: 1,
+  },
+  {
+    q: 'Type hints ของ Python ถูก enforce ที่ runtime โดยค่าเริ่มต้นหรือไม่?',
+    options: [
+      'ใช่ — interpreter raise TypeError เมื่อ type ไม่ตรง',
+      'ไม่ — มันเป็นแค่ annotations เท่านั้น; runtime ไม่สนใจ',
+      'ใช่ — แต่เฉพาะ return type ของฟังก์ชัน',
+      'ไม่ — ยกเว้นว่าคุณ import `typing_extensions`',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="advanced/index" questions={quizIndex} />
+
+<ProgressTracker client:visible id="advanced/index" />

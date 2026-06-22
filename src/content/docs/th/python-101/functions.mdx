@@ -1,0 +1,226 @@
+---
+title: Functions
+description: def, default args, keyword args, *args/**kwargs และการ return หลายค่า เทียบกับฟังก์ชันของ TypeScript
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## Functions: `def` แทน `function`
+
+คุณรู้จักฟังก์ชันจาก TypeScript ดีอยู่แล้ว คีย์เวิร์ด `def` ของ Python แมปเข้ากับการประกาศ `function` ของ TS แทบจะตรงตัว — แนวคิดเดียวกัน แต่ syntax ต่างกันเล็กน้อย จุดที่ Python แตกต่างคือระบบ **keyword arguments** และความสามารถในการ return หลายค่าได้อย่างสะอาดผ่าน tuple unpacking
+
+## การนิยามฟังก์ชันพื้นฐาน
+
+export const basicFnTs = `// TypeScript
+function greet(name: string, greeting: string = "Hello"): string {
+  return \`\${greeting}, \${name}!\`;
+}
+
+const add = (a: number, b: number): number => a + b;
+
+console.log(greet("Alice"));          // Hello, Alice!
+console.log(greet("Bob", "Hi"));      // Hi, Bob!
+console.log(add(3, 4));               // 7`;
+
+export const basicFnPy = `# Python
+def greet(name: str, greeting: str = "Hello") -> str:
+    return f"{greeting}, {name}!"
+
+def add(a: int, b: int) -> int:
+    return a + b
+
+print(greet("Alice"))           # Hello, Alice!
+print(greet("Bob", "Hi"))       # Hi, Bob!
+print(add(3, 4))                # 7`;
+
+<TsGo client:visible ts={basicFnTs} go={basicFnPy} />
+
+ความต่างสำคัญที่ควรสังเกต:
+- ใช้คีย์เวิร์ด `def` แทน `function`
+- annotation ของ return type อยู่หลัง `->` แทน `: ReturnType`
+- ไม่มีปีกกา — เนื้อของฟังก์ชันใช้การย่อหน้า
+- ไม่มี semicolon
+
+## Keyword arguments
+
+Python ให้ผู้เรียกระบุชื่อ argument ใด ๆ ก็ได้ที่จุดเรียก โดยไม่ขึ้นกับตำแหน่ง สิ่งนี้ไม่เหมือนกับรูปแบบ object-destructuring ของ TypeScript — ใน Python ทุกพารามิเตอร์สามารถเรียกด้วยชื่อได้โดยธรรมชาติ
+
+export const kwargTs = `// TypeScript — must use object destructuring to name args
+function createUser({
+  name,
+  role = "viewer",
+  active = true,
+}: {
+  name: string;
+  role?: string;
+  active?: boolean;
+}) {
+  console.log(\`\${name} (\${role}), active=\${active}\`);
+}
+
+createUser({ name: "Alice", role: "admin" });`;
+
+export const kwargPy = `# Python — every parameter is callable by name
+def create_user(name: str, role: str = "viewer", active: bool = True) -> None:
+    print(f"{name} ({role}), active={active}")
+
+# Positional call
+create_user("Alice", "admin")
+
+# Keyword call — order does not matter
+create_user(role="admin", name="Alice")
+
+# Mix positional and keyword
+create_user("Bob", active=False)`;
+
+<TsGo client:visible ts={kwargTs} go={kwargPy} />
+
+## *args และ **kwargs: argument แบบ variadic
+
+`*args` ของ Python รวบ positional arguments ที่เกินมาเข้าไปใน tuple ส่วน `**kwargs` รวบ keyword arguments ที่เกินมาเข้าไปใน dict เมื่อใช้ร่วมกัน มันช่วยให้คุณเขียน API ที่ยืดหยุ่นได้
+
+export const variadicTs = `// TypeScript
+function sum(...numbers: number[]): number {
+  return numbers.reduce((a, b) => a + b, 0);
+}
+
+// No clean native equivalent for named variadic args
+function logFields(fields: Record<string, string>): void {
+  for (const [k, v] of Object.entries(fields)) {
+    console.log(\`\${k}: \${v}\`);
+  }
+}
+
+console.log(sum(1, 2, 3, 4));  // 10
+logFields({ lang: "Python", tier: "backend" });`;
+
+export const variadicPy = `# Python *args and **kwargs
+def total(*numbers: float) -> float:
+    return sum(numbers)
+
+def log_fields(**fields: str) -> None:
+    for key, value in fields.items():
+        print(f"{key}: {value}")
+
+print(total(1, 2, 3, 4))               # 10.0
+log_fields(lang="Python", tier="backend")`;
+
+<TsGo client:visible ts={variadicTs} go={variadicPy} />
+
+## การ return หลายค่า
+
+TypeScript ใช้ destructuring บน array หรือ object ส่วน Python ใช้ **tuple unpacking** — ฟังก์ชัน return tuple ออกมาแล้วคุณ unpack มันได้โดยตรง สิ่งนี้ให้ความรู้สึกเหมือนเป็นฟีเจอร์ระดับภาษาแบบ first-class มากกว่าจะเป็นวิธีเลี่ยงปัญหา
+
+export const multiReturnTs = `// TypeScript — return an object or array
+function minMax(nums: number[]): { min: number; max: number } {
+  return { min: Math.min(...nums), max: Math.max(...nums) };
+}
+
+const { min, max } = minMax([3, 1, 4, 1, 5, 9]);
+console.log(min, max);  // 1 9`;
+
+export const multiReturnPy = `# Python — return a tuple, unpack at the call site
+def min_max(nums: list[float]) -> tuple[float, float]:
+    return min(nums), max(nums)
+
+low, high = min_max([3, 1, 4, 1, 5, 9])
+print(low, high)  # 1 9
+
+# Or keep it as a tuple
+result = min_max([3, 1, 4, 1, 5, 9])
+print(result)     # (1, 9)`;
+
+<TsGo client:visible ts={multiReturnTs} go={multiReturnPy} />
+
+## ลองเล่นดู
+
+export const functionsCode = `def greet(name: str, greeting: str = "Hello") -> str:
+    return f"{greeting}, {name}!"
+
+def stats(*numbers: float) -> tuple[float, float]:
+    return min(numbers), max(numbers)
+
+def describe(**info: str) -> None:
+    for key, value in info.items():
+        print(f"  {key}: {value}")
+
+print(greet("Alice"))
+print(greet("Bob", greeting="Hi"))
+print(greet(name="Carol", greeting="Hey"))
+
+low, high = stats(3, 1, 4, 1, 5, 9, 2, 6)
+print(f"min={low}, max={high}")
+
+print("User info:")
+describe(language="Python", version="3.12", tier="backend")
+`;
+
+<Playground client:visible code={functionsCode} />
+
+<PyOnly title="Keyword arguments และ **kwargs">
+
+TypeScript ไม่มีสิ่งที่เทียบเท่าระบบ keyword argument ของ Python โดยตรง ใน TypeScript การส่งพารามิเตอร์แบบระบุชื่อต้องใช้ options object (`{ name, role }`) ส่วนใน Python นั้น positional parameter **ทุกตัว** ก็สามารถส่งด้วยชื่อได้ที่จุดเรียก โดยไม่ต้องหุ้มด้วย object เพิ่ม
+
+`**kwargs` จับ keyword argument ใด ๆ ที่ผู้เรียกส่งมาแต่ไม่ได้เป็นพารามิเตอร์ที่ประกาศไว้อย่างชัดเจน รูปแบบนี้ถูกใช้อย่างแพร่หลายในไลบรารี Python สำหรับการ config ที่ยืดหยุ่น:
+
+```python
+def make_request(url: str, **options: str) -> None:
+    # options might contain timeout, headers, method...
+    print(url, options)
+
+make_request("https://api.example.com", timeout="30", method="POST")
+```
+
+คุณยังสามารถ **spread** dict เข้าไปเป็น keyword arguments ได้ด้วย `**`:
+
+```python
+defaults = {"timeout": "30", "retries": "3"}
+make_request("https://api.example.com", **defaults)
+```
+
+</PyOnly>
+
+export const quizFunctions = [
+  {
+    q: 'Python ใช้คีย์เวิร์ดอะไรในการนิยามฟังก์ชัน?',
+    options: ['func', 'fn', 'def', 'function'],
+    answer: 2,
+  },
+  {
+    q: 'ใน Python การเรียก `greet(name="Alice", greeting="Hey")` ทั้งที่ประกาศ `def greet(greeting, name)` ใช้ได้เพราะ:',
+    options: [
+      'Default arguments',
+      'Keyword arguments',
+      '*args',
+      'Tuple unpacking',
+    ],
+    answer: 1,
+  },
+  {
+    q: '`**kwargs` รวบอะไรเข้าไปภายในฟังก์ชัน Python?',
+    options: [
+      'positional arguments ที่เกินมาเป็น list',
+      'positional arguments ที่เกินมาเป็น tuple',
+      'keyword arguments ที่เกินมาเป็น dict',
+      'keyword arguments ที่เกินมาเป็น set',
+    ],
+    answer: 2,
+  },
+  {
+    q: '`def divmod_custom(a, b): return a // b, a % b` return อะไรออกมา?',
+    options: [
+      'list ที่มีสองสมาชิก',
+      'tuple ที่มีสองสมาชิก',
+      'ค่าสองค่าแยกกันที่ไม่สามารถรับพร้อมกันได้',
+      'dict ที่มีสองคีย์',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="python-101/functions" questions={quizFunctions} />
+
+<ProgressTracker client:visible id="python-101/functions" />

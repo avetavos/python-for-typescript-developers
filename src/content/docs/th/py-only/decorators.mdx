@@ -1,0 +1,196 @@
+---
+title: "Decorators"
+description: Python decorators กับ @syntax, functions เป็น first-class object และการ wrap behavior vs TypeScript decorators
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## Decorators: การเพิ่มพฤติกรรมโดยไม่แก้ไขโค้ดเดิม
+
+TypeScript มี decorators เช่นกัน แต่เป็น feature ที่ยังทดลองอยู่ ผูกกับ class และพฤติกรรมของมันก็เปลี่ยนแปลงไปตาม TypeScript และ ECMAScript proposal ต่าง ๆ Decorator ของ Python นั้น stable กว่า เรียบง่ายกว่า และทำงานได้กับ function ใด ๆ ก็ตาม ไม่ใช่แค่ class method เท่านั้น Decorator ถูกใช้อย่างแพร่หลายใน Python framework ต่าง ๆ (Flask routes, FastAPI endpoints, Celery tasks, `dataclasses.dataclass`) จนคุณจะพบมันในแทบทุก codebase ของ Python
+
+Decorator คือ function ที่รับ function มาและคืน function ใหม่กลับไป syntax `@name` เป็นเพียง shorthand ของ `func = name(func)`
+
+## การ wrap function
+
+รูปแบบหลักคือการ wrap function ที่มีอยู่เพื่อเพิ่มพฤติกรรมก่อนและหลังการเรียก ฝั่ง TypeScript หากต้องการผลเดียวกันกับ plain function จะต้องใช้ higher-order function ที่เรียกด้วยตนเอง หรือ class decorator ที่ใช้ได้กับ method เท่านั้น
+
+export const tsDecorators = `// TypeScript: class method decorator (experimental, stage 3)
+// Works on class methods, not plain functions
+function log(target: any, key: string, descriptor: PropertyDescriptor) {
+  const original = descriptor.value;
+  descriptor.value = function (...args: any[]) {
+    console.log(\`Calling \${key}...\`);
+    const result = original.apply(this, args);
+    console.log(\`\${key} finished.\`);
+    return result;
+  };
+  return descriptor;
+}
+
+class Greeter {
+  @log
+  greet(name: string) {
+    console.log(\`Hello, \${name}!\`);
+  }
+}
+
+// For a plain function you must wrap it manually:
+function withLog<T extends (...args: any[]) => any>(fn: T): T {
+  return ((...args: any[]) => {
+    console.log(\`Calling \${fn.name}...\`);
+    const result = fn(...args);
+    console.log(\`\${fn.name} finished.\`);
+    return result;
+  }) as T;
+}
+
+const greet = withLog((name: string) => console.log(\`Hello, \${name}!\`));
+greet("Alice");`;
+
+export const pyDecorators = `# Python: decorators work on any function, syntax is @name
+import functools
+
+def timer_decorator(func):
+    @functools.wraps(func)        # preserves __name__, __doc__, etc.
+    def wrapper(*args, **kwargs):
+        print(f"Calling \${func.__name__}...")
+        result = func(*args, **kwargs)
+        print(f"\${func.__name__} finished.")
+        return result
+    return wrapper
+
+@timer_decorator               # equivalent to: greet = timer_decorator(greet)
+def greet(name):
+    print(f"Hello, \${name}!")
+
+greet("Alice")
+# Output:
+# Calling greet...
+# Hello, Alice!
+# greet finished.`;
+
+<TsGo client:visible ts={tsDecorators} go={pyDecorators} />
+
+## Decorator ที่รับ argument: decorator factory
+
+เมื่อคุณต้องการส่ง configuration ให้ decorator คุณเพิ่ม outer function ที่รับ argument และคืน decorator จริงกลับไป รูปแบบนี้เรียกว่า decorator factory
+
+```python
+def repeat(n):
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            for _ in range(n):
+                func(*args, **kwargs)
+        return wrapper
+    return decorator
+
+@repeat(3)          # repeat(3) returns decorator; decorator(say_hi) returns wrapper
+def say_hi():
+    print("Hi!")
+
+say_hi()   # prints "Hi!" three times
+```
+
+การซ้อนสามชั้น (factory -> decorator -> wrapper) คือรูปแบบมาตรฐานเมื่อ decorator ต้องการ parameter
+
+## ลองทดสอบ
+
+export const playgroundDecorators = `import functools
+
+def timer_decorator(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        print(f"Calling \${func.__name__}...")
+        result = func(*args, **kwargs)
+        print(f"\${func.__name__} finished.")
+        return result
+    return wrapper
+
+@timer_decorator
+def greet(name):
+    print(f"Hello, \${name}!")
+
+greet("Alice")
+
+def repeat(n):
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            for _ in range(n):
+                func(*args, **kwargs)
+        return wrapper
+    return decorator
+
+@repeat(3)
+def say_hi():
+    print("Hi!")
+
+say_hi()
+`;
+
+<Playground client:visible code={playgroundDecorators} />
+
+<PyOnly title="Decorators run at definition time, not call time">
+
+นี่คือความละเอียดอ่อนที่สำคัญที่สุดที่นักพัฒนา TypeScript ต้องทำความเข้าใจ: **decorator ของ Python ทำงานครั้งเดียวตอน import module (หรือตอนนิยาม function) ไม่ใช่ทุกครั้งที่เรียก function ที่ถูก decorate**
+
+เมื่อ Python ประมวลผล:
+
+```python
+@timer_decorator
+def greet(name):
+    print(f"Hello, {name}!")
+```
+
+มันจะ execute `greet = timer_decorator(greet)` ทันที ตอนที่โค้ดใด ๆ เรียก `greet("Alice")` การ decorate เสร็จสิ้นแล้ว — `greet` เป็น wrapper function อยู่แล้ว
+
+ผลที่ตามมาในทางปฏิบัติ:
+
+- **ต้นทุน startup** — ถ้า decorator ทำงานหนักตอน decoration time (ลงทะเบียน route, เชื่อมต่อ service) ต้นทุนนั้นจ่ายตอน import ไม่ใช่ต่อการเรียก Flask และ FastAPI ใช้ประโยชน์จากนี้: `@app.route("/")` ลงทะเบียน route เข้าตาราง routing ของ app ทันที
+- **ลำดับการซ้อน** — เมื่อซ้อน decorator หลายตัว จะนำมาใช้จากล่างขึ้นบนแต่ execute จากบนลงล่าง ถ้า `@A` อยู่เหนือ `@B` เหนือ `def f` Python จะรัน `f = A(B(f))` เมื่อเรียก `f()` wrapper ของ A จะทำงานก่อน แล้วจึง B
+- **`functools.wraps` ไม่ใช่ optional ในโค้ด production** — ถ้าไม่ใช้ `greet.__name__` จะคืน `"wrapper"` แทนที่จะเป็น `"greet"` และ `greet.__doc__` หายไป ทำให้ introspection, logging, และ testing tool บางตัวทำงานผิดพลาด
+- **Class-based decorators** — class ก็สามารถเป็น decorator ได้ถ้านำ `__call__` มาใช้ instance ของ class จะกลายเป็น wrapped function วิธีนี้มีประโยชน์เมื่อ decorator ต้องการเก็บ state ระหว่างการเรียก
+
+</PyOnly>
+
+export const quizDecorators = [
+  {
+    q: 'Python decorator ทำงานเมื่อใด?',
+    options: [
+      'ทุกครั้งที่เรียก function ที่ถูก decorate',
+      'ครั้งเดียว ตอนที่นิยาม function (ตอน import)',
+      'เฉพาะเมื่อ reload module อย่างชัดแจ้ง',
+      'เมื่อ function ที่ถูก decorate ถูก garbage-collected',
+    ],
+    answer: 1,
+  },
+  {
+    q: '`@functools.wraps(func)` ภายใน decorator ทำอะไร?',
+    options: [
+      'ทำให้ wrapper function ทำงานเร็วขึ้น',
+      'คัดลอก __name__, __doc__, และ metadata อื่น ๆ ของ function ต้นฉบับลงบน wrapper',
+      'ป้องกันไม่ให้ wrapper ถูก decorate ซ้ำ',
+      'เรียก original function โดยอัตโนมัติ',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'Python ธรรมดาที่เทียบเท่ากับ `@my_decorator` ที่ใช้กับ `def foo(): ...` คืออะไร?',
+    options: [
+      'foo = foo(my_decorator)',
+      'foo = my_decorator(foo)',
+      'my_decorator.apply(foo)',
+      'foo.__wrap__(my_decorator)',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="py-only/decorators" questions={quizDecorators} />
+
+<ProgressTracker client:visible id="py-only/decorators" />

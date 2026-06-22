@@ -1,0 +1,188 @@
+---
+title: "Comprehensions & Generator Expressions"
+description: Python list/dict/set comprehensions and lazy generator expressions vs TypeScript's map/filter/reduce.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## One syntax for all collection transformations
+
+TypeScript developers reach for `.map()`, `.filter()`, and `.reduce()` chained on arrays. This works, but it requires creating intermediate arrays at each step and cannot natively produce a `Set` or an object directly. Python has **comprehension syntax** built into the language for four forms: list, dict, set, and generator. The mental model is: `[expression for item in iterable if condition]`.
+
+## List comprehension vs map/filter
+
+The most common case is transforming a collection while optionally filtering it. In TypeScript this is two separate method calls. In Python it is a single expression.
+
+export const tsComprehensions = `// TypeScript: chained .map() and .filter()
+const numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+// squares of even numbers
+const result = numbers
+  .filter(n => n % 2 === 0)
+  .map(n => n ** 2);
+
+console.log(result); // [4, 16, 36, 64, 100]
+
+// Building an object from an array requires reduce or Object.fromEntries
+const words = ["hello", "world", "typescript"];
+const wordLengths = Object.fromEntries(
+  words.map(w => [w, w.length])
+);
+console.log(wordLengths); // { hello: 5, world: 5, typescript: 10 }`;
+
+export const pyComprehensions = `# Python: comprehensions for list, dict, set, and generator
+
+numbers = list(range(1, 11))
+
+# squares of even numbers — single expression
+result = [n ** 2 for n in numbers if n % 2 == 0]
+print(result)  # [4, 16, 36, 64, 100]
+
+# Dict comprehension — no need for Object.fromEntries
+words = ["hello", "world", "python"]
+word_lengths = {word: len(word) for word in words}
+print(word_lengths)  # {'hello': 5, 'world': 5, 'python': 6}
+
+# Set comprehension — duplicates are automatically removed
+unique_lengths = {len(word) for word in words}
+print(unique_lengths)  # {5, 6}`;
+
+<TsGo client:visible ts={tsComprehensions} go={pyComprehensions} />
+
+## All four forms
+
+**List comprehension** — produces an eager `list`:
+```python
+squares = [x ** 2 for x in range(1, 6)]
+# [1, 4, 9, 16, 25]
+```
+
+**Dict comprehension** — produces a `dict`:
+```python
+word_lengths = {word: len(word) for word in ["hello", "world", "python"]}
+# {'hello': 5, 'world': 5, 'python': 6}
+```
+
+**Set comprehension** — produces a `set` (no duplicate values):
+```python
+unique_lengths = {len(word) for word in ["hi", "hello", "hey", "world"]}
+# {2, 3, 5}
+```
+
+**Generator expression** — produces a lazy generator (parentheses, not brackets):
+```python
+gen = (x ** 2 for x in range(5))
+# Nothing is computed yet. Values are produced only when iterated.
+print(list(gen))  # [0, 1, 4, 9, 16]
+```
+
+The syntax is identical across all four forms; only the outer delimiter changes: `[]` for list, `{}` with a colon for dict, `{}` without a colon for set, and `()` for generator.
+
+## Try it
+
+export const playgroundComprehensions = `# List comprehension
+squares = [x ** 2 for x in range(1, 6)]
+print(squares)
+
+# With filter condition
+evens = [x for x in range(10) if x % 2 == 0]
+print(evens)
+
+# Dict comprehension
+word_lengths = {word: len(word) for word in ["hello", "world", "python"]}
+print(word_lengths)
+
+# Set comprehension -- unique values only
+unique_lengths = {len(word) for word in ["hi", "hello", "hey", "world"]}
+print(sorted(unique_lengths))
+
+# Generator expression -- lazy
+gen = (x ** 2 for x in range(5))
+print(list(gen))
+`;
+
+<Playground client:visible code={playgroundComprehensions} />
+
+<PyOnly title="Generator expressions are lazy — list comprehensions are not">
+
+This distinction matters for performance and correctness.
+
+A **list comprehension** `[expr for x in iterable]` evaluates eagerly: Python immediately iterates the entire iterable and builds a list in memory. If the iterable has 10 million items, all 10 million results are stored at once.
+
+A **generator expression** `(expr for x in iterable)` evaluates lazily: it returns a generator object immediately without computing anything. Values are produced one at a time, only when requested by iteration (`for`, `next()`, `list()`, etc.).
+
+```python
+# Eager — builds the full list in memory immediately
+big_list = [x ** 2 for x in range(10_000_000)]
+
+# Lazy — no memory allocated for results yet
+big_gen = (x ** 2 for x in range(10_000_000))
+
+# Only the first value is computed:
+print(next(big_gen))  # 0
+```
+
+**When to use each form:**
+
+- Use a **list comprehension** when you need to index into the result, iterate it more than once, know its length, or pass it to something that requires a list.
+- Use a **generator expression** when you only need to iterate once, are passing the result to a function that accepts any iterable (`sum()`, `max()`, `join()`, `any()`, `all()`), or the source iterable is large enough that materializing it all at once would waste memory.
+
+A common Python idiom is passing a generator expression directly to a function:
+
+```python
+total = sum(x ** 2 for x in range(1000))   # no extra list created
+```
+
+Note that a generator is **exhausted** after one full iteration — iterating it a second time yields nothing. If you need to iterate the results multiple times, use a list comprehension instead.
+
+</PyOnly>
+
+export const quizComprehensions = [
+  {
+    q: 'Which syntax produces a Python set comprehension?',
+    options: [
+      '[expr for x in iterable]',
+      '(expr for x in iterable)',
+      '{expr for x in iterable}',
+      '{key: expr for x in iterable}',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'What is the key difference between a list comprehension and a generator expression?',
+    options: [
+      'Generator expressions use square brackets; list comprehensions use parentheses',
+      'List comprehensions evaluate eagerly and store all results; generator expressions evaluate lazily on demand',
+      'Generator expressions can only produce numbers',
+      'List comprehensions cannot include a filter condition',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'What happens if you iterate a generator expression twice?',
+    options: [
+      'It raises a StopIteration error on the first item of the second iteration',
+      'It restarts from the beginning automatically',
+      'The second iteration yields no values because the generator is exhausted',
+      'It raises a TypeError',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'Which of the following is the most memory-efficient way to sum the squares of numbers 0 through 999?',
+    options: [
+      'sum([x ** 2 for x in range(1000)])',
+      'sum((x ** 2 for x in range(1000)))',
+      'total = 0; [total := total + x**2 for x in range(1000)]',
+      'list(map(lambda x: x**2, range(1000)))',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="py-only/comprehensions" questions={quizComprehensions} />
+
+<ProgressTracker client:visible id="py-only/comprehensions" />

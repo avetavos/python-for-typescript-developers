@@ -1,0 +1,218 @@
+---
+title: "The GIL — Global Interpreter Lock"
+description: What Python's GIL is, why it matters for concurrency, and a preview of the concurrency module vs JavaScript's single-threaded event loop.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## JavaScript is single-threaded — Python has threads, but with a catch
+
+As a TypeScript developer, you are used to JavaScript's concurrency model: one thread, one event loop, non-blocking I/O via callbacks and `async`/`await`. There are no data races because there is only ever one piece of JavaScript code running at a time. Worker threads exist, but they share no memory by default — they communicate via message passing.
+
+Python has true OS threads via the `threading` module. You can spawn multiple threads and they run in the same process with shared memory. However, CPython (the reference Python implementation) includes a mechanism called the **Global Interpreter Lock** that fundamentally limits what those threads can do in parallel. Understanding the GIL is essential for writing Python programs that need to scale across CPU cores.
+
+## What the GIL is
+
+The GIL is a mutex — a mutual exclusion lock — that protects CPython's internal state. CPython's memory management (reference counting for garbage collection) is not thread-safe. Rather than add fine-grained locks throughout the interpreter, Guido van Rossum's team added one coarse lock: only one thread may execute Python bytecode at any given moment.
+
+Threads do take turns — the GIL is released and re-acquired periodically (roughly every 5ms in Python 3.2+, or whenever a thread makes an I/O system call). But for pure CPU work, having two threads does not give you two CPU cores of throughput. One thread runs; the other waits.
+
+export const tsGil = `// TypeScript/Node.js: worker_threads for CPU parallelism
+// Workers share no memory by default — communicate with postMessage
+import { Worker, isMainThread, parentPort } from 'worker_threads';
+
+if (isMainThread) {
+  const worker = new Worker(__filename);
+  worker.on('message', (result) => {
+    console.log('result from worker:', result);
+  });
+  worker.postMessage({ start: 0, end: 1_000_000 });
+} else {
+  parentPort?.on('message', ({ start, end }) => {
+    let sum = 0;
+    for (let i = start; i < end; i++) sum += i;
+    parentPort?.postMessage(sum);
+  });
+}`;
+
+export const pyGil = `# Python: threads exist but the GIL limits CPU parallelism
+import threading
+
+results = []
+
+def cpu_sum(start, end, out, index):
+    total = sum(range(start, end))
+    out[index] = total
+
+# Two threads — but only one runs Python bytecode at a time
+t1 = threading.Thread(target=cpu_sum, args=(0, 500_000, results, 0))
+t2 = threading.Thread(target=cpu_sum, args=(500_000, 1_000_000, results, 1))
+results = [None, None]
+
+t1.start(); t2.start()
+t1.join();  t2.join()
+
+print(sum(results))  # correct answer, but not 2x faster`;
+
+<TsGo client:visible ts={tsGil} go={pyGil} />
+
+## When the GIL hurts and when it does not
+
+The GIL only blocks concurrent execution of **Python bytecode**. Many operations that appear to be Python code actually drop into C extensions or the OS, and those can release the GIL voluntarily:
+
+| Workload | GIL effect | Recommended tool |
+|---|---|---|
+| CPU-bound Python loops | Blocks parallelism | `multiprocessing` or C extensions |
+| Network I/O (requests, sockets) | GIL released during syscall | `threading` or `asyncio` |
+| File I/O | GIL released during syscall | `threading` or `asyncio` |
+| NumPy / pandas operations | GIL released in C layer | `threading` is fine |
+| Subprocess calls | GIL released | `threading` is fine |
+
+The practical rule: if your bottleneck is the Python interpreter executing your code, threads will not help — use `multiprocessing`. If your bottleneck is waiting on external systems (network, disk, databases), threads or `asyncio` work well.
+
+## Bypassing the GIL with multiprocessing
+
+`multiprocessing` spawns separate Python interpreter processes — each with its own GIL and its own CPU core. It is the standard tool for CPU-bound parallelism.
+
+export const tsMp = `// TypeScript: CPU parallelism via worker_threads pool
+import { Worker } from "worker_threads";
+import * as os from "os";
+
+function runWorker(data: number): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const w = new Worker(\`
+      const { parentPort, workerData } = require("worker_threads");
+      let total = 0;
+      for (let i = 0; i < workerData; i++) total += i;
+      parentPort.postMessage(total);
+    \`, { eval: true, workerData: data });
+    w.on("message", resolve);
+    w.on("error", reject);
+  });
+}
+
+const cpus = os.cpus().length;
+Promise.all(Array.from({ length: cpus }, (_, i) =>
+  runWorker(1_000_000 / cpus)
+)).then(results => console.log(results.reduce((a, b) => a + b, 0)));`;
+
+export const pyMp = `# Python: multiprocessing bypasses the GIL entirely
+from multiprocessing import Pool
+import os
+
+def cpu_work(n):
+    return sum(range(n))
+
+if __name__ == "__main__":
+    cpus = os.cpu_count()
+    chunk = 1_000_000 // cpus
+    with Pool(cpus) as pool:
+        results = pool.map(cpu_work, [chunk] * cpus)
+    print(sum(results))`;
+
+<TsGo client:visible ts={tsMp} go={pyMp} />
+
+## Python 3.13 Free-Threaded mode
+
+Python 3.13 introduced an experimental build option (`--disable-gil`, or `python3.13t` on some platforms) that removes the GIL entirely. This is the result of PEP 703, authored by Sam Gross. The free-threaded build allows multiple threads to genuinely run Python bytecode in parallel on multiple cores.
+
+The trade-off: reference counting is now done with atomic operations, and many C extensions that assumed the GIL were implicitly thread-safe must be audited and updated. As of 3.13 the feature is opt-in and marked experimental; it is expected to stabilize in Python 3.14 and 3.15.
+
+> **Playground note:** Demonstrating GIL effects requires comparing CPU-bound vs I/O-bound thread timing, which is not meaningful in a browser sandbox. Run the examples locally with `python3 -c "import threading; ..."`.
+
+<PyOnly title="Bypassing the GIL: multiprocessing, asyncio, and C extensions">
+
+**multiprocessing**
+
+The `multiprocessing` module spawns separate Python interpreter processes. Each process has its own GIL, its own memory space, and runs on its own CPU core independently. Data is exchanged through `Queue`, `Pipe`, or shared memory (`multiprocessing.shared_memory`). This is the standard solution for CPU-bound parallelism in Python:
+
+```python
+from multiprocessing import Pool
+
+def cpu_task(n):
+    return sum(range(n))
+
+with Pool(processes=4) as pool:
+    results = pool.map(cpu_task, [1_000_000] * 4)
+print(results)
+```
+
+The downside: process startup overhead is higher than thread startup, and sharing state requires explicit serialization (pickling).
+
+**asyncio: cooperative, not preemptive**
+
+`asyncio` is Python's event loop for I/O-bound concurrency. It runs entirely in a single thread — no GIL interaction at all. Like JavaScript's event loop, it uses cooperative multitasking: a coroutine explicitly yields control with `await`, which lets the event loop run another coroutine. There is no preemption and no data races on Python objects.
+
+```python
+import asyncio
+
+async def fetch(url):
+    await asyncio.sleep(1)  # simulates an I/O wait
+    return f"result from {url}"
+
+async def main():
+    tasks = [fetch("url1"), fetch("url2"), fetch("url3")]
+    results = await asyncio.gather(*tasks)
+    print(results)  # all three complete in ~1 second
+
+asyncio.run(main())
+```
+
+`asyncio` and `threading` solve the same I/O-bound problem. `asyncio` has lower overhead per concurrent task and is better when you have thousands of connections; `threading` is simpler for small numbers of long-lived blocking calls.
+
+**C extensions and Cython**
+
+C extension modules can call `Py_BEGIN_ALLOW_THREADS` to release the GIL, do CPU work in C (which runs on multiple cores simultaneously with Python threads), and then reacquire it with `Py_END_ALLOW_THREADS`. NumPy, pandas, and most scientific Python libraries do exactly this, which is why NumPy operations are safe to parallelize with threads even though they look like Python code.
+
+Cython, a Python superset that compiles to C, lets you annotate functions with `with nogil:` to release the GIL for a block of C-level code. This is a common pattern in high-performance Python libraries.
+
+</PyOnly>
+
+export const quizGil = [
+  {
+    q: 'What does the GIL prevent in CPython?',
+    options: [
+      'More than one Python process from running at the same time',
+      'More than one Python thread from executing Python bytecode simultaneously',
+      'asyncio coroutines from running concurrently',
+      'C extension modules from using multiple CPU cores',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'For which type of workload does the GIL cause the most harm?',
+    options: [
+      'I/O-bound tasks like network requests',
+      'CPU-bound tasks implemented in pure Python',
+      'File reads and writes',
+      'Database queries',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'What Python module is the standard solution for true CPU parallelism across multiple cores?',
+    options: [
+      'threading',
+      'asyncio',
+      'concurrent.futures with ThreadPoolExecutor',
+      'multiprocessing',
+    ],
+    answer: 3,
+  },
+  {
+    q: 'How does asyncio achieve concurrency without threads?',
+    options: [
+      'It uses OS-level preemptive scheduling',
+      'It runs one coroutine per CPU core',
+      'It uses cooperative multitasking: coroutines yield control explicitly with await',
+      'It releases the GIL automatically for all async functions',
+    ],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="py-only/gil-preview" questions={quizGil} />
+
+<ProgressTracker client:visible id="py-only/gil-preview" />

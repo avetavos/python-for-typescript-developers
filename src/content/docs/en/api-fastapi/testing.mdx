@@ -1,0 +1,212 @@
+---
+title: Testing with TestClient & pytest
+description: Writing API tests in FastAPI using TestClient and pytest — compared to supertest and Jest in Node.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## supertest / Jest → TestClient + pytest
+
+In Node you use **supertest** to make HTTP requests against your Express or NestJS app in-process, and **Jest** as the test runner. In FastAPI you use **`TestClient`** (from Starlette, bundled with FastAPI) for in-process HTTP requests, and **pytest** as the test runner.
+
+export const testSetupTs = `// Jest + supertest — app.test.ts
+import request from 'supertest';
+import { app } from '../src/app';
+
+describe('GET /items/:id', () => {
+  it('returns an item', async () => {
+    const res = await request(app).get('/items/1');
+    expect(res.status).toBe(200);
+    expect(res.body.id).toBe(1);
+  });
+
+  it('returns 404 for unknown id', async () => {
+    const res = await request(app).get('/items/9999');
+    expect(res.status).toBe(404);
+  });
+});`;
+
+export const testSetupPy = `# pytest + TestClient — test_items.py
+from fastapi.testclient import TestClient
+from app.main import app
+
+client = TestClient(app)
+
+def test_get_item():
+    response = client.get("/items/1")
+    assert response.status_code == 200
+    assert response.json()["id"] == 1
+
+def test_get_item_not_found():
+    response = client.get("/items/9999")
+    assert response.status_code == 404`;
+
+<TsGo client:visible ts={testSetupTs} go={testSetupPy} />
+
+## Testing POST with a request body
+
+export const testPostTs = `// supertest POST
+it('creates an item', async () => {
+  const res = await request(app)
+    .post('/items')
+    .send({ name: 'Widget', price: 9.99 })
+    .set('Content-Type', 'application/json');
+
+  expect(res.status).toBe(201);
+  expect(res.body.name).toBe('Widget');
+});
+
+it('rejects invalid input', async () => {
+  const res = await request(app)
+    .post('/items')
+    .send({ name: '', price: -1 });
+  expect(res.status).toBe(422);
+});`;
+
+export const testPostPy = `# TestClient POST
+def test_create_item():
+    response = client.post(
+        "/items",
+        json={"name": "Widget", "price": 9.99},
+    )
+    assert response.status_code == 201
+    assert response.json()["name"] == "Widget"
+
+def test_create_item_invalid():
+    response = client.post(
+        "/items",
+        json={"name": "", "price": -1},
+    )
+    assert response.status_code == 422`;
+
+<TsGo client:visible ts={testPostTs} go={testPostPy} />
+
+## Overriding dependencies in tests
+
+The key testing pattern in FastAPI is `app.dependency_overrides` — replacing real dependencies (like a database session) with test doubles. This is the equivalent of Jest's `jest.mock()` or NestJS's `overrideProvider()`.
+
+export const overrideTs = `// NestJS — override a provider in tests
+const moduleRef = await Test.createTestingModule({
+  providers: [ItemsService],
+})
+.overrideProvider(DatabaseService)
+.useValue({ findById: jest.fn().mockResolvedValue({ id: 1 }) })
+.compile();`;
+
+export const overridePy = `# FastAPI — dependency_overrides
+from fastapi.testclient import TestClient
+from app.main import app
+from app.database import get_db
+
+# A fake DB session for tests
+def override_get_db():
+    yield FakeDBSession()
+
+app.dependency_overrides[get_db] = override_get_db
+
+client = TestClient(app)
+
+def test_get_item_with_fake_db():
+    response = client.get("/items/1")
+    assert response.status_code == 200
+
+# Restore after tests (or use a pytest fixture)
+app.dependency_overrides.clear()`;
+
+<TsGo client:visible ts={overrideTs} go={overridePy} />
+
+## pytest fixtures for setup/teardown
+
+pytest's `@pytest.fixture` is the equivalent of Jest's `beforeEach` / `afterEach`. A `conftest.py` file shares fixtures across test files — like a Jest global setup file.
+
+export const fixtureTs = `// Jest beforeEach / afterEach
+let client: TestClient;
+
+beforeAll(async () => {
+  const app = await NestFactory.create(AppModule);
+  await app.init();
+  client = app.getHttpServer();
+});
+
+afterAll(async () => { await app.close(); });`;
+
+export const fixturePy = `# pytest — conftest.py fixtures
+import pytest
+from fastapi.testclient import TestClient
+from app.main import app
+from app.database import Base, engine, get_db
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+TEST_DB_URL = "sqlite:///./test.db"
+test_engine = create_engine(TEST_DB_URL, connect_args={"check_same_thread": False})
+TestSession = sessionmaker(bind=test_engine)
+
+@pytest.fixture(scope="module")
+def client():
+    Base.metadata.create_all(bind=test_engine)
+    def override_db():
+        db = TestSession()
+        try:
+            yield db
+        finally:
+            db.close()
+    app.dependency_overrides[get_db] = override_db
+    with TestClient(app) as c:
+        yield c
+    Base.metadata.drop_all(bind=test_engine)`;
+
+<TsGo client:visible ts={fixtureTs} go={fixturePy} />
+
+<PyOnly title="pytest discovery and naming conventions">
+
+pytest finds test files automatically if you follow the naming convention:
+
+- File names must start with `test_` or end with `_test.py`
+- Function names inside must start with `test_`
+- No import of pytest is needed in the test file (except for `pytest.fixture`)
+
+Unlike Jest where you call `describe()` and `it()`, pytest uses plain functions. You can group tests with a class that starts with `Test` (no `__init__`).
+
+```bash
+# Run all tests
+pytest
+
+# Run with output and coverage
+pytest -v --cov=app --cov-report=term-missing
+```
+
+</PyOnly>
+
+> **Run this locally — needs FastAPI + httpx + pytest.**
+> Install: `pip install httpx pytest pytest-cov`
+> Playground is skipped: TestClient requires a full FastAPI app and HTTP lifecycle.
+
+export const quizTesting = [
+  {
+    q: 'What is the FastAPI equivalent of the supertest npm package for in-process HTTP testing?',
+    options: ['requests', 'httpx', 'TestClient from fastapi.testclient', 'aiohttp'],
+    answer: 2,
+  },
+  {
+    q: 'How do you replace a real database session with a fake one in FastAPI tests?',
+    options: [
+      'Use unittest.mock.patch on the route',
+      'Set app.dependency_overrides[get_db] = fake_db_function',
+      'Monkeypatch the SessionLocal class',
+      'Pass a test= flag to the FastAPI constructor',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'What file shares pytest fixtures across all test files in a directory?',
+    options: ['pytest.ini', 'setup.py', 'conftest.py', 'test_helpers.py'],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="api-fastapi/testing" questions={quizTesting} />
+
+<ProgressTracker client:visible id="api-fastapi/testing" />

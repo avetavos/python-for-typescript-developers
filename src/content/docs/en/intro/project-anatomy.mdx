@@ -1,0 +1,278 @@
+---
+title: Project Anatomy — Packages, Imports, and pyproject.toml
+description: How Python projects are structured — modules, packages, pyproject.toml vs package.json, venv vs node_modules, and the import system.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## Files, modules, and packages
+
+In Node.js every `.js`/`.ts` file is a module. You import from it with `import`. Python works the same way, but the vocabulary is slightly different:
+
+- **Module** — any `.py` file. `math.py` is a module named `math`.
+- **Package** — a directory containing an `__init__.py` file. It groups related modules.
+- **Namespace package** — a directory without `__init__.py` (Python 3.3+). Rarely needed.
+
+export const moduleTs = `// Node/TypeScript module layout
+src/
+  utils/
+    string.ts     ← module
+    number.ts     ← module
+  api/
+    index.ts      ← entry point
+  index.ts        ← root entry
+
+// import from a module
+import { capitalize } from "./utils/string";`;
+
+export const modulePy = `# Python package layout
+src/
+  utils/
+    __init__.py   ← marks this as a package
+    string.py     ← module
+    number.py     ← module
+  api/
+    __init__.py
+    routes.py
+  main.py         ← entry point
+
+# import from a module
+from utils.string import capitalize`;
+
+<TsGo client:visible ts={moduleTs} go={modulePy} />
+
+## The `__init__.py` file
+
+`__init__.py` is the Python equivalent of `index.ts` in a directory — it marks the directory as a package and optionally re-exports symbols. An empty `__init__.py` is valid and is the minimum required.
+
+export const initTs = `// TypeScript: src/utils/index.ts
+export { capitalize } from "./string";
+export { clamp } from "./number";
+
+// Caller imports from the directory:
+import { capitalize, clamp } from "./utils";`;
+
+export const initPy = `# Python: src/utils/__init__.py
+from .string import capitalize
+from .number import clamp
+
+# Caller imports from the package:
+from utils import capitalize, clamp`;
+
+<TsGo client:visible ts={initTs} go={initPy} />
+
+## Import syntax
+
+Python has two import forms. Both are common; which you use depends on context.
+
+export const importTs = `// TypeScript import styles
+import path from "path";                          // default import
+import { join, resolve } from "path";             // named imports
+import * as fs from "fs";                         // namespace import
+import type { Dirent } from "fs";                 // type-only import`;
+
+export const importPy = `# Python import styles
+import math                          # import the whole module
+from math import sqrt, pi            # import specific names
+from math import sqrt as sq          # alias
+import os.path                       # sub-module import
+from . import sibling                # relative: same package
+from ..utils import helper           # relative: parent package`;
+
+<TsGo client:visible ts={importTs} go={importPy} />
+
+## pyproject.toml — the package.json equivalent
+
+Modern Python projects use `pyproject.toml` as their single project manifest. It replaces `setup.py`, `setup.cfg`, and partly `requirements.txt`.
+
+export const pkgJsonTs = `// package.json (Node)
+{
+  "name": "my-api",
+  "version": "1.0.0",
+  "description": "A REST API",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "ts-node src/index.ts",
+    "build": "tsc",
+    "test": "jest"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "jest": "^29.0.0"
+  }
+}`;
+
+export const pyprojectPy = `# pyproject.toml (Python — PEP 517/518/621)
+[project]
+name = "my-api"
+version = "1.0.0"
+description = "A REST API"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.110.0",
+    "uvicorn>=0.27.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "mypy>=1.8"]
+
+[project.scripts]
+start = "my_api.main:main"    # like "main" in package.json
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"`;
+
+<TsGo client:visible ts={pkgJsonTs} go={pyprojectPy} />
+
+## requirements.txt — the package-lock equivalent
+
+`requirements.txt` is a flat list of pinned package versions. It is simpler than `package-lock.json` but fulfils the same purpose: reproducible installs for teammates and CI.
+
+export const lockTs = `# Node
+npm install          # reads package.json + package-lock.json
+npm ci               # clean install, fails if lock is missing
+
+# Add a package
+npm install express  # auto-updates package.json + lock`;
+
+export const lockPy = `# Python (classic)
+pip install -r requirements.txt   # install from snapshot
+
+# Generate the snapshot
+pip freeze > requirements.txt
+
+# Add a package
+pip install fastapi
+pip freeze > requirements.txt     # update snapshot manually
+
+# Modern: use poetry or uv
+poetry add fastapi                # adds to pyproject.toml + lock`;
+
+<TsGo client:visible ts={lockTs} go={lockPy} />
+
+## Typical project layout
+
+Here is a realistic Python API project layout, annotated with Node equivalents:
+
+export const layoutTs = `# Node/TypeScript project
+my-api/
+  src/
+    index.ts          ← entry point
+    routes/
+      users.ts
+    services/
+      user.service.ts
+  package.json        ← manifest
+  package-lock.json   ← lockfile
+  tsconfig.json       ← compiler config
+  node_modules/       ← dependencies (gitignored)
+  .env                ← secrets (gitignored)`;
+
+export const layoutPy = `# Python project
+my-api/
+  src/
+    my_api/
+      __init__.py
+      main.py         ← entry point
+      routes/
+        __init__.py
+        users.py
+      services/
+        __init__.py
+        user.py
+  pyproject.toml      ← manifest
+  requirements.txt    ← lockfile (or poetry.lock)
+  venv/               ← dependencies (gitignored)
+  .env                ← secrets (gitignored)`;
+
+<TsGo client:visible ts={layoutTs} go={layoutPy} />
+
+<PyOnly title="Editable installs — pip install -e .">
+
+When you structure your code as a package (with `pyproject.toml`), you can install it in "editable" mode:
+
+```bash
+pip install -e .
+```
+
+This is the Python equivalent of `npm link` — it installs your package into the venv but points directly to your source files. Changes to source are reflected immediately without reinstalling. Use this for local development so that `from my_api.routes import users` resolves to your actual source tree.
+
+</PyOnly>
+
+export const projectAnatomyCode = `# Demonstrating Python imports and stdlib modules
+import math
+import os.path
+
+# Using a stdlib module (like a built-in npm package)
+radius = 5
+area = math.pi * radius ** 2
+print(f"Circle area (r={radius}): {area:.4f}")
+
+# Path manipulation — like Node's path.join
+parts = ["src", "my_api", "main.py"]
+joined = os.path.join(*parts)
+print(f"Joined path: {joined}")
+
+# __name__ guard — entry point detection
+def main() -> None:
+    print("main() called from entry point")
+
+if __name__ == "__main__":
+    main()
+`;
+
+<Playground client:visible code={projectAnatomyCode} />
+
+export const quizAnatomy = [
+  {
+    q: 'What makes a directory a Python package?',
+    options: [
+      'The directory name must match the project name in pyproject.toml',
+      'The presence of an `__init__.py` file inside it',
+      'The directory must be listed in requirements.txt',
+      'A `.package` marker file',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'Which file is the modern Python equivalent of `package.json`?',
+    options: [
+      'setup.py',
+      'requirements.txt',
+      'pyproject.toml',
+      'Pipfile',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'What does `from utils import capitalize` assume about the `utils` directory?',
+    options: [
+      'That `utils` is listed in requirements.txt',
+      'That `utils/` contains an `__init__.py` file',
+      'That `utils/__main__.py` exists',
+      'That `utils` is installed as a third-party package',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'How do you install a project in editable mode so source changes are reflected immediately?',
+    options: [
+      '`pip install --watch .`',
+      '`pip install --dev .`',
+      '`pip install -e .`',
+      '`pip link .`',
+    ],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="intro/project-anatomy" questions={quizAnatomy} />
+
+<ProgressTracker client:visible id="intro/project-anatomy" />

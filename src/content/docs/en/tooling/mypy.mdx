@@ -1,0 +1,189 @@
+---
+title: Static Type Checking — mypy
+description: mypy brings TypeScript-style static analysis to Python type hints. The "TypeScript moment" for Python.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## The "TypeScript moment" for Python
+
+When you first learned TypeScript you probably experienced the moment where the compiler caught a real bug before you even ran the code. Python's type hints give you the same capability — but the interpreter itself never checks them. `mypy` is the separate static analysis tool that performs that check.
+
+Think of `mypy` as `tsc --noEmit` for Python: it reads your annotations and reports type errors without running or compiling anything.
+
+## Installing and running
+
+> Run this in your terminal:
+
+```bash
+pip install mypy
+# or:
+uv add --dev mypy
+
+# Check a single file
+mypy src/main.py
+
+# Check entire package
+mypy src/
+
+# Strict mode (equivalent to tsconfig "strict: true")
+mypy --strict src/
+```
+
+## Annotating Python vs TypeScript
+
+export const tscTypes = `// TypeScript — types enforced by compiler
+function greet(name: string): string {
+  return \`Hello, \${name}!\`;
+}
+
+function add(a: number, b: number): number {
+  return a + b;
+}
+
+// Generic
+function first<T>(arr: T[]): T | undefined {
+  return arr[0];
+}`;
+
+export const mypyTypes = `# Python — types checked by mypy, ignored by interpreter
+def greet(name: str) -> str:
+    return f"Hello, {name}!"
+
+def add(a: int, b: int) -> int:
+    return a + b
+
+# Generic (Python 3.12+ syntax)
+def first[T](arr: list[T]) -> T | None:
+    return arr[0] if arr else None`;
+
+<TsGo client:visible ts={tscTypes} go={mypyTypes} />
+
+## Common type annotations
+
+export const tsCommonTypes = `// TypeScript common types
+const names: string[] = ["Alice", "Bob"];
+const scores: Map<string, number> = new Map();
+const user: { name: string; age: number } | null = null;
+
+// Optional parameter
+function find(id: number, strict?: boolean): string | null {
+  return null;
+}
+
+// Union
+type Result = { ok: true; value: string } | { ok: false; error: string };`;
+
+export const pyCommonTypes = `# Python 3.10+ common types
+from typing import Optional
+
+names: list[str] = ["Alice", "Bob"]
+scores: dict[str, int] = {}
+user: dict[str, str | int] | None = None
+
+# Optional parameter (None default = Optional)
+def find(id: int, strict: bool = False) -> str | None:
+    return None
+
+# TypedDict for structured dicts
+from typing import TypedDict
+
+class OkResult(TypedDict):
+    ok: bool
+    value: str`;
+
+<TsGo client:visible ts={tsCommonTypes} go={pyCommonTypes} />
+
+## Try it — type hints in action
+
+export const mypyDemo = `from typing import Optional
+
+def double(x: int) -> int:
+    return x * 2
+
+def greet(name: str) -> str:
+    return f"Hello, {name}!"
+
+# These are fine
+print(double(5))
+print(greet("Alice"))
+
+# Type hints don't stop this at runtime:
+result = double("oops")   # mypy would flag this, Python runs it
+print(result)             # prints 'oopsoops' — string * 2 repeats it!
+`;
+
+<Playground client:visible code={mypyDemo} />
+
+## Configuring mypy vs tsconfig
+
+export const tsconfig = `// tsconfig.json
+{
+  "compilerOptions": {
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "target": "ES2022",
+    "module": "NodeNext"
+  }
+}`;
+
+export const mypyConfig = `# pyproject.toml  [tool.mypy] section
+[tool.mypy]
+python_version = "3.11"
+strict = true           # enables all strict checks
+warn_return_any = true
+disallow_untyped_defs = true
+ignore_missing_imports = true   # for untyped third-party libs`;
+
+<TsGo client:visible ts={tsconfig} go={mypyConfig} />
+
+<PyOnly title="mypy vs pyright — two checkers, same idea">
+
+`mypy` is the original, most widely supported checker. `pyright` (Microsoft, powers VS Code's Pylance) is faster and sometimes stricter. Both read the same PEP 484 type annotations.
+
+For CI pipelines, `mypy` is the most common choice because it is easy to configure and integrates with pre-commit hooks. For editor support, Pylance (which uses pyright) gives you the best interactive experience in VS Code.
+
+You can run both if you want belt-and-suspenders checking, but for most projects picking one is sufficient.
+
+</PyOnly>
+
+export const quizMypy = [
+  {
+    q: 'What is the relationship between Python type hints and the Python interpreter?',
+    options: [
+      'The interpreter enforces type hints at runtime and raises TypeError on mismatch',
+      'The interpreter ignores type hints completely — they are only read by tools like mypy',
+      'Type hints slow down execution because the interpreter validates them',
+      'Type hints are only valid in Python 3.12+',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'Which mypy flag enables all strict checks, similar to "strict: true" in tsconfig.json?',
+    options: ['--all', '--strict', '--no-implicit', '--full-check'],
+    answer: 1,
+  },
+  {
+    q: 'What is the Python 3.10+ syntax for "string or None" as a return type?',
+    options: [
+      'Optional[str]',
+      'str | None',
+      'Union[str, None]',
+      'string | null',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'mypy is to Python as _____ is to TypeScript.',
+    options: ['jest', 'prettier', 'tsc', 'eslint'],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="tooling/mypy" questions={quizMypy} />
+
+<ProgressTracker client:visible id="tooling/mypy" />

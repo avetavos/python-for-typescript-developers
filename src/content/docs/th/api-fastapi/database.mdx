@@ -1,0 +1,218 @@
+---
+title: ฐานข้อมูลด้วย SQLAlchemy
+description: การเชื่อมต่อฐานข้อมูลโดยใช้ SQLAlchemy ORM models และ sessions ใน FastAPI เปรียบเทียบกับ TypeORM หรือ Prisma ใน Node
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## ORMs: TypeORM / Prisma → SQLAlchemy
+
+Python ORM ที่โดดเด่นสำหรับ FastAPI applications คือ **SQLAlchemy 2.0** mental model เหมือนกับ TypeORM entities หรือ Prisma models: คุณกำหนด class ที่ map กับ table และ SQLAlchemy สร้าง SQL ให้ ความแตกต่างหลักคือ SQLAlchemy ใช้ Python class-definition syntax แทน TypeScript decorators
+
+export const ormTs = `// TypeORM entity
+import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+
+@Entity('items')
+export class Item {
+  @PrimaryGeneratedColumn() id: number;
+  @Column({ length: 100 }) name: string;
+  @Column('decimal', { precision: 10, scale: 2 }) price: number;
+  @Column({ default: true }) inStock: boolean;
+}
+
+// Prisma schema
+model Item {
+  id      Int     @id @default(autoincrement())
+  name    String  @db.VarChar(100)
+  price   Decimal @db.Decimal(10,2)
+  inStock Boolean @default(true)
+}`;
+
+export const ormPy = `# SQLAlchemy 2.0 ORM model
+from sqlalchemy import String, Numeric, Boolean
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+class Base(DeclarativeBase):
+    pass
+
+class Item(Base):
+    __tablename__ = "items"
+
+    id:       Mapped[int]   = mapped_column(primary_key=True)
+    name:     Mapped[str]   = mapped_column(String(100))
+    price:    Mapped[float] = mapped_column(Numeric(10, 2))
+    in_stock: Mapped[bool]  = mapped_column(Boolean, default=True)`;
+
+<TsGo client:visible ts={ormTs} go={ormPy} />
+
+## Database connection — engine และ session
+
+TypeORM และ Prisma จัดการ connection pools อัตโนมัติ ใน SQLAlchemy คุณสร้าง `engine` (connection pool) และ `SessionLocal` factory (หนึ่ง session ต่อ request)
+
+export const connTs = `// TypeORM — DataSource
+import { DataSource } from 'typeorm';
+export const AppDataSource = new DataSource({
+  type: 'postgres',
+  url: process.env.DATABASE_URL,
+  entities: [Item],
+  synchronize: false,   // ใช้ migrations ใน production
+});
+
+// Prisma — PrismaClient
+import { PrismaClient } from '@prisma/client';
+export const prisma = new PrismaClient();`;
+
+export const connPy = `# SQLAlchemy 2.0 — engine + session factory
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+import os
+
+DATABASE_URL = os.environ["DATABASE_URL"]
+
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+
+# Async variant (แนะนำสำหรับ FastAPI):
+# from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+# engine = create_async_engine(DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://"))
+# AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)`;
+
+<TsGo client:visible ts={connTs} go={connPy} />
+
+## CRUD operations
+
+SQLAlchemy 2.0 ใช้ `select()` builder คล้ายกับ `findMany` / `findUnique` ของ Prisma หรือ repository methods ของ TypeORM
+
+export const crudTs = `// Prisma CRUD
+const item = await prisma.item.findUnique({ where: { id } });
+const items = await prisma.item.findMany({ skip, take: limit });
+const created = await prisma.item.create({ data: createItemDto });
+await prisma.item.delete({ where: { id } });
+
+// TypeORM
+const item = await repo.findOneBy({ id });
+const items = await repo.find({ skip, take: limit });`;
+
+export const crudPy = `# SQLAlchemy 2.0 — select() style
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+def get_item(db: Session, item_id: int):
+    return db.get(Item, item_id)                     # by PK
+
+def list_items(db: Session, skip: int = 0, limit: int = 10):
+    stmt = select(Item).offset(skip).limit(limit)
+    return db.scalars(stmt).all()
+
+def create_item(db: Session, data: dict):
+    item = Item(**data)
+    db.add(item)
+    db.commit()
+    db.refresh(item)   # reload จาก DB (ได้ generated id ฯลฯ)
+    return item
+
+def delete_item(db: Session, item_id: int):
+    item = db.get(Item, item_id)
+    if item:
+        db.delete(item)
+        db.commit()`;
+
+<TsGo client:visible ts={crudTs} go={crudPy} />
+
+## เชื่อมทุกอย่างเข้าด้วยกัน
+
+รวม session dependency จากบทเรียน DI กับ CRUD functions ด้านบน:
+
+export const wireTs = `// NestJS — ItemsService inject เข้า controller
+@Controller('items')
+export class ItemsController {
+  constructor(private readonly itemsService: ItemsService) {}
+
+  @Get(':id')
+  findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.itemsService.findOne(id);
+  }
+}`;
+
+export const wirePy = `# FastAPI — Depends(get_db) ใน route
+from fastapi import FastAPI, Depends, HTTPException
+from sqlalchemy.orm import Session
+from app.database import SessionLocal
+from app import crud, schemas
+
+app = FastAPI()
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+@app.get("/items/{item_id}", response_model=schemas.ItemResponse)
+async def read_item(item_id: int, db: Session = Depends(get_db)):
+    item = crud.get_item(db, item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return item`;
+
+<TsGo client:visible ts={wireTs} go={wirePy} />
+
+<PyOnly title="Alembic — migration tool (เหมือน Prisma migrate หรือ TypeORM migrations)">
+
+อย่าใช้ `Base.metadata.create_all()` ใน production เนื่องจากไม่รองรับ schema evolution ใช้ **Alembic** สร้าง versioned migration scripts เหมือนกับที่คุณใช้ `prisma migrate dev` หรือ `typeorm migration:generate`
+
+```bash
+# ติดตั้ง
+pip install alembic
+
+# Initialize (สร้าง alembic/ directory)
+alembic init alembic
+
+# สร้าง migration หลังเปลี่ยน models
+alembic revision --autogenerate -m "add items table"
+
+# Apply migrations
+alembic upgrade head
+```
+
+แต่ละ migration คือ plain Python file ที่มี `upgrade()` และ `downgrade()` functions อ่านได้และ version-controlled
+
+</PyOnly>
+
+> **รันที่เครื่องตัวเอง — ต้องการ FastAPI + SQLAlchemy + PostgreSQL หรือ SQLite**
+> Playground ข้ามในบทเรียนนี้: SQLAlchemy ต้องการ database connection จริง
+
+export const quizDatabase = [
+  {
+    q: 'SQLAlchemy 2.0 equivalent ของ Prisma\'s PrismaClient หรือ TypeORM\'s DataSource คืออะไร?',
+    options: ['SessionLocal', 'create_engine()', 'DeclarativeBase', 'Base.metadata'],
+    answer: 1,
+  },
+  {
+    q: 'ใน SQLAlchemy 2.0 จะ reload object ที่สร้างใหม่เพื่อรับ generated database id ได้อย่างไร?',
+    options: [
+      'db.reload(item)',
+      'db.refresh(item)',
+      'item.reload()',
+      'db.get(Item, item.id)',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'ควรใช้ tool ใดสำหรับ database schema migrations ใน FastAPI + SQLAlchemy project?',
+    options: [
+      'Base.metadata.create_all() ใน production',
+      'Alembic',
+      'Django migrations',
+      'SQLAlchemy จัดการ migrations อัตโนมัติ',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="api-fastapi/database" questions={quizDatabase} />
+
+<ProgressTracker client:visible id="api-fastapi/database" />

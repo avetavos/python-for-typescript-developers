@@ -1,0 +1,215 @@
+---
+title: การทดสอบด้วย pytest
+description: พื้นฐาน pytest, test discovery และ assertions — เทียบกับ jest สำหรับนักพัฒนา TypeScript
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## jest → pytest
+
+ถ้าคุณรู้จัก `jest` แล้ว `pytest` จะรู้สึกคุ้นเคยในโครงสร้าง แต่เรียบง่ายกว่าอย่างน่าพอใจในด้าน syntax ไม่มี `.toBe()`, ไม่มี `expect()` wrapper — pytest ใช้ Python `assert` ธรรมดา และ magic ของมัน rewrite พวกมันเพื่อแสดง diff ที่เป็นประโยชน์เมื่อ fail
+
+## การติดตั้ง pytest
+
+> รันในเทอร์มินัลของคุณ:
+
+```bash
+pip install pytest
+# หรือ:
+uv add --dev pytest
+
+# รัน tests ทั้งหมด
+pytest
+
+# รันพร้อม verbose output
+pytest -v
+
+# รัน file เฉพาะ
+pytest tests/test_math.py
+
+# รัน test เฉพาะโดยชื่อ
+pytest tests/test_math.py::test_add
+```
+
+## เขียน test แรกของคุณ
+
+export const jestTest = `// jest — TypeScript
+import { add, greet } from './math';
+
+describe('math utils', () => {
+  test('adds two numbers', () => {
+    expect(add(2, 3)).toBe(5);
+  });
+
+  test('greet returns a string', () => {
+    expect(greet('Alice')).toBe('Hello, Alice!');
+  });
+
+  test('throws on negative input', () => {
+    expect(() => add(-1, 0)).toThrow('negative');
+  });
+});`;
+
+export const pytestTest = `# pytest — Python
+# ไฟล์ต้องขึ้นต้นด้วย test_ หรือลงท้ายด้วย _test.py
+# Functions ต้องขึ้นต้นด้วย test_
+
+from math_utils import add, greet
+import pytest
+
+def test_adds_two_numbers():
+    assert add(2, 3) == 5
+
+def test_greet_returns_string():
+    assert greet("Alice") == "Hello, Alice!"
+
+def test_raises_on_negative_input():
+    with pytest.raises(ValueError, match="negative"):
+        add(-1, 0)`;
+
+<TsGo client:visible ts={jestTest} go={pytestTest} />
+
+## กฎ Test Discovery
+
+pytest ค้นหา tests อัตโนมัติ — ไม่ต้อง config test runner เพื่อเริ่มต้น:
+
+| กฎ | pytest | jest |
+|---|---|---|
+| Pattern ของไฟล์ | `test_*.py` หรือ `*_test.py` | `*.test.ts` หรือ `*.spec.ts` |
+| Pattern ของ function | `test_*` | `test(...)` หรือ `it(...)` |
+| Pattern ของ class | `Test*` (ไม่มี `__init__`) | `describe(...)` |
+| Setup | `setup_method` / fixtures | `beforeEach` |
+| Teardown | `teardown_method` / fixtures | `afterEach` |
+
+## Fixtures — beforeEach ของ pytest
+
+ใน jest คุณใช้ `beforeEach` / `afterEach` pytest ใช้ **fixtures**: functions ที่ inject เข้าไปเป็น dependency ที่ setup และ optionally teardown resources พวกมันมีพลังมากกว่า beforeEach เพราะ compose ได้และมี scope ที่ควบคุมได้
+
+export const jestFixture = `// jest beforeEach
+let db: MockDatabase;
+
+beforeEach(() => {
+  db = new MockDatabase();
+  db.seed([{ id: 1, name: 'Alice' }]);
+});
+
+afterEach(() => {
+  db.close();
+});
+
+test('finds a user', () => {
+  expect(db.find(1)).toEqual({ id: 1, name: 'Alice' });
+});`;
+
+export const pytestFixture = `# pytest fixture — เทียบกับ beforeEach/afterEach
+import pytest
+
+@pytest.fixture
+def db():
+    database = MockDatabase()
+    database.seed([{"id": 1, "name": "Alice"}])
+    yield database       # test รันที่นี่
+    database.close()     # teardown หลัง yield
+
+def test_finds_a_user(db):   # pytest inject fixture
+    assert db.find(1) == {"id": 1, "name": "Alice"}`;
+
+<TsGo client:visible ts={jestFixture} go={pytestFixture} />
+
+## Parametrize — tests แบบ data-driven
+
+export const jestParametrize = `// jest — test.each สำหรับ data-driven tests
+test.each([
+  [1, 2, 3],
+  [0, 0, 0],
+  [-1, 1, 0],
+])('add(%i, %i) = %i', (a, b, expected) => {
+  expect(add(a, b)).toBe(expected);
+});`;
+
+export const pytestParametrize = `# pytest — @pytest.mark.parametrize
+import pytest
+
+@pytest.mark.parametrize("a, b, expected", [
+    (1, 2, 3),
+    (0, 0, 0),
+    (-1, 1, 0),
+])
+def test_add(a, b, expected):
+    assert add(a, b) == expected`;
+
+<TsGo client:visible ts={jestParametrize} go={pytestParametrize} />
+
+## ลองด้วยตัวเอง — assertions ในการทำงานจริง
+
+export const assertDemo = `# pytest-style assertions ทำงานใน plain Python ด้วย
+def add(a: int, b: int) -> int:
+    return a + b
+
+def test_basic():
+    assert add(2, 3) == 5
+    assert add(0, 0) == 0
+
+def test_string():
+    message = "Hello, World!"
+    assert "World" in message
+    assert message.startswith("Hello")
+    assert len(message) == 13
+
+# รัน tests ด้วยตนเอง
+test_basic()
+test_string()
+print("All assertions passed!")
+`;
+
+<Playground client:visible code={assertDemo} />
+
+> Playground note: snippet ข้างต้นแสดง Python `assert` statements แบบธรรมดา pytest runner จริง (test discovery, fixtures, parametrize, `--cov`) ต้องการ terminal ที่ติดตั้ง `pytest` รัน `pytest -v` ใน project ของคุณเพื่อดูประสบการณ์จริง
+
+<PyOnly title="pytest vs unittest — ละเว้น unittest สำหรับ projects ใหม่">
+
+Python มาพร้อมกับ module `unittest` ในตัวที่จำลอง Java's JUnit คุณอาจพบมันใน legacy codebases: มันต้องการ classes ที่ inherit จาก `unittest.TestCase` และ assertion methods ที่ verbose เช่น `self.assertEqual(a, b)`
+
+สำหรับ projects ใหม่ ให้ใช้ `pytest` มันเรียบง่ายกว่า expressive กว่า ไม่ต้อง boilerplate classes และเป็น industry standard pytest ยังสามารถรัน `unittest`-style tests ได้ด้วย ทำให้การ migrate ค่อยเป็นค่อยไป
+
+</PyOnly>
+
+export const quizPytest = [
+  {
+    q: 'โดยค่าเริ่มต้น pytest ค้นหา test functions ในไฟล์ที่ match pattern ใด?',
+    options: ['*.spec.py', '*.test.py', 'test_*.py หรือ *_test.py', 'tests/**/*.py'],
+    answer: 2,
+  },
+  {
+    q: 'อะไรคือคู่เทียบ pytest ของ pattern beforeEach / afterEach ของ jest?',
+    options: ['@pytest.setup decorator', 'pytest fixtures พร้อม yield', 'conftest.py class methods', 'setUp/tearDown methods'],
+    answer: 1,
+  },
+  {
+    q: 'เขียน assertion ใน pytest อย่างไร?',
+    options: [
+      'expect(result).toBe(5)',
+      'assert result == 5',
+      'assertEqual(result, 5)',
+      'pytest.assert(result, 5)',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'decorator ใดเปิดใช้ data-driven (parametrized) tests ใน pytest?',
+    options: [
+      '@pytest.mark.data',
+      '@pytest.test_each',
+      '@pytest.mark.parametrize',
+      '@parametrize',
+    ],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="tooling/pytest" questions={quizPytest} />
+
+<ProgressTracker client:visible id="tooling/pytest" />

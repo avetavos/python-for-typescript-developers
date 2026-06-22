@@ -1,0 +1,219 @@
+---
+title: "Dunder Methods"
+description: Magic/dunder methods like __init__, __str__, __len__, __eq__, and operator overloading in Python vs TypeScript's lack of operator overloading.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## Operator overloading: TypeScript can't, Python can
+
+TypeScript has no operator overloading. If you build a `Vector` class, you must call `.add(other)` explicitly — writing `v1 + v2` is never valid for custom types. Python solves this through **dunder methods** (short for "double underscore"), also called magic methods. They are ordinary methods with names like `__add__`, `__str__`, and `__len__` that Python calls automatically when you use operators or built-in functions on your objects.
+
+The name "dunder" is Python community shorthand for names that begin and end with two underscores. You define them yourself; Python invokes them behind the scenes.
+
+## Defining vector addition
+
+The most illustrative example is a 2D vector. In TypeScript you must name the operation explicitly. In Python you hook into `+` by defining `__add__`.
+
+export const tsDunder = `// TypeScript: no operator overloading — you must name the method
+class Vector {
+  constructor(public x: number, public y: number) {}
+
+  toString(): string {
+    return \`Vector(\${this.x}, \${this.y})\`;
+  }
+
+  add(other: Vector): Vector {
+    return new Vector(this.x + other.x, this.y + other.y);
+  }
+
+  equals(other: Vector): boolean {
+    return this.x === other.x && this.y === other.y;
+  }
+
+  get length(): number {
+    return 2;
+  }
+}
+
+const v1 = new Vector(1, 2);
+const v2 = new Vector(3, 4);
+const v3 = v1.add(v2);    // must call .add(), can't write v1 + v2
+console.log(v3.toString()); // "Vector(4, 6)"`;
+
+export const pyDunder = `# Python: operator overloading via dunder methods
+class Vector:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+    def __str__(self):
+        return f"Vector(\${self.x}, \${self.y})"
+
+    def __repr__(self):
+        return f"Vector(\${self.x!r}, \${self.y!r})"
+
+    def __len__(self):
+        return 2
+
+    def __eq__(self, other):
+        return self.x == other.x and self.y == other.y
+
+    def __add__(self, other):
+        return Vector(self.x + other.x, self.y + other.y)
+
+v1 = Vector(1, 2)
+v2 = Vector(3, 4)
+v3 = v1 + v2          # calls v1.__add__(v2) automatically
+print(str(v1))         # calls v1.__str__()
+print(len(v1))         # calls v1.__len__()
+print(v1 == Vector(1, 2))  # calls v1.__eq__(...)`;
+
+<TsGo client:visible ts={tsDunder} go={pyDunder} />
+
+## How Python dispatches dunder calls
+
+When Python evaluates `v1 + v2`, it internally calls `type(v1).__add__(v1, v2)`. When you call `str(v1)`, Python calls `v1.__str__()`. When you call `len(v1)`, Python calls `v1.__len__()`. This means every built-in function and operator has a corresponding dunder hook you can implement.
+
+There is also `__repr__`, which differs from `__str__`: `str()` is meant for end-user display while `repr()` (and the interactive REPL) use `__repr__` for unambiguous, developer-facing output. The `!r` conversion flag in f-strings calls `repr()` on the value.
+
+## Try it
+
+export const playgroundDunder = `class Vector:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+    def __str__(self):
+        return f"Vector(\${self.x}, \${self.y})"
+
+    def __repr__(self):
+        return f"Vector(\${self.x!r}, \${self.y!r})"
+
+    def __len__(self):
+        return 2
+
+    def __eq__(self, other):
+        return self.x == other.x and self.y == other.y
+
+    def __add__(self, other):
+        return Vector(self.x + other.x, self.y + other.y)
+
+v1 = Vector(1, 2)
+v2 = Vector(3, 4)
+v3 = v1 + v2
+
+print(str(v1))
+print(len(v1))
+print(v1 == Vector(1, 2))
+print(v3)
+`;
+
+<Playground client:visible code={playgroundDunder} />
+
+<PyOnly title="Dunder methods by category">
+
+Python defines dozens of dunder methods. Here are the most important ones grouped by purpose:
+
+**Object lifecycle**
+- `__init__(self, ...)` — called after the object is created (the constructor body)
+- `__new__(cls, ...)` — called to create the object; rarely overridden
+- `__del__(self)` — called when the object is garbage-collected
+
+**String representation**
+- `__str__(self)` — called by `str()` and `print()`; human-readable
+- `__repr__(self)` — called by `repr()` and the REPL; unambiguous, ideally re-evaluable
+- `__format__(self, spec)` — called by `format()` and f-string format specs like `f"{v:.2f}"`
+
+**Arithmetic operators**
+- `__add__` / `__radd__` — `+` (right-hand fallback)
+- `__sub__` / `__rsub__` — `-`
+- `__mul__` / `__rmul__` — `*`
+- `__truediv__` — `/`
+- `__floordiv__` — `//`
+- `__mod__` — `%`
+- `__pow__` — `**`
+- `__neg__` — unary `-`
+
+**Comparison operators**
+- `__eq__` — `==`
+- `__ne__` — `!=` (defaults to `not __eq__` if undefined)
+- `__lt__` — `<`
+- `__le__` — `<=`
+- `__gt__` — `>`
+- `__ge__` — `>=`
+
+Note: implementing `__eq__` automatically makes your class unhashable (since equal objects must hash equally). Add `__hash__` if you need instances as dict keys or set members.
+
+**Container protocol**
+- `__len__(self)` — `len(obj)`
+- `__getitem__(self, key)` — `obj[key]`
+- `__setitem__(self, key, value)` — `obj[key] = value`
+- `__delitem__(self, key)` — `del obj[key]`
+- `__contains__(self, item)` — `item in obj`
+- `__iter__(self)` — `for x in obj`
+- `__next__(self)` — advances an iterator
+
+**Context manager protocol** (the `with` statement)
+- `__enter__(self)` — called on entry to the `with` block; return value is bound to `as`
+- `__exit__(self, exc_type, exc_val, exc_tb)` — called on exit, even if an exception occurred
+
+**Callable**
+- `__call__(self, ...)` — makes an instance callable like a function: `obj(args)`
+
+**Attribute access**
+- `__getattr__(self, name)` — called only when normal lookup fails
+- `__setattr__(self, name, value)` — intercepts every attribute assignment
+- `__getattribute__(self, name)` — intercepts every attribute read (use with care)
+
+</PyOnly>
+
+export const quizDunder = [
+  {
+    q: 'Which dunder method does Python call when you write `v1 + v2`?',
+    options: [
+      '__plus__',
+      '__add__',
+      '__sum__',
+      '__operator__',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'What is the difference between `__str__` and `__repr__`?',
+    options: [
+      'There is no difference; they are aliases',
+      '__str__ is for internal use; __repr__ is for end users',
+      '__str__ is for human-readable display; __repr__ is for unambiguous developer output',
+      '__repr__ is only called by logging libraries',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'Which pair of dunder methods must you implement to support the `with` statement on a custom class?',
+    options: [
+      '__open__ and __close__',
+      '__start__ and __stop__',
+      '__enter__ and __exit__',
+      '__begin__ and __end__',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'What happens to `__hash__` when you define `__eq__` on a class?',
+    options: [
+      'Nothing changes; __hash__ is independent',
+      'The class becomes unhashable by default (hash is set to None)',
+      'Python automatically generates __hash__ to match __eq__',
+      '__hash__ raises a TypeError',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="py-only/dunder-methods" questions={quizDunder} />
+
+<ProgressTracker client:visible id="py-only/dunder-methods" />

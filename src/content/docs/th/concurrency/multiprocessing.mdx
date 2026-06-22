@@ -1,0 +1,201 @@
+---
+title: Multiprocessing
+description: multiprocessing module ของ Python สำหรับ CPU parallelism จริงๆ — แต่ละ process มี GIL และ memory ของตัวเอง เทียบกับ child_process และ Web Workers ของ JavaScript
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+> หมายเหตุเกี่ยวกับ Playground: `multiprocessing` spawn OS process แยกต่างหาก — browser sandbox ไม่สามารถทำได้ รัน code snippets ในเครื่องด้วย `python3` component `<TsGo>`, `<Quiz>` และ `<ProgressTracker>` ยังคงทำงานได้ตามปกติ
+
+## ปัญหาที่ threading แก้ไม่ได้
+
+อย่างที่เรียนรู้ในบทก่อน GIL ป้องกัน Python thread ไม่ให้ run Python bytecode แบบ parallel บนหลาย core สำหรับงาน CPU-bound — number crunching, image processing, data transformation — thread ไม่ได้ให้ speedup
+
+`multiprocessing` แก้ปัญหานี้โดย spawn Python interpreter process แยกต่างหากทั้งหมด แต่ละ process มี GIL ของตัวเอง memory ของตัวเอง และ Python runtime ของตัวเอง พวกมัน run แบบ parallel จริงๆ บนทุก CPU core ที่มี
+
+## เทียบกับ isolation model ของ JavaScript
+
+export const mpTs = `// TypeScript — Web Workers / child_process
+// Each Worker has its own JS heap — no shared memory by default
+// Communicate via postMessage / structured clone
+
+import { Worker } from "worker_threads";
+
+const worker = new Worker(\`
+  const { parentPort } = require("worker_threads");
+  parentPort.on("message", (n) => {
+    let sum = 0;
+    for (let i = 0; i < n; i++) sum += i;
+    parentPort.postMessage(sum);
+  });
+\`, { eval: true });
+
+worker.postMessage(1_000_000);
+worker.on("message", (result) => console.log("sum:", result));`;
+
+export const mpPy = `# Python — multiprocessing
+# Each process has its own memory — no shared state by default
+# Communicate via Queue, Pipe, or Pool.map return values
+
+from multiprocessing import Process, Queue
+
+def compute_sum(n: int, result_queue: Queue) -> None:
+    total = sum(range(n))
+    result_queue.put(total)
+
+q: Queue[int] = Queue()
+p = Process(target=compute_sum, args=(1_000_000, q))
+p.start()
+p.join()
+print("sum:", q.get())`;
+
+<TsGo client:visible ts={mpTs} go={mpPy} />
+
+## Pool.map — high-level API
+
+pattern ที่พบบ่อยที่สุดคือ `Pool.map` ซึ่งกระจาย list ของ input ไปยัง worker process — เหมือน `Array.prototype.map` แต่ parallel:
+
+```python
+from multiprocessing import Pool
+
+def square(n: int) -> int:
+    return n * n
+
+if __name__ == "__main__":
+    # IMPORTANT: always guard with if __name__ == "__main__"
+    # on Windows/macOS to prevent recursive process spawning
+    with Pool(processes=4) as pool:
+        results = pool.map(square, [1, 2, 3, 4, 5])
+    print(results)  # [1, 4, 9, 16, 25]
+```
+
+รัน code นี้ในเครื่อง — browser sandbox ไม่สามารถ spawn OS thread/process ได้
+
+<PyOnly title="guard if __name__ == '__main__' จำเป็นต้องมี">
+
+เมื่อคุณใช้ `multiprocessing` process ใหม่จะ import script ของคุณเพื่อหา target function หากคุณไม่ guard โค้ดการ spawn ด้วย `if __name__ == "__main__":` child process จะพยายาม spawn child เพิ่มอีก ทำให้เกิด infinite recursion ("fork bomb") บน Windows และ macOS
+
+Linux ใช้ `fork()` ดังนั้น guard ไม่จำเป็นเคร่งครัด แต่เป็น best practice เสมอ
+
+```python
+# WRONG — will crash on Windows/macOS
+from multiprocessing import Pool
+
+def work(n: int) -> int:
+    return n * n
+
+pool = Pool()           # spawns processes here at import time!
+results = pool.map(work, range(5))
+
+# CORRECT
+from multiprocessing import Pool
+
+def work(n: int) -> int:
+    return n * n
+
+if __name__ == "__main__":
+    with Pool() as pool:
+        results = pool.map(work, range(5))
+    print(results)
+```
+
+</PyOnly>
+
+## Process vs Pool
+
+```python
+from multiprocessing import Process, Pool, Queue
+import os
+
+# --- Process: manual, low-level ---
+def task(name: str) -> None:
+    print(f"Process {name} running on PID {os.getpid()}")
+
+if __name__ == "__main__":
+    p1 = Process(target=task, args=("A",))
+    p2 = Process(target=task, args=("B",))
+    p1.start(); p2.start()
+    p1.join(); p2.join()
+
+    # --- Pool: managed pool of workers ---
+    def cpu_heavy(n: int) -> int:
+        return sum(i * i for i in range(n))
+
+    with Pool(processes=4) as pool:
+        # map blocks until all done
+        results = pool.map(cpu_heavy, [100_000, 200_000, 300_000, 400_000])
+    print(results)
+
+    # imap_unordered — results as they complete (like Promise.race-ish)
+    with Pool(processes=4) as pool:
+        for result in pool.imap_unordered(cpu_heavy, [10, 20, 30]):
+            print("got:", result)
+```
+
+## การแชร์ข้อมูลระหว่าง process
+
+```python
+from multiprocessing import Pool, Manager
+
+def append_result(shared_list, value: int) -> None:
+    shared_list.append(value)  # Manager proxies the write safely
+
+if __name__ == "__main__":
+    with Manager() as manager:
+        shared = manager.list()
+        with Pool(processes=2) as pool:
+            pool.starmap(append_result, [(shared, i) for i in range(5)])
+        print(list(shared))
+
+# Simpler: just collect return values from pool.map — no shared state needed
+```
+
+export const quizMultiprocessing = [
+  {
+    q: 'ทำไม `multiprocessing` จึงได้ CPU parallelism จริงๆ ในขณะที่ `threading` ไม่ได้?',
+    options: [
+      'multiprocessing ใช้ GIL implementation ที่เร็วกว่า',
+      'แต่ละ process มี Python interpreter และ GIL ของตัวเอง',
+      'multiprocessing ข้าม OS scheduler',
+      'multiprocessing ทำงานได้เฉพาะบน Linux',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'จุดประสงค์ของ guard `if __name__ == "__main__":` ใน multiprocessing code คืออะไร?',
+    options: [
+      'เป็น Python style convention ที่ไม่มีผลด้านการทำงาน',
+      'ป้องกัน child process จากการ spawn worker ซ้ำเมื่อ import script',
+      'ทำให้ multiprocessing ใช้ core มากกว่า 4 ได้',
+      'จำเป็นเฉพาะกับ `Process` ไม่ใช่ `Pool`',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'method ใดที่กระจาย list ของ input ไปยัง pool ของ worker process และ return results ตามลำดับ input?',
+    options: [
+      'pool.apply()',
+      'pool.imap_unordered()',
+      'pool.map()',
+      'pool.starmap_async()',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'Python multiprocessing process แยกต่างหากสื่อสารกันอย่างไร (โดย default)?',
+    options: [
+      'Shared global variables',
+      'Direct memory access ผ่าน ctypes',
+      'Message passing — Queue, Pipe หรือ return values จาก pool.map',
+      'asyncio events ที่เชื่อมระหว่าง process',
+    ],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="concurrency/multiprocessing" questions={quizMultiprocessing} />
+
+<ProgressTracker client:visible id="concurrency/multiprocessing" />

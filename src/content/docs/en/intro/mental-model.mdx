@@ -1,0 +1,243 @@
+---
+title: Mental Model — Thinking in Python
+description: The key mindset shifts TypeScript developers need when moving to Python — dynamic typing, the interpreter, indentation, and explicit self.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## The biggest shift: the compiler is gone
+
+In TypeScript, the compiler (`tsc`) is your first line of defence. It catches type mismatches before any code runs. When you move to Python, that safety net disappears at runtime — the interpreter does not check types. Optional type hints exist (and you should use them), but enforcement requires a separate tool like `mypy` or `pyright`.
+
+**Mental model:** TypeScript says "prove it is safe before running." Python says "run it, and if you pass the wrong type, you will get a runtime error."
+
+## Dynamic typing
+
+Python variables are labels that can point to any object. The type of the value lives on the object itself, not on the variable name. This is fundamentally different from TypeScript where the variable has a type at compile time.
+
+export const dynamicTs = `// TypeScript: variable has a compile-time type
+let count: number = 0;
+count = "five"; // Error: Type 'string' is not assignable to type 'number'
+
+function double(n: number): number {
+  return n * 2;
+}`;
+
+export const dynamicPy = `# Python: variable is just a label
+count = 0
+count = "five"   # perfectly legal at runtime
+
+def double(n: int) -> int:   # hints are documentation only
+    return n * 2
+
+print(double(3))    # 6
+print(double("x"))  # TypeError at RUNTIME, not before`;
+
+<TsGo client:visible ts={dynamicTs} go={dynamicPy} />
+
+## The interpreter and the REPL
+
+TypeScript compiles to JavaScript before running. Python is interpreted — you run source files directly with `python3`. There is no build step for development.
+
+export const runTs = `# TypeScript workflow
+# tsc index.ts          → compiles to index.js
+# node index.js         → runs the compiled output
+# ts-node index.ts      → shortcut for development`;
+
+export const runPy = `# Python workflow
+# python3 script.py     → runs directly, no compile step
+# python3               → opens the interactive REPL
+# python3 -c "print(1)" → run a one-liner inline`;
+
+<TsGo client:visible ts={runTs} go={runPy} />
+
+## Significant indentation — no curly braces
+
+This is the change TypeScript developers notice first. Python uses indentation (4 spaces by convention) to delimit blocks. There are no `{` and `}`. A colon (`:`) always opens a new block.
+
+export const indentTs = `// TypeScript
+function classify(n: number): string {
+  if (n > 0) {
+    return "positive";
+  } else if (n < 0) {
+    return "negative";
+  } else {
+    return "zero";
+  }
+}`;
+
+export const indentPy = `# Python — indentation IS the block
+def classify(n: int) -> str:
+    if n > 0:
+        return "positive"
+    elif n < 0:         # note: elif, not else if
+        return "negative"
+    else:
+        return "zero"
+
+print(classify(5))   # positive
+print(classify(-3))  # negative
+print(classify(0))   # zero`;
+
+<TsGo client:visible ts={indentTs} go={indentPy} />
+
+A misindented line is a syntax error. Most Python editors enforce 4-space indentation automatically.
+
+## One obvious way — "Pythonic" code
+
+TypeScript is flexible: you can use classes, functional composition, prototype chains, or plain objects interchangeably. Python encourages a single idiomatic style. The community has a name for it: **Pythonic**. Pythonic code is concise, readable, and uses language features as intended.
+
+export const pythonicTs = `// TypeScript: multiple ways to filter
+const evens1 = nums.filter(n => n % 2 === 0);
+const evens2 = nums.reduce((acc, n) => n % 2 === 0 ? [...acc, n] : acc, []);
+// Both work; TS community accepts both`;
+
+export const pythonicPy = `# Python: list comprehension is the Pythonic way
+nums = [1, 2, 3, 4, 5, 6]
+evens = [n for n in nums if n % 2 == 0]
+print(evens)   # [2, 4, 6]
+
+# Works but less Pythonic:
+# evens = list(filter(lambda n: n % 2 == 0, nums))`;
+
+<TsGo client:visible ts={pythonicTs} go={pythonicPy} />
+
+## Explicit `self` in methods
+
+TypeScript class methods implicitly receive `this`. Python class methods require an explicit `self` parameter as the first argument — the interpreter fills it in when you call the method, but you must declare it.
+
+export const selfTs = `// TypeScript: implicit this
+class Counter {
+  private count: number = 0;
+
+  increment(): void {
+    this.count++;          // 'this' is implicit
+  }
+
+  value(): number {
+    return this.count;
+  }
+}`;
+
+export const selfPy = `# Python: explicit self
+class Counter:
+    def __init__(self):     # called on Counter()
+        self.count = 0      # instance attribute
+
+    def increment(self):    # self is the instance
+        self.count += 1
+
+    def value(self) -> int:
+        return self.count
+
+c = Counter()
+c.increment()
+c.increment()
+print(c.value())   # 2`;
+
+<TsGo client:visible ts={selfTs} go={selfPy} />
+
+<PyOnly title="__init__ is not a constructor — it is an initialiser">
+
+TypeScript's `constructor` creates the object and initialises it in one step. In Python:
+
+1. `__new__` creates the object (you rarely override this).
+2. `__init__` initialises the newly created object — this is what you override.
+
+When you write `Counter()`, Python calls `Counter.__new__(Counter)` to allocate memory, then passes the result to `Counter.__init__(self)` so you can set attributes. The `self` parameter in `__init__` is that freshly allocated instance.
+
+In practice, you only ever write `__init__`. Think of it as "the constructor body" without the object-creation step.
+
+</PyOnly>
+
+export const playgroundMentalModel = `# Mental model: types live on objects, not variables
+x = 42
+print(type(x).__name__)   # int
+
+x = "hello"
+print(type(x).__name__)   # str
+
+# Significant indentation
+def classify(n: int) -> str:
+    if n > 0:
+        return "positive"
+    elif n < 0:
+        return "negative"
+    else:
+        return "zero"
+
+for num in [5, -3, 0]:
+    print(f"{num} is {classify(num)}")
+
+# Pythonic list comprehension
+evens = [n for n in range(1, 11) if n % 2 == 0]
+print("Evens:", evens)
+
+# Explicit self
+class Counter:
+    def __init__(self):
+        self.count = 0
+
+    def increment(self):
+        self.count += 1
+
+    def value(self) -> int:
+        return self.count
+
+c = Counter()
+c.increment()
+c.increment()
+print("Counter:", c.value())
+`;
+
+<Playground client:visible code={playgroundMentalModel} />
+
+export const quizMentalModel = [
+  {
+    q: 'In Python, where is the type of a value stored?',
+    options: [
+      'In the variable declaration',
+      'In a separate type table maintained by the interpreter',
+      'On the object itself, not on the variable',
+      'In the function signature where the variable is created',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'What opens a new indented block in Python?',
+    options: [
+      'An opening curly brace `{`',
+      'The `begin` keyword',
+      'A colon `:` at the end of the statement',
+      'The `do` keyword',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'Why must Python class methods declare `self` as their first parameter?',
+    options: [
+      'It is a syntax requirement — Python does not pass the instance implicitly',
+      'It is optional but recommended by convention',
+      'It is needed only in `__init__`, not in other methods',
+      '`self` is a keyword that initialises instance memory',
+    ],
+    answer: 0,
+  },
+  {
+    q: 'What is the Pythonic way to filter even numbers from a list?',
+    options: [
+      '`list(filter(lambda n: n % 2 == 0, nums))`',
+      '`[n for n in nums if n % 2 == 0]`',
+      '`nums.filter(n => n % 2 === 0)`',
+      '`nums.where(lambda n: n % 2 == 0)`',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="intro/mental-model" questions={quizMentalModel} />
+
+<ProgressTracker client:visible id="intro/mental-model" />

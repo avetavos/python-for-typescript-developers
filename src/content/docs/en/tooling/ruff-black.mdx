@@ -1,0 +1,147 @@
+---
+title: Linting & Formatting — ruff and black
+description: ruff (lint + format) and black vs eslint + prettier. One-command formatting for Python.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## eslint + prettier → ruff
+
+In the TypeScript world you configure two tools: `eslint` enforces code quality rules and `prettier` enforces style. They have separate configs, separate CLI commands, and occasionally conflict with each other.
+
+Python developers historically used the same split: `flake8` (lint) + `black` (format). But `ruff` — released in 2022 and written in Rust — now replaces both. One tool, one config section in `pyproject.toml`, and it runs in milliseconds on an entire codebase.
+
+## Installing and running
+
+> Run this in your terminal — no Playground needed for CLI commands.
+
+```bash
+# Install (add to your project's dev dependencies)
+pip install ruff
+# or with uv:
+uv add --dev ruff
+
+# Lint the whole project
+ruff check .
+
+# Auto-fix fixable lint violations
+ruff check --fix .
+
+# Format the whole project (replaces black)
+ruff format .
+
+# Check formatting without writing (CI mode)
+ruff format --check .
+```
+
+## Configuring ruff vs eslint
+
+export const tsEslintConfig = `// .eslintrc.js  (or eslint.config.js)
+module.exports = {
+  parser: '@typescript-eslint/parser',
+  plugins: ['@typescript-eslint'],
+  rules: {
+    'no-unused-vars': 'error',
+    '@typescript-eslint/no-explicit-any': 'warn',
+  },
+};
+
+// .prettierrc
+{
+  "singleQuote": true,
+  "semi": false,
+  "printWidth": 88
+}`;
+
+export const pyRuffConfig = `# pyproject.toml  — one file for everything
+[tool.ruff]
+line-length = 88
+indent-width = 4
+
+[tool.ruff.lint]
+# E/W = pycodestyle  F = pyflakes  I = isort  UP = pyupgrade
+select = ["E", "F", "I", "UP"]
+ignore = ["E501"]   # line-too-long (handled by formatter)
+
+[tool.ruff.format]
+quote-style = "double"   # matches black defaults`;
+
+<TsGo client:visible ts={tsEslintConfig} go={pyRuffConfig} />
+
+## black — the opinionated formatter
+
+Before `ruff format` existed, `black` was the de-facto standard. You will see it everywhere in existing Python projects. It is deliberately opinionated — it offers almost no configuration — exactly like `prettier` with `--no-semi` locked on. If you inherit a project using black, keep using it; don't mix.
+
+```bash
+pip install black
+
+# Format a single file
+black src/main.py
+
+# Format entire project
+black .
+
+# Check-only mode for CI
+black --check .
+```
+
+## The migration story
+
+export const tsLintCmd = `# Node / TypeScript workflow
+npx eslint src/ --fix
+npx prettier src/ --write
+
+# Or with a combined script in package.json:
+# "lint:fix": "eslint src/ --fix && prettier src/ --write"`;
+
+export const pyLintCmd = `# Python workflow — ruff does both
+ruff check --fix .
+ruff format .
+
+# Or in one shot (check then format):
+ruff check --fix . && ruff format .
+
+# Makefile target (common pattern):
+# lint:
+#     ruff check --fix . && ruff format .`;
+
+<TsGo client:visible ts={tsLintCmd} go={pyLintCmd} />
+
+> Playground note: `ruff` and `black` operate on files and require a terminal environment. Run the commands above in your project directory.
+
+<PyOnly title="PEP 8 — Python's style guide">
+
+`eslint` rules come from the team or community configs like `eslint-config-airbnb`. Python has a language-level style guide: **PEP 8**. It defines naming conventions (`snake_case` functions, `PascalCase` classes, `UPPER_SNAKE_CASE` constants), max line length (79 chars officially, 88 in practice with black), and whitespace rules.
+
+`ruff` and `flake8` enforce PEP 8 by default. Understanding PEP 8 helps you read error codes like `E302` (two blank lines between top-level definitions) and `W291` (trailing whitespace).
+
+</PyOnly>
+
+export const quizRuffBlack = [
+  {
+    q: 'Which single tool replaces both flake8 (lint) and black (format) in a modern Python project?',
+    options: ['mypy', 'ruff', 'isort', 'pycodestyle'],
+    answer: 1,
+  },
+  {
+    q: 'What command formats an entire Python project with ruff without modifying files (CI mode)?',
+    options: [
+      'ruff check .',
+      'ruff format --dry-run .',
+      'ruff format --check .',
+      'ruff lint --no-write .',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'Where does ruff read its configuration from?',
+    options: ['.ruffrc', 'ruff.config.js', 'pyproject.toml', '.ruff.toml only'],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="tooling/ruff-black" questions={quizRuffBlack} />
+
+<ProgressTracker client:visible id="tooling/ruff-black" />

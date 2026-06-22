@@ -1,0 +1,235 @@
+---
+title: Classes
+description: class, __init__, self, instance vs class attributes และ inheritance ของ Python เทียบกับคลาสของ TypeScript
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## Classes: แนวคิดที่คุ้นเคย แต่ self ต้องเขียนชัดเจน
+
+คลาสของ Python ให้ความรู้สึกคล้ายคลาสของ TypeScript มาก คุณมี `class`, constructor, เมธอด และ inheritance สิ่งที่มักทำให้นักพัฒนา TS สะดุดคือ:
+
+1. constructor มีชื่อว่า `__init__` ไม่ใช่ `constructor`
+2. instance method ทุกตัวต้องประกาศ `self` เป็นพารามิเตอร์แรก — Python ไม่ฉีด `this` ให้โดยปริยาย
+3. class attributes (ที่แชร์ร่วมกันทุก instance) ถูกประกาศที่ระดับ class body ไม่ใช่ภายใน constructor
+
+## การนิยามคลาส
+
+export const classTs = `// TypeScript
+class Animal {
+  static kingdom: string = "Animalia";  // class attribute
+
+  name: string;
+  sound: string;
+
+  constructor(name: string, sound: string) {
+    this.name = name;
+    this.sound = sound;
+  }
+
+  speak(): string {
+    return \`\${this.name} says \${this.sound}\`;
+  }
+
+  toString(): string {
+    return \`Animal(name=\${this.name})\`;
+  }
+}
+
+const cat = new Animal("Cat", "meow");
+console.log(cat.speak());
+console.log(Animal.kingdom);`;
+
+export const classPy = `# Python
+class Animal:
+    kingdom: str = "Animalia"  # class attribute (shared)
+
+    def __init__(self, name: str, sound: str) -> None:
+        self.name = name        # instance attributes
+        self.sound = sound
+
+    def speak(self) -> str:
+        return f"{self.name} says {self.sound}"
+
+    def __repr__(self) -> str:
+        return f"Animal(name={self.name!r})"
+
+cat = Animal("Cat", "meow")   # no "new" keyword
+print(cat.speak())
+print(Animal.kingdom)`;
+
+<TsGo client:visible ts={classTs} go={classPy} />
+
+## Inheritance
+
+Python ใช้ syntax แบบ single-inheritance เหมือน TypeScript `super().__init__(...)` แมปกับ `super()` ใน TS
+
+export const inheritTs = `// TypeScript
+class Dog extends Animal {
+  constructor(name: string) {
+    super(name, "woof");
+  }
+
+  fetch(item: string): string {
+    return \`\${this.name} fetches the \${item}!\`;
+  }
+}
+
+const rex = new Dog("Rex");
+console.log(rex.speak());      // Rex says woof
+console.log(rex.fetch("ball")); // Rex fetches the ball!
+console.log(rex instanceof Animal); // true`;
+
+export const inheritPy = `# Python
+class Dog(Animal):
+    def __init__(self, name: str) -> None:
+        super().__init__(name, "woof")
+
+    def fetch(self, item: str) -> str:
+        return f"{self.name} fetches the {item}!"
+
+rex = Dog("Rex")
+print(rex.speak())          # Rex says woof
+print(rex.fetch("ball"))    # Rex fetches the ball!
+print(isinstance(rex, Animal))  # True`;
+
+<TsGo client:visible ts={inheritTs} go={inheritPy} />
+
+## Class methods และ static methods
+
+export const classMethodTs = `// TypeScript
+class Counter {
+  private static count: number = 0;
+
+  static increment(): void {
+    Counter.count++;
+  }
+
+  static getCount(): number {
+    return Counter.count;
+  }
+}
+
+Counter.increment();
+Counter.increment();
+console.log(Counter.getCount());  // 2`;
+
+export const classMethodPy = `# Python
+class Counter:
+    _count: int = 0  # underscore = "private" by convention
+
+    @classmethod
+    def increment(cls) -> None:
+        cls._count += 1
+
+    @classmethod
+    def get_count(cls) -> int:
+        return cls._count
+
+Counter.increment()
+Counter.increment()
+print(Counter.get_count())   # 2`;
+
+<TsGo client:visible ts={classMethodTs} go={classMethodPy} />
+
+## ลองเล่นดู
+
+export const classesCode = `class Animal:
+    kingdom: str = "Animalia"
+
+    def __init__(self, name: str, sound: str) -> None:
+        self.name = name
+        self.sound = sound
+
+    def speak(self) -> str:
+        return f"{self.name} says {self.sound}"
+
+    def __repr__(self) -> str:
+        return f"Animal(name={self.name!r})"
+
+
+class Dog(Animal):
+    def __init__(self, name: str) -> None:
+        super().__init__(name, "woof")
+
+    def fetch(self, item: str) -> str:
+        return f"{self.name} fetches the {item}!"
+
+
+rex = Dog("Rex")
+print(rex.speak())
+print(rex.fetch("ball"))
+print(f"Is Animal? {isinstance(rex, Animal)}")
+print(f"Kingdom: {Animal.kingdom}")
+print(repr(rex))
+`;
+
+<Playground client:visible code={classesCode} />
+
+<PyOnly title="self ต้องเขียนชัดเจน, __init__ คือ constructor, dunders คือ protocol">
+
+ใน TypeScript นั้น `this` ถูกฉีดให้โดย runtime — คุณไม่เคยต้องประกาศมัน ส่วนใน Python นั้น `self` เป็นพารามิเตอร์จริงที่คุณต้องประกาศเป็น argument แรกของ instance method ทุกตัว มันเป็นเพียงธรรมเนียมการตั้งชื่อ — คุณจะเรียกมันว่าอะไรก็ได้ — แต่ `self` เป็นที่ใช้กันทั่วไป
+
+`__init__` (อ่านว่า "dunder init") เป็น initialiser ไม่ใช่ constructor object มีอยู่แล้วเมื่อ `__init__` ทำงาน — มันทำหน้าที่ตั้งค่าสถานะเริ่มต้นของ object
+
+Python ใช้ **dunder methods** (ขีดล่างสองตัว เช่น `__repr__`, `__str__`, `__len__`, `__eq__`) เพื่อเสียบเข้ากับการทำงาน built-in มันคือสิ่งที่เทียบเท่า interface ของ TypeScript อย่าง `toString()` หรือ `Symbol.iterator`:
+
+```python
+class Point:
+    def __init__(self, x: float, y: float) -> None:
+        self.x = x
+        self.y = y
+
+    def __repr__(self) -> str:
+        return f"Point({self.x}, {self.y})"
+
+    def __add__(self, other: "Point") -> "Point":
+        return Point(self.x + other.x, self.y + other.y)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Point):
+            return NotImplemented
+        return self.x == other.x and self.y == other.y
+
+a = Point(1, 2)
+b = Point(3, 4)
+print(a + b)          # Point(4, 6)
+print(a == Point(1, 2))  # True
+```
+
+</PyOnly>
+
+export const quizClasses = [
+  {
+    q: 'เมธอด constructor ของ Python มีชื่อว่าอะไร?',
+    options: ['__new__', '__create__', '__init__', 'constructor'],
+    answer: 2,
+  },
+  {
+    q: 'ใน Python `self` อ้างถึงอะไรภายใน instance method?',
+    options: [
+      'ตัวคลาสเอง',
+      'instance ปัจจุบันของคลาส',
+      'คลาสแม่ (parent class)',
+      'โมดูลที่บรรจุคลาสนั้น',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'class attributes (ที่แชร์ร่วมกันทุก instance) ถูกประกาศที่ไหนใน Python?',
+    options: [
+      'ภายใน `__init__` ด้วย `self.`',
+      'ภายนอก `__init__` ที่ระดับ class body',
+      'โดยใช้ decorator `@staticmethod`',
+      'ใน dict `__class_vars__` แยกต่างหาก',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="python-101/classes" questions={quizClasses} />
+
+<ProgressTracker client:visible id="python-101/classes" />

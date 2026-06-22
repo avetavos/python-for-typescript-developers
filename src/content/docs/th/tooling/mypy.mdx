@@ -1,0 +1,189 @@
+---
+title: Static Type Checking — mypy
+description: mypy นำ static analysis แบบ TypeScript มาสู่ Python type hints — "TypeScript moment" ของ Python
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## "TypeScript moment" ของ Python
+
+เมื่อคุณเรียน TypeScript ครั้งแรก คุณอาจเคยประสบกับช่วงเวลาที่ compiler จับ bug จริงก่อนที่คุณจะรัน code เลย type hints ของ Python มอบความสามารถเดียวกันให้ — แต่ตัว interpreter เองไม่เคยตรวจสอบพวกมัน `mypy` คือ static analysis tool แยกต่างหากที่ทำการตรวจสอบนั้น
+
+คิดว่า `mypy` คือ `tsc --noEmit` สำหรับ Python: มันอ่าน annotations ของคุณและรายงาน type errors โดยไม่ต้องรันหรือ compile อะไรเลย
+
+## การติดตั้งและรัน
+
+> รันในเทอร์มินัลของคุณ:
+
+```bash
+pip install mypy
+# หรือ:
+uv add --dev mypy
+
+# ตรวจสอบไฟล์เดียว
+mypy src/main.py
+
+# ตรวจสอบทั้ง package
+mypy src/
+
+# โหมด strict (เทียบกับ tsconfig "strict: true")
+mypy --strict src/
+```
+
+## การ annotate Python เทียบกับ TypeScript
+
+export const tscTypes = `// TypeScript — types enforced by compiler
+function greet(name: string): string {
+  return \`Hello, \${name}!\`;
+}
+
+function add(a: number, b: number): number {
+  return a + b;
+}
+
+// Generic
+function first<T>(arr: T[]): T | undefined {
+  return arr[0];
+}`;
+
+export const mypyTypes = `# Python — types checked by mypy, ignored by interpreter
+def greet(name: str) -> str:
+    return f"Hello, {name}!"
+
+def add(a: int, b: int) -> int:
+    return a + b
+
+# Generic (Python 3.12+ syntax)
+def first[T](arr: list[T]) -> T | None:
+    return arr[0] if arr else None`;
+
+<TsGo client:visible ts={tscTypes} go={mypyTypes} />
+
+## Type annotations ที่ใช้บ่อย
+
+export const tsCommonTypes = `// TypeScript common types
+const names: string[] = ["Alice", "Bob"];
+const scores: Map<string, number> = new Map();
+const user: { name: string; age: number } | null = null;
+
+// Optional parameter
+function find(id: number, strict?: boolean): string | null {
+  return null;
+}
+
+// Union
+type Result = { ok: true; value: string } | { ok: false; error: string };`;
+
+export const pyCommonTypes = `# Python 3.10+ common types
+from typing import Optional
+
+names: list[str] = ["Alice", "Bob"]
+scores: dict[str, int] = {}
+user: dict[str, str | int] | None = None
+
+# Optional parameter (None default = Optional)
+def find(id: int, strict: bool = False) -> str | None:
+    return None
+
+# TypedDict สำหรับ dict ที่มีโครงสร้างชัดเจน
+from typing import TypedDict
+
+class OkResult(TypedDict):
+    ok: bool
+    value: str`;
+
+<TsGo client:visible ts={tsCommonTypes} go={pyCommonTypes} />
+
+## ลองด้วยตัวเอง — type hints ในการทำงานจริง
+
+export const mypyDemo = `from typing import Optional
+
+def double(x: int) -> int:
+    return x * 2
+
+def greet(name: str) -> str:
+    return f"Hello, {name}!"
+
+# สิ่งเหล่านี้ทำงานได้ปกติ
+print(double(5))
+print(greet("Alice"))
+
+# Type hints ไม่หยุดสิ่งนี้ที่ runtime:
+result = double("oops")   # mypy จะ flag แต่ Python รันได้
+print(result)             # prints 'oopsoops' — string * 2 ทำซ้ำ!
+`;
+
+<Playground client:visible code={mypyDemo} />
+
+## การตั้งค่า mypy เทียบกับ tsconfig
+
+export const tsconfig = `// tsconfig.json
+{
+  "compilerOptions": {
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "target": "ES2022",
+    "module": "NodeNext"
+  }
+}`;
+
+export const mypyConfig = `# pyproject.toml  [tool.mypy] section
+[tool.mypy]
+python_version = "3.11"
+strict = true           # เปิดใช้ strict checks ทั้งหมด
+warn_return_any = true
+disallow_untyped_defs = true
+ignore_missing_imports = true   # สำหรับ third-party libs ที่ไม่มี type`;
+
+<TsGo client:visible ts={tsconfig} go={mypyConfig} />
+
+<PyOnly title="mypy vs pyright — สอง checkers แนวคิดเดียวกัน">
+
+`mypy` คือตัวเดิมที่ได้รับการสนับสนุนมากที่สุด `pyright` (Microsoft, ขับเคลื่อน Pylance ของ VS Code) เร็วกว่าและบางครั้ง strict กว่า ทั้งคู่อ่าน PEP 484 type annotations เหมือนกัน
+
+สำหรับ CI pipelines `mypy` เป็นตัวเลือกที่พบบ่อยที่สุดเพราะตั้งค่าง่ายและ integrate กับ pre-commit hooks ได้ดี สำหรับ editor support Pylance (ที่ใช้ pyright) ให้ประสบการณ์ interactive ที่ดีที่สุดใน VS Code
+
+คุณสามารถรันทั้งคู่ถ้าต้องการความมั่นใจสูงสุด แต่สำหรับ projects ส่วนใหญ่การเลือกตัวเดียวก็เพียงพอ
+
+</PyOnly>
+
+export const quizMypy = [
+  {
+    q: 'ความสัมพันธ์ระหว่าง Python type hints กับ Python interpreter คืออะไร?',
+    options: [
+      'Interpreter บังคับ type hints ที่ runtime และ raise TypeError เมื่อไม่ตรงกัน',
+      'Interpreter ละเว้น type hints อย่างสิ้นเชิง — tools อย่าง mypy เท่านั้นที่อ่านพวกมัน',
+      'Type hints ทำให้ execution ช้าลงเพราะ interpreter ตรวจสอบพวกมัน',
+      'Type hints ใช้ได้เฉพาะใน Python 3.12+',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'mypy flag ใดเปิดใช้ strict checks ทั้งหมด คล้ายกับ "strict: true" ใน tsconfig.json?',
+    options: ['--all', '--strict', '--no-implicit', '--full-check'],
+    answer: 1,
+  },
+  {
+    q: 'Python 3.10+ syntax สำหรับ "string หรือ None" เป็น return type คืออะไร?',
+    options: [
+      'Optional[str]',
+      'str | None',
+      'Union[str, None]',
+      'string | null',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'mypy สัมพันธ์กับ Python เหมือนกับ _____ สัมพันธ์กับ TypeScript',
+    options: ['jest', 'prettier', 'tsc', 'eslint'],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="tooling/mypy" questions={quizMypy} />
+
+<ProgressTracker client:visible id="tooling/mypy" />

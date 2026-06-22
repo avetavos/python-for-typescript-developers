@@ -1,0 +1,126 @@
+---
+title: Python Tooling Landscape
+description: Python's tooling ecosystem mapped to the Node/TypeScript toolchain — and how it's consolidating around ruff and uv.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## The toolchain you already know
+
+As a TypeScript developer you rely on a predictable set of tools: `npm` manages packages, `eslint` catches mistakes, `prettier` enforces formatting, `tsc` type-checks, and `jest` runs tests. Each tool has one job, and they compose cleanly.
+
+Python's toolchain grew more organically. For years every concern — package management, virtual environments, formatting, linting, type-checking, testing — had multiple competing options. That fragmentation is the first thing that surprises developers coming from Node.
+
+The good news: the ecosystem is consolidating fast. The table below maps each Node/TS tool to its Python counterpart, old and new.
+
+export const tsToolchain = `// Node / TypeScript toolchain
+// Runtime          → node
+// Package manager  → npm / yarn / pnpm
+// Lockfile         → package-lock.json / yarn.lock
+// Config file      → package.json
+// Linter           → eslint
+// Formatter        → prettier
+// Type checker     → tsc (TypeScript compiler)
+// Test runner      → jest / vitest
+// Build step       → tsc / esbuild / tsup
+// Env isolation    → (none — global node_modules)`;
+
+export const pyToolchain = `# Python toolchain
+# Runtime          → python3
+# Package manager  → pip  (classic)  /  uv  (fast, modern)
+# Lockfile         → requirements.txt  /  uv.lock
+# Config file      → pyproject.toml  (PEP 517/518)
+# Linter           → flake8 (old)  /  ruff  (new, fast)
+# Formatter        → black  /  ruff format  (same tool)
+# Type checker     → mypy  /  pyright
+# Test runner      → pytest
+# Build step       → (usually none for apps — deploy source)
+# Env isolation    → venv  (mandatory — see venv-uv-poetry)`;
+
+<TsGo client:visible ts={tsToolchain} go={pyToolchain} />
+
+## Why virtual environments are non-negotiable
+
+In Node, each project gets its own `node_modules` folder automatically. Python installs packages into a single global site-packages directory by default. Without a virtual environment, every project on your machine shares the same package versions — one upgrade can break another project.
+
+Virtual environments (`venv`) solve this by creating a local, isolated Python + pip per project. You will never skip this step in professional Python work.
+
+> Run this in your terminal:
+> ```bash
+> python3 -m venv .venv        # create isolated env
+> source .venv/bin/activate    # activate it (macOS/Linux)
+> # .venv\Scripts\activate     # activate on Windows
+> pip install requests         # installs into .venv only
+> ```
+
+## The modern stack: ruff + uv
+
+The current community direction is to use two tools that together cover what previously required five:
+
+| Concern | Classic | Modern |
+|---|---|---|
+| Lint | flake8 + isort | `ruff check` |
+| Format | black | `ruff format` |
+| Fast package install | pip | `uv pip install` |
+| Project + venv management | poetry | `uv` |
+
+Both `ruff` and `uv` are written in Rust and are 10–100× faster than their predecessors. If you are starting a new project today, reach for them first.
+
+<PyOnly title="pyproject.toml is the package.json of Python">
+
+`package.json` is the single source of truth for a Node project: name, version, dependencies, scripts, and tool config all live there.
+
+Python's equivalent is `pyproject.toml` (PEP 518 / PEP 621). Most modern tools — `ruff`, `mypy`, `pytest`, `uv`, `poetry` — read their configuration from `[tool.ruff]`, `[tool.mypy]`, `[tool.pytest.ini_options]`, etc., all inside one file.
+
+```toml
+[project]
+name = "my-app"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = ["fastapi>=0.110", "uvicorn[standard]"]
+
+[tool.ruff]
+line-length = 88
+
+[tool.mypy]
+strict = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+```
+
+</PyOnly>
+
+export const quizIndex = [
+  {
+    q: 'Which Python tool is the closest equivalent to eslint + prettier combined?',
+    options: ['flake8', 'black', 'ruff', 'mypy'],
+    answer: 2,
+  },
+  {
+    q: 'Why must Python developers use virtual environments on every project?',
+    options: [
+      'Python requires it by law of the language spec',
+      'Python installs packages globally by default, so projects would share and conflict on versions',
+      'Virtual environments speed up import times significantly',
+      'pip refuses to run without one',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'What is the Python equivalent of package.json for project metadata and tool config?',
+    options: ['setup.py', 'requirements.txt', 'pyproject.toml', '.pythonrc'],
+    answer: 2,
+  },
+  {
+    q: 'Which modern tool replaces both pip (for speed) and poetry (for project management)?',
+    options: ['ruff', 'mypy', 'uv', 'black'],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="tooling/index" questions={quizIndex} />
+
+<ProgressTracker client:visible id="tooling/index" />

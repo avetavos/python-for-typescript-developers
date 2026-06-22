@@ -1,0 +1,107 @@
+---
+title: การสร้าง API ด้วย FastAPI
+description: ทำไมต้องใช้ FastAPI, เปรียบเทียบกับ Express และ NestJS, และสิ่งที่เราจะสร้างในโมดูลนี้
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+
+## FastAPI คืออะไร?
+
+ถ้าคุณมาจากโลก Node.js คุณน่าจะคุ้นเคยกับรูปแบบนี้แล้ว: เฟรมเวิร์กที่ map HTTP verb และ URL path ไปยัง handler function, จัดการการ parse request และส่งคืน JSON response FastAPI ทำสิ่งเดียวกันนี้สำหรับ Python แต่มีความสามารถพิเศษติดมาด้วย
+
+FastAPI สร้างบนสองไลบรารีหลักที่คุณจะได้รู้จัก:
+
+- **Starlette** — ASGI web toolkit (เทียบเท่ากับ `http` module ของ Node แต่รองรับ async)
+- **Pydantic** — ไลบรารีสำหรับ data validation ที่ใช้ Python type hints (คิดว่าเป็น Zod + class-transformer รวมกัน)
+
+ผลลัพธ์คือเฟรมเวิร์กที่สร้าง OpenAPI docs อัตโนมัติ, ตรวจสอบ request body และ query parameter โดยไม่ต้องเขียน boilerplate, และรันแบบ async เต็มรูปแบบโดยค่าเริ่มต้น
+
+## FastAPI vs Express vs NestJS
+
+export const introTs = `// Express — ทำทุกอย่างเอง
+const express = require('express');
+const app = express();
+app.use(express.json());
+
+app.get('/items/:id', (req, res) => {
+  const id = Number(req.params.id); // แปลงประเภทเอง
+  if (isNaN(id)) return res.status(422).json({ error: 'bad id' });
+  res.json({ id, name: 'Widget' });
+});
+
+app.listen(3000);
+
+// NestJS — decorators + DI
+// @Get(':id') findOne(@Param('id') id: string) { ... }`;
+
+export const introPy = `# FastAPI — type hints ทำงานแทน
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.get("/items/{item_id}")
+async def get_item(item_id: int):   # แปลง int + ส่ง 422 อัตโนมัติ
+    return {"id": item_id, "name": "Widget"}
+
+# รันด้วย:
+#   uvicorn main:app --reload
+# Docs ที่: http://localhost:8000/docs`;
+
+<TsGo client:visible ts={introTs} go={introPy} />
+
+เปรียบเทียบฟีเจอร์หลัก:
+
+| ฟีเจอร์ | Express | NestJS | FastAPI |
+|---|---|---|---|
+| Type safety | Manual / TS compiler | TS + class-validator | Python type hints |
+| Validation | Manual / Joi / Zod | class-validator | Pydantic (อัตโนมัติ) |
+| Async model | Callbacks / Promises | Promises / Observables | `async/await` (ASGI) |
+| OpenAPI docs | swagger-jsdoc | @nestjs/swagger | Built-in อัตโนมัติ |
+| DI container | ไม่มีใน core | ใช่ (IoC) | `Depends()` (เบาๆ) |
+| Performance | เร็ว | ปานกลาง | เร็วมาก (Starlette) |
+
+## สิ่งที่เราจะสร้าง
+
+ตลอดโมดูลนี้เราจะสร้าง **Items API** ขนาดเล็ก ซึ่งเป็น CRUD service แบบที่คุณน่าจะเคยสร้างมาแล้วหลายครั้งใน Node ระหว่างนั้นเราจะครอบคลุม:
+
+1. โครงสร้างโปรเจกต์และการเริ่มต้น
+2. Routing, path params และ query params
+3. Pydantic models สำหรับ request/response schema
+4. Validation อัตโนมัติและข้อจำกัด
+5. Response models และ status codes
+6. Dependency injection ด้วย `Depends`
+7. Middleware และ CORS
+8. Error handling ด้วย `HTTPException`
+9. การเชื่อมต่อฐานข้อมูลด้วย SQLAlchemy
+10. Testing ด้วย `TestClient` + pytest
+
+> **รันที่เครื่องตัวเอง — ต้องการ FastAPI + server**
+> ติดตั้ง: `pip install fastapi uvicorn[standard] pydantic sqlalchemy pytest httpx`
+
+export const quizIndex = [
+  {
+    q: 'ไลบรารีใดที่ให้การตรวจสอบ request อัตโนมัติใน FastAPI?',
+    options: ['Starlette', 'Pydantic', 'SQLAlchemy', 'Uvicorn'],
+    answer: 1,
+  },
+  {
+    q: 'คำสั่งใดใน FastAPI เทียบเท่ากับ app.listen(3000) ใน Express?',
+    options: [
+      'app.start(3000)',
+      'FastAPI.run(port=3000)',
+      'uvicorn main:app --port 3000',
+      'app.serve(3000)',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'FastAPI สร้าง OpenAPI (Swagger) docs อัตโนมัติ โดยค่าเริ่มต้น docs อยู่ที่ path ใด?',
+    options: ['/swagger', '/openapi', '/docs', '/api-docs'],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="api-fastapi/index" questions={quizIndex} />
+
+<ProgressTracker client:visible id="api-fastapi/index" />

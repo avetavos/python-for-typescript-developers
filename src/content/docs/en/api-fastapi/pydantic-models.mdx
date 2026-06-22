@@ -1,0 +1,207 @@
+---
+title: Pydantic Models
+description: Defining request and response schemas with Pydantic BaseModel — compared to Zod schemas and TypeScript interfaces.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## Schemas: Zod / interfaces → Pydantic BaseModel
+
+In TypeScript you describe a request body shape with an interface or a Zod schema. In FastAPI you describe it with a **Pydantic `BaseModel`** subclass. Pass that class as a type hint on your route function argument and FastAPI will parse and validate the request body automatically.
+
+export const schemaTs = `// TypeScript — Zod schema + inferred type
+import { z } from 'zod';
+
+const CreateItemSchema = z.object({
+  name: z.string().min(1),
+  price: z.number().positive(),
+  inStock: z.boolean().default(true),
+  tags: z.array(z.string()).default([]),
+});
+
+type CreateItem = z.infer<typeof CreateItemSchema>;
+
+// NestJS DTO with class-validator
+export class CreateItemDto {
+  @IsString() @MinLength(1) name: string;
+  @IsNumber() @IsPositive() price: number;
+  @IsBoolean() @IsOptional() inStock?: boolean = true;
+}`;
+
+export const schemaPy = `# FastAPI — Pydantic BaseModel
+from pydantic import BaseModel
+from typing import Optional, List
+
+class CreateItem(BaseModel):
+    name: str
+    price: float
+    in_stock: bool = True
+    tags: List[str] = []
+
+# Use it in a route — FastAPI parses + validates automatically
+from fastapi import FastAPI
+app = FastAPI()
+
+@app.post("/items", status_code=201)
+async def create_item(item: CreateItem):
+    return item          # Pydantic serialises back to JSON`;
+
+<TsGo client:visible ts={schemaTs} go={schemaPy} />
+
+## Nested models
+
+Pydantic models compose naturally — embed one model inside another exactly like nested Zod objects.
+
+export const nestedTs = `// Zod nested object
+const AddressSchema = z.object({
+  street: z.string(),
+  city: z.string(),
+  zip: z.string().length(5),
+});
+
+const UserSchema = z.object({
+  name: z.string(),
+  address: AddressSchema,
+});`;
+
+export const nestedPy = `# Pydantic nested models
+from pydantic import BaseModel
+
+class Address(BaseModel):
+    street: str
+    city: str
+    zip_code: str
+
+class User(BaseModel):
+    name: str
+    address: Address
+
+# FastAPI will parse this nested JSON automatically:
+# { "name": "Alice", "address": { "street": "1 Main St", ... } }`;
+
+<TsGo client:visible ts={nestedTs} go={nestedPy} />
+
+## Response models — separating input from output
+
+A common pattern is having separate models for input (what the client sends) and output (what you return). Pydantic makes this easy to compose.
+
+export const responseModelTs = `// TypeScript — separate input / output types
+interface CreateItemDto { name: string; price: number; }
+interface ItemResponse { id: number; name: string; price: number; createdAt: string; }`;
+
+export const responseModelPy = `# Pydantic — separate input / output models
+from pydantic import BaseModel
+from datetime import datetime
+
+class CreateItem(BaseModel):       # Request body
+    name: str
+    price: float
+
+class ItemResponse(BaseModel):     # Response shape
+    id: int
+    name: str
+    price: float
+    created_at: datetime
+
+# Route uses response_model= to filter + serialize
+from fastapi import FastAPI
+app = FastAPI()
+
+@app.post("/items", response_model=ItemResponse, status_code=201)
+async def create_item(item: CreateItem):
+    # Normally you'd save to DB and return the DB row
+    return ItemResponse(id=1, name=item.name, price=item.price,
+                        created_at=datetime.utcnow())`;
+
+<TsGo client:visible ts={responseModelTs} go={responseModelPy} />
+
+<PyOnly title="model_dump() and model_validate() — Pydantic v2 methods">
+
+Pydantic v2 (the current version) renamed the old `.dict()` → `.model_dump()` and `.parse_obj()` → `.model_validate()`. You may see legacy code with `.dict()` — it still works but is deprecated.
+
+```python
+item = CreateItem(name="Widget", price=9.99)
+
+# Serialize to dict
+data = item.model_dump()
+# {'name': 'Widget', 'price': 9.99, 'in_stock': True, 'tags': []}
+
+# Deserialize from dict
+item2 = CreateItem.model_validate({"name": "Gadget", "price": 4.99})
+```
+
+</PyOnly>
+
+## Try it — stdlib dataclasses as a runnable stand-in
+
+Pydantic cannot run in the browser. `dataclasses` from the standard library gives you the same *shape* (typed fields, defaults, auto `__init__`) without validation, so you can explore the mental model here:
+
+export const dataclassCode = `from dataclasses import dataclass, field, asdict
+from typing import Optional, List
+import json
+
+@dataclass
+class CreateItem:
+    name: str
+    price: float
+    in_stock: bool = True
+    tags: List[str] = field(default_factory=list)
+    description: Optional[str] = None
+
+# Instantiate — same feel as BaseModel(...)
+item = CreateItem(name="Widget", price=9.99, tags=["sale", "new"])
+print("item:", item)
+
+# Serialize to dict (like .model_dump())
+data = asdict(item)
+print("dict :", data)
+
+# Serialize to JSON
+print("json :", json.dumps(data, indent=2))
+
+# Nested dataclass
+@dataclass
+class OrderLine:
+    item: CreateItem
+    quantity: int
+
+line = OrderLine(item=item, quantity=3)
+print("\\nnested:", asdict(line))
+`;
+
+<Playground client:visible code={dataclassCode} />
+
+export const quizPydantic = [
+  {
+    q: 'What is the Pydantic equivalent of a Zod schema or TypeScript interface for request bodies?',
+    options: [
+      'A class inheriting from dict',
+      'A TypedDict subclass',
+      'A class inheriting from BaseModel',
+      'A @dataclass with validators',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'In Pydantic v2, which method serializes a model instance to a Python dict?',
+    options: ['.to_dict()', '.dict()', '.model_dump()', '.serialize()'],
+    answer: 2,
+  },
+  {
+    q: 'How does FastAPI know to parse the request body into a Pydantic model rather than treating it as a query param?',
+    options: [
+      'You annotate the parameter with @Body()',
+      'FastAPI checks if the type hint is a BaseModel subclass',
+      'You register it in the route decorator',
+      'You use Body() from fastapi explicitly — always required',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="api-fastapi/pydantic-models" questions={quizPydantic} />
+
+<ProgressTracker client:visible id="api-fastapi/pydantic-models" />

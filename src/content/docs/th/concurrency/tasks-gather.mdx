@@ -1,0 +1,214 @@
+---
+title: Tasks & gather
+description: asyncio.create_task และ asyncio.gather — Python equivalent ของ Promise.all สำหรับการ run coroutine แบบ concurrent
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## Promise.all → asyncio.gather
+
+ใน JavaScript คุณใช้ `Promise.all([p1, p2, p3])` เพื่อ run async operations หลายอย่างพร้อมกันและรอทั้งหมด Python equivalent โดยตรงคือ `asyncio.gather()`
+
+export const gatherTs = `// TypeScript — Promise.all
+async function fetchUser(id: number): Promise<string> {
+  await delay(20);
+  return \`user-\${id}\`;
+}
+
+// Run all three concurrently, wait for all
+const [users, posts, tags] = await Promise.all([
+  fetchUser(1),
+  fetchPosts(1),
+  fetchTags(1),
+]);
+console.log(users, posts, tags);`;
+
+export const gatherPy = `# Python — asyncio.gather
+import asyncio
+
+async def fetch_user(user_id: int) -> str:
+    await asyncio.sleep(0.02)
+    return f"user-{user_id}"
+
+# Run all three concurrently, wait for all
+users, posts, tags = await asyncio.gather(
+    fetch_user(1),
+    fetch_posts(1),
+    fetch_tags(1),
+)
+print(users, posts, tags)`;
+
+<TsGo client:visible ts={gatherTs} go={gatherPy} />
+
+`asyncio.gather()` รักษา **ลำดับ input** ใน results ที่ return กลับมา เหมือนกับ `Promise.all` แม้ `fetch_tags` จะเสร็จก่อน element ที่สามของ tuple จะยังเป็น result ของมันเสมอ
+
+## asyncio.create_task — schedule งานล่วงหน้า
+
+`Promise.all` เริ่ม execute promise ทันทีที่คุณส่งเข้าไป Python มีแนวคิดเดียวกันผ่าน `asyncio.create_task()`: มัน schedule coroutine ให้ run บน event loop ทันที โดยไม่รอ `await`
+
+export const createTaskTs = `// TypeScript — promise starts running immediately on creation
+const p1 = fetchUser(1);    // already running
+const p2 = fetchPosts(1);   // already running
+
+// Now wait for both
+const user = await p1;
+const posts = await p2;`;
+
+export const createTaskPy = `# Python — task starts running immediately on create_task
+import asyncio
+
+async def work(name: str) -> str:
+    await asyncio.sleep(0.01)
+    return f"Task {name} finished"
+
+async def main() -> None:
+    task_a = asyncio.create_task(work("A"))  # scheduled immediately
+    task_b = asyncio.create_task(work("B"))  # scheduled immediately
+
+    result_a = await task_a   # wait for A
+    result_b = await task_b   # wait for B
+    print(result_a)
+    print(result_b)`;
+
+<TsGo client:visible ts={createTaskTs} go={createTaskPy} />
+
+## create_task vs gather — เมื่อใดควรใช้อะไร
+
+export const choiceTs = `// TypeScript
+// Promise.all — when you want to fire and collect all at once
+const results = await Promise.all([fetch("/a"), fetch("/b")]);
+
+// Separate promises — when you want to do other work in between
+const p = fetch("/a");
+doSomethingElse();        // runs while fetch is in flight
+const result = await p;`;
+
+export const choicePy = `# Python
+import asyncio
+
+# asyncio.gather — fire and collect all at once (simpler)
+results = await asyncio.gather(coro_a(), coro_b(), coro_c())
+
+# create_task — when you need a handle to cancel or inspect later
+task = asyncio.create_task(long_running())
+await do_something_else()   # runs while task is in progress
+result = await task
+
+# cancel a task (no direct Promise equivalent in JS)
+task.cancel()`;
+
+<TsGo client:visible ts={choiceTs} go={choicePy} />
+
+## การจัดการ error
+
+`asyncio.gather` มีพฤติกรรมเหมือน `Promise.all` โดย default: หาก coroutine ใด raise exception exception จะ propagate และ coroutine อื่นจะถูก cancel
+
+export const errorTs = `// TypeScript — Promise.all rejects on first failure
+try {
+  const results = await Promise.all([ok(), willFail(), ok()]);
+} catch (err) {
+  console.error("one failed:", err);
+}
+
+// Promise.allSettled — wait for all regardless of failures
+const settled = await Promise.allSettled([ok(), willFail()]);`;
+
+export const errorPy = `# Python
+import asyncio
+
+# gather raises on first failure (like Promise.all)
+try:
+    results = await asyncio.gather(ok(), will_fail(), ok())
+except Exception as e:
+    print(f"one failed: {e}")
+
+# return_exceptions=True — like Promise.allSettled
+results = await asyncio.gather(
+    ok(), will_fail(), ok(),
+    return_exceptions=True,   # exceptions become values, not raises
+)
+# results = ["ok", ValueError("boom"), "ok"]`;
+
+<TsGo client:visible ts={errorTs} go={errorPy} />
+
+## ลองเลย
+
+export const tasksGatherCode = `import asyncio
+
+async def fetch(label: str, delay: float) -> str:
+    await asyncio.sleep(delay)
+    return f"{label}: fetched"
+
+# gather — all three run concurrently
+results = await asyncio.gather(
+    fetch("users",  0.03),
+    fetch("posts",  0.01),
+    fetch("tags",   0.02),
+)
+for r in results:
+    print(r)
+
+print("---")
+
+# create_task — start tasks before waiting
+async def work(name: str) -> str:
+    await asyncio.sleep(0.01)
+    return f"Task {name} done"
+
+task_a = asyncio.create_task(work("A"))
+task_b = asyncio.create_task(work("B"))
+print(await task_a)
+print(await task_b)
+`;
+
+<Playground client:visible code={tasksGatherCode} />
+
+export const quizTasksGather = [
+  {
+    q: 'อะไรคือ Python equivalent ของ `Promise.all([p1, p2, p3])` ใน JavaScript?',
+    options: [
+      'asyncio.wait([c1, c2, c3])',
+      'asyncio.gather(c1, c2, c3)',
+      'asyncio.run([c1, c2, c3])',
+      'asyncio.create_task([c1, c2, c3])',
+    ],
+    answer: 1,
+  },
+  {
+    q: '`asyncio.create_task(coro())` ทำอะไรทันทีเมื่อถูกเรียก?',
+    options: [
+      'Run coroutine จนเสร็จแบบ synchronous',
+      'Schedule coroutine บน event loop เพื่อให้เริ่มทำงานทันที',
+      'Block จนกว่า coroutine จะผลิต value แรก',
+      'สร้าง OS thread ใหม่สำหรับ coroutine',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'จะทำให้ `asyncio.gather` มีพฤติกรรมเหมือน `Promise.allSettled` ได้อย่างไร (รวบรวม results ทั้งหมดแม้บางอันจะ fail)?',
+    options: [
+      'ส่ง `ignore_errors=True`',
+      'ครอบแต่ละ coroutine ด้วย try/except',
+      'ส่ง `return_exceptions=True`',
+      'ใช้ `asyncio.wait` แทน',
+    ],
+    answer: 2,
+  },
+  {
+    q: '`asyncio.gather` รักษาลำดับของ results เทียบกับ input coroutines ไหม?',
+    options: [
+      'ไม่ — results มาตามลำดับการเสร็จ',
+      'ใช่ — results อยู่ในลำดับเดียวกับ input coroutines เสมอ',
+      'เฉพาะเมื่อใช้ `return_exceptions=True`',
+      'ขึ้นอยู่กับ Python version',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="concurrency/tasks-gather" questions={quizTasksGather} />
+
+<ProgressTracker client:visible id="concurrency/tasks-gather" />

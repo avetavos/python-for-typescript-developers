@@ -1,0 +1,206 @@
+---
+title: Dependency Injection
+description: ระบบ Depends() ของ FastAPI สำหรับ dependencies ที่ใช้ซ้ำได้ เปรียบเทียบกับ NestJS DI และ Express middleware
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## DI แก้ปัญหาอะไร?
+
+ใน API ทุกตัวคุณมี shared concerns: การได้รับ DB session, การอ่าน current user จาก token, หรือการตรวจสอบ common query parameters ใน Express คุณแก้ด้วย middleware ใน NestJS คุณใช้ IoC container ที่มี `@Injectable()` providers FastAPI ใช้ `Depends()` ซึ่งเป็นระบบ DI ที่เบาและ composable ประกาศทั้งหมดผ่าน type hints
+
+## Depends() vs Express middleware vs NestJS providers
+
+export const diTs = `// Express middleware (global side-effect style)
+function authMiddleware(req, res, next) {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+  req.user = verifyToken(token);   // แนบกับ req
+  next();
+}
+app.use(authMiddleware);
+
+// NestJS — @Injectable() provider
+@Injectable()
+export class AuthService {
+  getCurrentUser(token: string): User { ... }
+}
+// inject ผ่าน constructor
+constructor(private authService: AuthService) {}`;
+
+export const diPy = `# FastAPI — Depends()
+from fastapi import FastAPI, Depends, HTTPException, Header
+from typing import Optional
+
+app = FastAPI()
+
+# dependency คือ callable ธรรมดา
+def get_current_user(authorization: Optional[str] = Header(None)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    token = authorization.removeprefix("Bearer ")
+    return {"user_id": 1, "token": token}   # return ค่าที่ต้องการ
+
+# Inject ด้วย Depends() — รันก่อน handler
+@app.get("/profile")
+async def get_profile(current_user: dict = Depends(get_current_user)):
+    return {"user": current_user}`;
+
+<TsGo client:visible ts={diTs} go={diPy} />
+
+## Reusable query parameters
+
+รูปแบบที่พบบ่อยมากคือ shared "pagination" dependency ที่หลาย route ใช้ร่วมกัน เทียบเท่ากับ custom Express middleware หรือ NestJS `PaginationDto`
+
+export const paginationTs = `// NestJS — shared DTO
+export class PaginationDto {
+  @IsOptional() @Type(() => Number) @IsInt() @Min(0)
+  skip?: number = 0;
+
+  @IsOptional() @Type(() => Number) @IsInt() @Max(100)
+  limit?: number = 10;
+}
+
+@Get()
+findAll(@Query() pagination: PaginationDto) { ... }`;
+
+export const paginationPy = `# FastAPI — pagination เป็น Depends
+from fastapi import FastAPI, Depends
+
+app = FastAPI()
+
+class PaginationParams:
+    def __init__(self, skip: int = 0, limit: int = 10):
+        if skip < 0:
+            raise HTTPException(status_code=400, detail="skip must be >= 0")
+        if limit > 100:
+            raise HTTPException(status_code=400, detail="limit must be <= 100")
+        self.skip = skip
+        self.limit = limit
+
+@app.get("/items")
+async def list_items(pagination: PaginationParams = Depends()):
+    return {"skip": pagination.skip, "limit": pagination.limit}
+
+@app.get("/users")
+async def list_users(pagination: PaginationParams = Depends()):
+    return {"skip": pagination.skip, "limit": pagination.limit}`;
+
+<TsGo client:visible ts={paginationTs} go={paginationPy} />
+
+## DB session dependency
+
+dependency ที่สำคัญที่สุดใน real app คือ database session `Depends()` ของ FastAPI จัดการ lifecycle — เปิด, yield ให้ handler, ปิดเมื่อเสร็จ
+
+export const dbDepTs = `// NestJS — TypeORM via constructor injection
+@Injectable()
+export class ItemsService {
+  constructor(
+    @InjectRepository(Item)
+    private readonly itemRepo: Repository<Item>,
+  ) {}
+  async findAll() { return this.itemRepo.find(); }
+}`;
+
+export const dbDepPy = `# FastAPI — SQLAlchemy session via Depends
+from fastapi import FastAPI, Depends
+from sqlalchemy.orm import Session
+from app.database import SessionLocal
+
+app = FastAPI()
+
+# Generator dependency — yield session, cleanup หลัง
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db        # ← handler ได้รับค่านี้
+    finally:
+        db.close()      # ← รันเสมอ แม้จะมี exception
+
+@app.get("/items/{item_id}")
+async def get_item(item_id: int, db: Session = Depends(get_db)):
+    item = db.get(Item, item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return item`;
+
+<TsGo client:visible ts={dbDepTs} go={dbDepPy} />
+
+## การ compose dependencies
+
+Dependencies สามารถ depend บน dependencies อื่นได้ ก่อตั้งเป็น chain นี่คือวิธีที่คุณ layer auth → permissions → resource fetching
+
+export const chainTs = `// NestJS guard chain
+@UseGuards(AuthGuard, RolesGuard)
+@Roles('admin')
+@Get(':id')
+findOne(@Param('id') id: string) { ... }`;
+
+export const chainPy = `# FastAPI — dependencies compose ได้ตามธรรมชาติ
+from fastapi import FastAPI, Depends
+
+app = FastAPI()
+
+def get_current_user(token: str = Depends(get_token)):
+    return decode_token(token)
+
+def require_admin(user: dict = Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    return user
+
+@app.delete("/items/{item_id}")
+async def delete_item(item_id: int, _: dict = Depends(require_admin)):
+    return {"deleted": item_id}`;
+
+<TsGo client:visible ts={chainTs} go={chainPy} />
+
+<PyOnly title="Depends() ใช้ Python's type-hint introspection">
+
+DI ของ FastAPI ทำงานโดยตรวจสอบ function signature ตอน startup โดยใช้ Python's `inspect` module มันอ่าน type hint ของแต่ละ parameter, ค้นหา `Depends()` default values, และสร้าง dependency graph อัตโนมัติ คล้ายกับวิธีที่ Angular หรือ NestJS อ่าน `@Injectable()` metadata แต่ไม่ต้องมี decorators หรือ global container
+
+นั่นหมายความว่า dependencies คือ plain Python functions หรือ classes ธรรมดา ไม่มี `@Injectable()`, ไม่มี module registration, และไม่มี global container ให้ configure คุณ compose มันโดยส่ง `Depends()` หนึ่งใน `Depends()` อีกอัน
+
+</PyOnly>
+
+> **รันที่เครื่องตัวเอง — ต้องการ FastAPI + server**
+> Playground ข้ามในบทเรียนนี้เพราะ `Depends()` ต้องการ FastAPI request lifecycle ในการทำงาน
+
+export const quizDI = [
+  {
+    q: 'FastAPI equivalent ของ NestJS\'s @Injectable() service สำหรับ shared DB session คืออะไร?',
+    options: [
+      'class ที่ตกแต่งด้วย @service',
+      'generator function ที่ yield session ใช้กับ Depends()',
+      'global variable ที่ initialize ตอน startup',
+      'singleton ที่ register ด้วย app.provide()',
+    ],
+    answer: 1,
+  },
+  {
+    q: '`yield` ภายใน dependency function ใน FastAPI เปิดใช้งานอะไร?',
+    options: [
+      'การ return หลายค่าจาก dependency',
+      'Cleanup code (เช่น ปิด DB session) ที่รันหลัง handler เสร็จ',
+      'Streaming responses ให้ client',
+      'Cache dependency result ข้าม requests',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'FastAPI รู้ได้อย่างไรว่า route parameter ควร resolve ผ่าน DI แทนที่จะมาจาก URL หรือ request body?',
+    options: [
+      'ตกแต่งด้วย @Inject()',
+      'ค่า default คือ Depends(some_callable)',
+      'type hint เป็น subclass ของ Dependency',
+      'ลงทะเบียนใน app.dependency_overrides',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="api-fastapi/dependency-injection" questions={quizDI} />
+
+<ProgressTracker client:visible id="api-fastapi/dependency-injection" />

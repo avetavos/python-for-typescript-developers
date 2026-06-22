@@ -1,0 +1,177 @@
+---
+title: Routing และ Parameters
+description: การกำหนด route ด้วย @app.get/@app.post, path parameters และ query parameters พร้อม type hints เปรียบเทียบกับ Express routes
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+
+## Route decorators vs app.get()
+
+ใน Express คุณเรียก `app.get(path, handler)` ใน FastAPI คุณตกแต่งฟังก์ชันด้วย `@app.get(path)` decorator นี้จะลงทะเบียนฟังก์ชันเป็น handler สำหรับ HTTP method + path combination นั้น ฟังก์ชันจะเป็น `async def` หรือ plain `def` ก็ได้
+
+export const basicRouteTs = `// Express
+const app = express();
+
+app.get('/items', (req, res) => {
+  res.json([{ id: 1, name: 'Widget' }]);
+});
+
+app.post('/items', (req, res) => {
+  const body = req.body;          // parse เอง
+  res.status(201).json(body);
+});`;
+
+export const basicRoutePy = `# FastAPI
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.get("/items")
+async def list_items():
+    return [{"id": 1, "name": "Widget"}]
+
+@app.post("/items", status_code=201)
+async def create_item(item: dict):
+    return item`;
+
+<TsGo client:visible ts={basicRouteTs} go={basicRoutePy} />
+
+FastAPI รองรับ HTTP methods มาตรฐานทั้งหมด: `@app.get`, `@app.post`, `@app.put`, `@app.patch`, `@app.delete`, `@app.options`
+
+## Path parameters
+
+ครอบชื่อ parameter ด้วยวงเล็บปีกกาใน path string แล้วเพิ่ม argument ที่มี type ตรงกันในฟังก์ชัน FastAPI จะแปลงค่าให้และส่งคืน `422 Unprocessable Entity` อัตโนมัติถ้าการแปลงล้มเหลว
+
+export const pathTs = `// Express — ทุกอย่างเป็น string, แปลงเอง
+app.get('/items/:id', (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) return res.status(422).json({ error: 'id must be integer' });
+  res.json({ id, name: 'Widget' });
+});
+
+// NestJS
+@Get(':id')
+findOne(@Param('id', ParseIntPipe) id: number) {
+  return { id, name: 'Widget' };
+}`;
+
+export const pathPy = `# FastAPI — type hint ทำการแปลง + validation
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.get("/items/{item_id}")
+async def get_item(item_id: int):      # GET /items/abc → 422 อัตโนมัติ
+    return {"id": item_id, "name": "Widget"}
+
+# Path params หลายตัว
+@app.get("/users/{user_id}/items/{item_id}")
+async def get_user_item(user_id: int, item_id: int):
+    return {"user_id": user_id, "item_id": item_id}`;
+
+<TsGo client:visible ts={pathTs} go={pathPy} />
+
+## Query parameters
+
+argument ของฟังก์ชันที่ไม่อยู่ใน path string จะถูกถือว่าเป็น query parameter ให้ค่า default เพื่อทำให้เป็น optional
+
+export const queryTs = `// Express
+app.get('/items', (req, res) => {
+  const skip = Number(req.query.skip) || 0;
+  const limit = Number(req.query.limit) || 10;
+  const q = req.query.q as string | undefined;
+  res.json({ skip, limit, q });
+});`;
+
+export const queryPy = `# FastAPI — query params จาก function signature
+from fastapi import FastAPI
+from typing import Optional
+
+app = FastAPI()
+
+@app.get("/items")
+async def search_items(
+    skip: int = 0,           # GET /items?skip=5
+    limit: int = 10,         # GET /items?limit=20
+    q: Optional[str] = None, # GET /items?q=widget
+):
+    return {"skip": skip, "limit": limit, "q": q}`;
+
+<TsGo client:visible ts={queryTs} go={queryPy} />
+
+## ลองเล่น — routing logic แบบ plain dict
+
+เบราว์เซอร์ไม่สามารถรัน HTTP server จริงได้ แต่สามารถสำรวจวิธีที่ FastAPI จับคู่ handler ด้วย plain dict:
+
+export const routingCode = `# Route registry — สะท้อนวิธีที่ FastAPI map handlers
+routes = {
+    ("GET",    "/items"):          "list_items",
+    ("POST",   "/items"):          "create_item",
+    ("GET",    "/items/{id}"):     "get_item",
+    ("PUT",    "/items/{id}"):     "update_item",
+    ("DELETE", "/items/{id}"):     "delete_item",
+}
+
+def match_route(method: str, path: str) -> str:
+    # ตรงทั้งหมดก่อน
+    key = (method, path)
+    if key in routes:
+        return routes[key]
+    # template match (แบบง่าย)
+    for (m, tmpl), handler in routes.items():
+        if m != method:
+            continue
+        parts_tmpl = tmpl.split("/")
+        parts_path = path.split("/")
+        if len(parts_tmpl) != len(parts_path):
+            continue
+        if all(t.startswith("{") or t == p for t, p in zip(parts_tmpl, parts_path)):
+            return handler
+    return "404 Not Found"
+
+tests = [
+    ("GET",    "/items"),
+    ("POST",   "/items"),
+    ("GET",    "/items/42"),
+    ("DELETE", "/items/99"),
+    ("GET",    "/unknown"),
+]
+for method, path in tests:
+    print(f"{method:6s} {path:20s} -> {match_route(method, path)}")
+`;
+
+<Playground client:visible code={routingCode} />
+
+export const quizRouting = [
+  {
+    q: 'FastAPI รู้ได้อย่างไรว่า function parameter เป็น path parameter หรือ query parameter?',
+    options: [
+      'ตกแต่งด้วย @PathParam หรือ @QueryParam',
+      'Path params อยู่ใน path string เป็น {name} ส่วนที่เหลือเป็น query param',
+      'ใช้ req.params vs req.query แบบ Express',
+      'ต้องระบุ Path() หรือ Query() เสมอ ไม่มีทางอื่น',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'FastAPI ส่ง HTTP status ใดถ้า client ส่ง GET /items/abc และ item_id มี type เป็น int?',
+    options: ['400 Bad Request', '404 Not Found', '422 Unprocessable Entity', '500 Internal Server Error'],
+    answer: 2,
+  },
+  {
+    q: 'จะทำให้ query parameter เป็น optional ใน FastAPI ได้อย่างไร?',
+    options: [
+      'ใช้ @Optional decorator บน parameter',
+      'ให้ค่า default แก่ parameter เช่น q: str = None',
+      'ครอบ path ด้วยวงเล็บเหลี่ยม',
+      'เพิ่ม ?optional=true ใน path string',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="api-fastapi/routing-params" questions={quizRouting} />
+
+<ProgressTracker client:visible id="api-fastapi/routing-params" />

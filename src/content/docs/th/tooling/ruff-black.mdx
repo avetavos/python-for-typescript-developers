@@ -1,0 +1,147 @@
+---
+title: Linting & Formatting — ruff และ black
+description: ruff (lint + format) และ black เทียบกับ eslint + prettier การ format ด้วยคำสั่งเดียวสำหรับ Python
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## eslint + prettier → ruff
+
+ในโลก TypeScript คุณตั้งค่าสอง tools: `eslint` บังคับ code quality rules และ `prettier` บังคับ style พวกมันมี config แยกกัน คำสั่ง CLI แยกกัน และบางครั้งก็ขัดแย้งกัน
+
+นักพัฒนา Python แต่ก่อนก็ใช้วิธีแยกเหมือนกัน: `flake8` (lint) + `black` (format) แต่ `ruff` — เปิดตัวในปี 2022 และเขียนด้วย Rust — ตอนนี้แทนที่ทั้งคู่ หนึ่ง tool หนึ่ง section config ใน `pyproject.toml` และรันใน milliseconds บน codebase ทั้งหมด
+
+## การติดตั้งและรัน
+
+> รันในเทอร์มินัลของคุณ — ไม่ต้องใช้ Playground สำหรับคำสั่ง CLI
+
+```bash
+# ติดตั้ง (เพิ่มใน dev dependencies ของ project)
+pip install ruff
+# หรือด้วย uv:
+uv add --dev ruff
+
+# Lint ทั้ง project
+ruff check .
+
+# แก้ไข lint violations ที่แก้ได้อัตโนมัติ
+ruff check --fix .
+
+# Format ทั้ง project (แทนที่ black)
+ruff format .
+
+# ตรวจสอบ formatting โดยไม่เขียนไฟล์ (โหมด CI)
+ruff format --check .
+```
+
+## การตั้งค่า ruff เทียบกับ eslint
+
+export const tsEslintConfig = `// .eslintrc.js  (or eslint.config.js)
+module.exports = {
+  parser: '@typescript-eslint/parser',
+  plugins: ['@typescript-eslint'],
+  rules: {
+    'no-unused-vars': 'error',
+    '@typescript-eslint/no-explicit-any': 'warn',
+  },
+};
+
+// .prettierrc
+{
+  "singleQuote": true,
+  "semi": false,
+  "printWidth": 88
+}`;
+
+export const pyRuffConfig = `# pyproject.toml  — ไฟล์เดียวสำหรับทุกอย่าง
+[tool.ruff]
+line-length = 88
+indent-width = 4
+
+[tool.ruff.lint]
+# E/W = pycodestyle  F = pyflakes  I = isort  UP = pyupgrade
+select = ["E", "F", "I", "UP"]
+ignore = ["E501"]   # line-too-long (จัดการโดย formatter)
+
+[tool.ruff.format]
+quote-style = "double"   # ตรงกับค่าเริ่มต้นของ black`;
+
+<TsGo client:visible ts={tsEslintConfig} go={pyRuffConfig} />
+
+## black — formatter แบบ opinionated
+
+ก่อนที่ `ruff format` จะมีอยู่ `black` คือมาตรฐาน de-facto คุณจะพบมันทุกที่ใน Python project ที่มีอยู่แล้ว มันถูกออกแบบมาให้เป็น opinionated โดยเจตนา — มีการตั้งค่าแทบไม่มีเลย — เหมือนกับ `prettier` ที่ล็อก `--no-semi` ไว้ ถ้าคุณรับช่วง project ที่ใช้ black อยู่แล้ว ให้ใช้ต่อไป อย่าผสมกัน
+
+```bash
+pip install black
+
+# Format ไฟล์เดียว
+black src/main.py
+
+# Format ทั้ง project
+black .
+
+# โหมด check-only สำหรับ CI
+black --check .
+```
+
+## Workflow การย้ายแบบใหม่
+
+export const tsLintCmd = `# Node / TypeScript workflow
+npx eslint src/ --fix
+npx prettier src/ --write
+
+# หรือด้วย script รวมใน package.json:
+# "lint:fix": "eslint src/ --fix && prettier src/ --write"`;
+
+export const pyLintCmd = `# Python workflow — ruff ทำทั้งสองอย่าง
+ruff check --fix .
+ruff format .
+
+# หรือในครั้งเดียว (check แล้ว format):
+ruff check --fix . && ruff format .
+
+# Makefile target (pattern ที่พบบ่อย):
+# lint:
+#     ruff check --fix . && ruff format .`;
+
+<TsGo client:visible ts={tsLintCmd} go={pyLintCmd} />
+
+> Playground note: `ruff` และ `black` ทำงานกับไฟล์และต้องการ terminal environment รันคำสั่งข้างต้นในไดเรกทอรี project ของคุณ
+
+<PyOnly title="PEP 8 — style guide ของ Python">
+
+rules ของ `eslint` มาจาก team หรือ community configs เช่น `eslint-config-airbnb` Python มี style guide ระดับ language: **PEP 8** ซึ่งกำหนด naming conventions (`snake_case` สำหรับ functions, `PascalCase` สำหรับ classes, `UPPER_SNAKE_CASE` สำหรับ constants), ความยาวบรรทัดสูงสุด (79 ตัวอักษรอย่างเป็นทางการ, 88 ในทางปฏิบัติกับ black) และกฎ whitespace
+
+`ruff` และ `flake8` บังคับ PEP 8 โดยค่าเริ่มต้น การเข้าใจ PEP 8 ช่วยให้คุณอ่าน error codes เช่น `E302` (two blank lines ระหว่าง top-level definitions) และ `W291` (trailing whitespace)
+
+</PyOnly>
+
+export const quizRuffBlack = [
+  {
+    q: 'tool ตัวใดแทนที่ทั้ง flake8 (lint) และ black (format) ใน Python project สมัยใหม่?',
+    options: ['mypy', 'ruff', 'isort', 'pycodestyle'],
+    answer: 1,
+  },
+  {
+    q: 'คำสั่งใด format ทั้ง Python project ด้วย ruff โดยไม่แก้ไขไฟล์ (โหมด CI)?',
+    options: [
+      'ruff check .',
+      'ruff format --dry-run .',
+      'ruff format --check .',
+      'ruff lint --no-write .',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'ruff อ่าน configuration จากไฟล์ใด?',
+    options: ['.ruffrc', 'ruff.config.js', 'pyproject.toml', '.ruff.toml only'],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="tooling/ruff-black" questions={quizRuffBlack} />
+
+<ProgressTracker client:visible id="tooling/ruff-black" />

@@ -1,0 +1,244 @@
+---
+title: CI ด้วย GitHub Actions
+description: GitHub Actions workflow สำหรับ Python — setup-python, install, ruff, mypy, pytest — เทียบกับ Node CI workflow
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## Node CI workflow ที่คุณรู้จักอยู่แล้ว
+
+ถ้าคุณเคยตั้งค่า GitHub Actions สำหรับ TypeScript project มาก่อน pattern คือ: checkout → setup-node → install → lint → type-check → test Python CI ตาม four-step logic เดียวกันทุกประการ — ด้วยชื่อ action เฉพาะ Python และการเรียก tool
+
+## เทียบกันชัดๆ: Node vs Python CI workflow
+
+export const nodeCi = `# .github/workflows/ci.yml  (Node / TypeScript)
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npx eslint src/ --max-warnings 0
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Test
+        run: npx jest --coverage`;
+
+export const pythonCi = `# .github/workflows/ci.yml  (Python)
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Lint & format check (ruff)
+        run: |
+          ruff check .
+          ruff format --check .
+
+      - name: Type check (mypy)
+        run: mypy src/ --strict
+
+      - name: Test (pytest)
+        run: pytest --tb=short -q`;
+
+<TsGo client:visible ts={nodeCi} go={pythonCi} />
+
+## Python CI workflow แบบ production เต็มรูปแบบ
+
+นี่คือ workflow ที่สมบูรณ์มากขึ้นพร้อม caching, coverage reporting และ matrix testing บน Python หลาย versions:
+
+```yaml
+# .github/workflows/ci.yml
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+
+jobs:
+  quality:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dev dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Lint with ruff
+        run: ruff check . --output-format=github
+
+      - name: Check formatting with ruff
+        run: ruff format --check .
+
+      - name: Type check with mypy
+        run: mypy src/ --strict
+
+  test:
+    name: Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.11', '3.12']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Run tests with coverage
+        run: pytest --cov=src --cov-report=xml --cov-fail-under=80 -v
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+```
+
+## ใช้ uv เพื่อ CI ที่เร็วขึ้น
+
+การแทนที่ `pip` ด้วย `uv` ใน CI ลดเวลาติดตั้งจาก 30–90 วินาทีเหลือ 2–5 วินาทีในส่วน projects ส่วนใหญ่:
+
+```yaml
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+
+      - name: Install dependencies with uv
+        run: uv sync --frozen   # เทียบกับ npm ci — ติดตั้งจาก lockfile อย่างแม่นยำ
+```
+
+<PyOnly title="requirements.txt แบบแยก: runtime vs dev">
+
+Node แยก `dependencies` จาก `devDependencies` ใน `package.json` Python classic pattern ใช้สองไฟล์ requirements แยกกัน:
+
+```
+requirements.txt       ← runtime dependencies (fastapi, sqlalchemy, ฯลฯ)
+requirements-dev.txt   ← dev-only deps (pytest, ruff, mypy, black)
+```
+
+`requirements-dev.txt` โดยทั่วไปขึ้นต้นด้วย `-r requirements.txt` เพื่อให้การติดตั้ง dev deps ก็ติดตั้ง runtime deps ด้วย:
+
+```
+-r requirements.txt
+pytest>=8.0
+ruff>=0.4
+mypy>=1.9
+```
+
+ด้วย `pyproject.toml` (uv/poetry) การแยกนี้จัดการอย่างสะอาดผ่าน dependency groups:
+
+```toml
+[project]
+dependencies = ["fastapi>=0.110"]
+
+[dependency-groups]
+dev = ["pytest>=8.0", "ruff>=0.4", "mypy>=1.9"]
+```
+
+</PyOnly>
+
+> Playground note: GitHub Actions YAML files กำหนด workflows ที่รันบน servers ของ GitHub — ไม่สามารถ demo ใน browser playground ได้ commit ไฟล์ `.github/workflows/ci.yml` ไปยัง repository ของคุณและ push เพื่อดูมันรัน
+
+export const quizCi = [
+  {
+    q: 'GitHub Actions action ใดตั้งค่า Python version เฉพาะใน CI?',
+    options: [
+      'actions/python@v5',
+      'setup/python@v5',
+      'actions/setup-python@v5',
+      'github/setup-python@v5',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'คำสั่ง ruff ใดตรวจสอบ formatting โดยไม่แก้ไขไฟล์ (สำหรับ CI)?',
+    options: [
+      'ruff format --no-write .',
+      'ruff format --check .',
+      'ruff check --format .',
+      'ruff lint-format .',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'อะไรคือคู่เทียบ uv ของ "npm ci" — reproducible install จาก lockfile?',
+    options: ['uv install --ci', 'uv sync --frozen', 'uv pip install --lock', 'uv reproduce'],
+    answer: 1,
+  },
+  {
+    q: 'ใน pytest CI command flag ใดทำให้ run fail ถ้า coverage ลดลงต่ำกว่า 80%?',
+    options: [
+      '--coverage-threshold=80',
+      '--cov-min=80',
+      '--cov-fail-under=80',
+      '--min-coverage 80',
+    ],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="tooling/ci" questions={quizCi} />
+
+<ProgressTracker client:visible id="tooling/ci" />

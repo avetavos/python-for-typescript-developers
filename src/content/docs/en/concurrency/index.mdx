@@ -1,0 +1,173 @@
+---
+title: Async & Concurrency — Overview
+description: Python's concurrency model compared to JavaScript's single-threaded event loop. Concurrency vs parallelism, the GIL, and which tool to reach for.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## Coming from JavaScript's single-threaded world
+
+JavaScript runs in a single thread. There is one call stack, one event loop, and no shared memory between concurrent units of work. When you write `async/await` in Node.js you are scheduling microtasks on that single thread — you never run two things truly at the same time inside one process.
+
+Python gives you **three different concurrency tools** and you have to choose the right one for the job:
+
+| Tool | What it is | Best for |
+|---|---|---|
+| `asyncio` | Single-threaded cooperative concurrency | I/O-bound async code (HTTP, DB, files) |
+| `threading` | OS threads sharing one interpreter | I/O-bound code, legacy blocking libraries |
+| `multiprocessing` | Separate OS processes | CPU-bound work that needs true parallelism |
+
+## Concurrency vs parallelism
+
+These two words are often conflated. They mean different things:
+
+- **Concurrency** — multiple tasks are *in progress* at the same time, but not necessarily running at the exact same instant. The event loop switches between tasks when one is waiting. This is how Node.js works, and how Python's `asyncio` works.
+- **Parallelism** — multiple tasks *execute* at the exact same instant on different CPU cores. This requires multiple OS processes in Python (or multiple threads in most other languages).
+
+export const concurrencyTs = `// JavaScript/Node.js
+// Concurrency via the event loop — single thread, never truly parallel
+async function fetchUser(id: number): Promise<User> {
+  // While this awaits, other promises can run
+  return await db.query("SELECT * FROM users WHERE id = $1", [id]);
+}
+
+// Promise.all is concurrent, not parallel — still one thread
+const [user, posts] = await Promise.all([
+  fetchUser(1),
+  fetchPosts(1),
+]);`;
+
+export const concurrencyPy = `# Python
+# asyncio — same single-threaded cooperative model as JS
+import asyncio
+
+async def fetch_user(user_id: int) -> dict:
+    # While this awaits, other coroutines can run
+    await asyncio.sleep(0)  # yield to event loop
+    return {"id": user_id}
+
+# asyncio.gather — same idea as Promise.all
+async def main() -> None:
+    user, posts = await asyncio.gather(
+        fetch_user(1),
+        fetch_posts(1),
+    )`;
+
+<TsGo client:visible ts={concurrencyTs} go={concurrencyPy} />
+
+## The three layers at a glance
+
+export const layersTs = `// JavaScript has one model: event loop + Web Workers for threads
+// One thread for JS logic, workers for CPU work (separate memory)
+
+// Main thread
+const worker = new Worker("worker.js");
+worker.postMessage({ data: bigArray });
+worker.onmessage = (e) => console.log(e.data);`;
+
+export const layersPy = `# Python has three models
+import asyncio          # like Node's event loop
+import threading        # OS threads (limited by GIL — see below)
+import multiprocessing  # true parallelism, separate memory
+
+# Pick based on your bottleneck:
+# waiting on network/disk → asyncio or threading
+# heavy CPU math         → multiprocessing`;
+
+<TsGo client:visible ts={layersTs} go={layersPy} />
+
+<PyOnly title="The GIL — Python's most important concurrency constraint">
+
+The **Global Interpreter Lock (GIL)** is a mutex inside CPython (the standard Python interpreter) that ensures only one thread executes Python bytecode at a time.
+
+This has one major consequence for threading:
+
+- **I/O-bound threads work fine.** While one thread is waiting for a network response, the GIL is released and another thread can run.
+- **CPU-bound threads do NOT speed up.** Two threads crunching numbers will not use two cores — the GIL forces them to take turns.
+
+JavaScript developers already live with this constraint (one thread), but it can be surprising when you expect Python threads to parallelize CPU work like Java or Go threads would.
+
+The escape hatch is `multiprocessing`: each process has its own GIL (and its own memory), so CPU-bound work can run on all available cores.
+
+```python
+# GIL is released during I/O → threads CAN overlap here
+import threading, urllib.request
+
+def download(url: str) -> None:
+    urllib.request.urlopen(url)  # GIL released while waiting
+
+# GIL is NOT released during pure Python computation
+def compute(n: int) -> int:
+    return sum(range(n))  # threads here won't run in parallel
+```
+
+Python 3.13 introduced an **experimental no-GIL build** (PEP 703). It is not the default yet, but the direction is clear.
+
+</PyOnly>
+
+## Which tool should I reach for?
+
+```
+Is the bottleneck waiting on I/O (network, disk, DB)?
+    └─ Yes → Use asyncio (preferred) or threading
+           asyncio if you control the code (use async libraries)
+           threading if you're wrapping a blocking/legacy library
+
+Is the bottleneck CPU computation (math, image processing, ML)?
+    └─ Yes → Use multiprocessing (bypasses the GIL)
+
+Do you just want a simple high-level API?
+    └─ Yes → Use concurrent.futures (wraps both threading and multiprocessing)
+```
+
+The rest of this module covers each tool in depth.
+
+export const quizIndex = [
+  {
+    q: 'What is the key difference between concurrency and parallelism?',
+    options: [
+      'They are synonyms — both mean running at the same time',
+      'Concurrency means tasks overlap in progress; parallelism means they execute simultaneously on separate cores',
+      'Parallelism is only possible with asyncio',
+      'Concurrency requires multiple CPU cores',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'Which Python tool should you reach for when doing CPU-bound work that needs true parallelism?',
+    options: [
+      'asyncio',
+      'threading',
+      'multiprocessing',
+      'concurrent.futures with ThreadPoolExecutor',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'Why do Python threads NOT achieve parallelism for CPU-bound tasks?',
+    options: [
+      'Python threads are too slow to start',
+      'The GIL ensures only one thread runs Python bytecode at a time',
+      'Python has no OS-level thread support',
+      'CPU-bound tasks always require asyncio',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'Which JavaScript concept is most analogous to Python\'s asyncio?',
+    options: [
+      'Web Workers (SharedArrayBuffer)',
+      'The single-threaded event loop with Promises / async-await',
+      'Node.js child_process.fork()',
+      'Synchronous XMLHttpRequest',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="concurrency/index" questions={quizIndex} />
+
+<ProgressTracker client:visible id="concurrency/index" />

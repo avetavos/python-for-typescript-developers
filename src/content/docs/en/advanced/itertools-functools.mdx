@@ -1,0 +1,274 @@
+---
+title: itertools & functools
+description: Python's standard-library power tools for iteration and functional programming — chain, groupby, lru_cache, partial — compared to Lodash and JS Array methods.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## itertools: lazy iteration without dependencies
+
+TypeScript developers often reach for Lodash for collection utilities. Python ships `itertools` in the standard library, and it is **lazy** — it produces values on demand without building intermediate lists. This matters for large datasets.
+
+### chain — flatten multiple iterables
+
+export const chainTs = `// TypeScript / Lodash
+import _ from 'lodash';
+const result = _.concat([1, 2], [3, 4], [5]);
+// or spread:
+const result2 = [...[1, 2], ...[3, 4], ...[5]];
+console.log(result);   // [1, 2, 3, 4, 5]`;
+
+export const chainPy = `import itertools
+
+result = list(itertools.chain([1, 2], [3, 4], [5]))
+print(result)   # [1, 2, 3, 4, 5]
+
+# chain.from_iterable — flatten one level of nesting
+nested = [[1, 2], [3, 4], [5]]
+flat = list(itertools.chain.from_iterable(nested))
+print(flat)     # [1, 2, 3, 4, 5]`;
+
+<TsGo client:visible ts={chainTs} go={chainPy} />
+
+### count — infinite counter
+
+export const countTs = `// TypeScript — manual counter or generator
+function* count(start = 0, step = 1) {
+  let n = start;
+  while (true) {
+    yield n;
+    n += step;
+  }
+}
+
+const gen = count(10, 2);
+const result = Array.from({ length: 4 }, () => gen.next().value);
+console.log(result);  // [10, 12, 14, 16]`;
+
+export const countPy = `import itertools
+
+counter = itertools.count(10, 2)   # infinite lazy counter
+result = [next(counter) for _ in range(4)]
+print(result)   # [10, 12, 14, 16]
+
+# islice — safely take N items from an infinite iterator
+first_five = list(itertools.islice(itertools.count(1), 5))
+print(first_five)   # [1, 2, 3, 4, 5]`;
+
+<TsGo client:visible ts={countTs} go={countPy} />
+
+### groupby — group consecutive items
+
+`groupby` is like SQL `GROUP BY` but it requires **sorted input** — it groups consecutive equal keys.
+
+export const groupbyTs = `// TypeScript / Lodash
+import _ from 'lodash';
+const data = [
+  { cat: "a", val: 1 }, { cat: "a", val: 2 },
+  { cat: "b", val: 3 }, { cat: "b", val: 4 },
+];
+const grouped = _.groupBy(data, "cat");
+// { a: [...], b: [...] }`;
+
+export const groupbyPy = `import itertools
+
+data = [("a", 1), ("a", 2), ("b", 3), ("b", 4)]
+# Input must be sorted by key first!
+for key, group in itertools.groupby(data, key=lambda x: x[0]):
+    items = list(group)
+    print(f"{key}: {items}")
+# a: [('a', 1), ('a', 2)]
+# b: [('b', 3), ('b', 4)]`;
+
+<TsGo client:visible ts={groupbyTs} go={groupbyPy} />
+
+## functools: higher-order functions
+
+### reduce
+
+export const reduceTs = `// TypeScript
+const sum = [1, 2, 3, 4, 5].reduce((acc, x) => acc + x, 0);
+console.log(sum);  // 15`;
+
+export const reducePy = `import functools
+
+result = functools.reduce(lambda acc, x: acc + x, [1, 2, 3, 4, 5])
+print(result)   # 15
+
+# With initial value
+result2 = functools.reduce(lambda acc, x: acc + x, [1, 2, 3], 100)
+print(result2)  # 106`;
+
+<TsGo client:visible ts={reduceTs} go={reducePy} />
+
+### lru_cache — memoization
+
+`@lru_cache` is Python's built-in memoization decorator. The equivalent in TypeScript is a manual `Map`-based cache or a library like `memoize-one`.
+
+export const cacheTs = `// TypeScript — manual memoization
+const memo = new Map<number, number>();
+
+function fib(n: number): number {
+  if (n < 2) return n;
+  if (memo.has(n)) return memo.get(n)!;
+  const result = fib(n - 1) + fib(n - 2);
+  memo.set(n, result);
+  return result;
+}
+
+console.log(fib(30));  // 832040`;
+
+export const cachePy = `import functools
+
+@functools.lru_cache(maxsize=128)
+def fib(n: int) -> int:
+    if n < 2:
+        return n
+    return fib(n - 1) + fib(n - 2)
+
+print(fib(30))            # 832040
+print(fib.cache_info())   # hits=28, misses=31, ...`;
+
+<TsGo client:visible ts={cacheTs} go={cachePy} />
+
+### partial — pre-fill arguments
+
+export const partialTs = `// TypeScript — bind or arrow wrapper
+function multiply(a: number, b: number): number {
+  return a * b;
+}
+
+const double = multiply.bind(null, 2);
+// or: const double = (b: number) => multiply(2, b);
+
+console.log(double(5));   // 10
+console.log(double(10));  // 20`;
+
+export const partialPy = `import functools
+
+def multiply(a: int, b: int) -> int:
+    return a * b
+
+double = functools.partial(multiply, 2)
+print(double(5))    # 10
+print(double(10))   # 20
+
+# partial also works with keyword arguments
+def connect(host: str, port: int, ssl: bool = False) -> str:
+    return f"{'https' if ssl else 'http'}://{host}:{port}"
+
+prod = functools.partial(connect, port=443, ssl=True)
+print(prod("api.example.com"))   # https://api.example.com:443`;
+
+<TsGo client:visible ts={partialTs} go={partialPy} />
+
+## Try it
+
+export const itertoolsPlaygroundCode = `import itertools
+import functools
+
+# chain
+merged = list(itertools.chain([1, 2], [3, 4], [5]))
+print("chain:", merged)
+
+# islice from count
+first_six = list(itertools.islice(itertools.count(0, 10), 6))
+print("count+islice:", first_six)
+
+# groupby
+words = ["apple", "ant", "bear", "banana", "cat"]
+words.sort(key=lambda w: w[0])   # must sort first!
+for letter, group in itertools.groupby(words, key=lambda w: w[0]):
+    print(f"  {letter}: {list(group)}")
+
+# lru_cache fibonacci
+@functools.lru_cache(maxsize=64)
+def fib(n: int) -> int:
+    if n < 2:
+        return n
+    return fib(n - 1) + fib(n - 2)
+
+print("fib(20):", fib(20))
+print("cache:", fib.cache_info())
+
+# partial
+def power(base: int, exp: int) -> int:
+    return base ** exp
+
+square = functools.partial(power, exp=2)
+cube   = functools.partial(power, exp=3)
+print("squares:", [square(x) for x in range(1, 6)])
+print("cubes  :", [cube(x)   for x in range(1, 6)])
+`;
+
+<Playground client:visible code={itertoolsPlaygroundCode} />
+
+<PyOnly title="itertools.product and combinatorics">
+
+`itertools` includes a family of combinatorics functions with no direct Lodash equivalent:
+
+```python
+import itertools
+
+# Cartesian product (like nested for-loops)
+for pair in itertools.product([1, 2], ['a', 'b']):
+    print(pair)
+# (1, 'a'), (1, 'b'), (2, 'a'), (2, 'b')
+
+# Permutations
+print(list(itertools.permutations([1, 2, 3], 2)))
+# [(1,2),(1,3),(2,1),(2,3),(3,1),(3,2)]
+
+# Combinations
+print(list(itertools.combinations([1, 2, 3, 4], 2)))
+# [(1,2),(1,3),(1,4),(2,3),(2,4),(3,4)]
+```
+
+These are pure, lazy, and available in every Python 3.x — no extra install required.
+
+</PyOnly>
+
+export const quizItertoolsFunctools = [
+  {
+    q: 'Why does `itertools.groupby` require sorted input?',
+    options: [
+      'It is a performance optimisation — unsorted input causes errors',
+      'It groups consecutive equal keys, so unsorted input produces duplicate groups',
+      'It is a Python 2 legacy restriction',
+      'It only works with strings',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'What does `@functools.lru_cache` do?',
+    options: [
+      'It runs a function in a separate thread',
+      'It memoizes (caches) function results based on arguments',
+      'It enforces a rate limit on function calls',
+      'It converts a generator into a list',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'What does `functools.partial(fn, 2)` return?',
+    options: [
+      'The result of calling fn(2)',
+      'A new callable with the first argument pre-filled as 2',
+      'A copy of fn that only accepts one argument',
+      'An iterator that yields fn(2) forever',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'Which itertools function safely takes N items from an infinite iterator?',
+    options: ['itertools.takewhile', 'itertools.islice', 'itertools.chain', 'itertools.cycle'],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="advanced/itertools-functools" questions={quizItertoolsFunctools} />
+
+<ProgressTracker client:visible id="advanced/itertools-functools" />

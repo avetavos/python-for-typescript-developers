@@ -1,0 +1,198 @@
+---
+title: การ Dockerize Python App
+description: Multi-stage Dockerfile สำหรับ Python app — slim base, venv ภายใน image, non-root user — เทียบกับ Node Dockerfile
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## Node Dockerfile ที่คุณรู้จักอยู่แล้ว
+
+ถ้าคุณเคย containerize Node/TypeScript app มาก่อน คุณรู้ pattern: copy `package.json`, รัน `npm ci`, copy source, build และรัน Python Dockerfile ตาม multi-stage logic เดียวกัน — แต่มี best practices เฉพาะ Python บางอย่างที่คุณต้องเข้าใจ
+
+## เทียบกันชัดๆ: Node vs Python Dockerfile
+
+export const nodeDockerfile = `# ---- Node / TypeScript multi-stage Dockerfile ----
+FROM node:20-alpine AS deps
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=builder /app/dist ./dist
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+USER appuser
+EXPOSE 3000
+CMD ["node", "dist/main.js"]`;
+
+export const pythonDockerfile = `# ---- Python multi-stage Dockerfile ----
+FROM python:3.12-slim AS builder
+WORKDIR /app
+
+# ติดตั้ง build tools แล้วสร้าง venv ภายใน image
+RUN python -m venv /app/.venv
+ENV PATH="/app/.venv/bin:$PATH"
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+FROM python:3.12-slim AS runner
+WORKDIR /app
+
+# Copy pre-built venv จาก builder
+COPY --from=builder /app/.venv /app/.venv
+ENV PATH="/app/.venv/bin:$PATH"
+
+# Copy application source
+COPY src/ ./src/
+
+# รันด้วย non-root user
+RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
+USER appuser
+
+EXPOSE 8000
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]`;
+
+<TsGo client:visible ts={nodeDockerfile} go={pythonDockerfile} />
+
+## Python Dockerfile แบบ production เต็มรูปแบบ พร้อม comment
+
+```dockerfile
+# syntax=docker/dockerfile:1
+
+# ---- Stage 1: Build / dependency installation ----
+FROM python:3.12-slim AS builder
+
+WORKDIR /app
+
+# PYTHONDONTWRITEBYTECODE: ไม่เขียน .pyc files (ประหยัด space)
+# PYTHONUNBUFFERED: log output ทันที (12-Factor: log ไปยัง stdout)
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+# สร้าง virtual environment ภายใน image
+# ทำให้เรา copy ทั้ง /app/.venv ไปยัง final stage ได้
+RUN python -m venv /app/.venv
+ENV PATH="/app/.venv/bin:$PATH"
+
+# Copy dependency manifest ก่อน (Docker layer caching)
+COPY pyproject.toml uv.lock* requirements.txt* ./
+
+# ติดตั้ง dependencies — no cache เพื่อให้ image เล็ก
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# ---- Stage 2: Runtime image ----
+FROM python:3.12-slim AS runner
+
+WORKDIR /app
+
+# Copy venv ที่มี dependencies ครบจาก builder
+COPY --from=builder /app/.venv /app/.venv
+ENV PATH="/app/.venv/bin:$PATH" \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+# Copy application source (หลัง deps — cache hit ที่ดีกว่าเมื่อ rebuild)
+COPY src/ ./src/
+
+# สร้างและเปลี่ยนไปใช้ non-root user (security best practice)
+RUN addgroup --system appgroup && \
+    adduser --system --ingroup appgroup --no-create-home appuser
+USER appuser
+
+# Expose port ที่ app รับฟัง
+EXPOSE 8000
+
+# CMD ใช้ exec form (ไม่มี shell wrapper — signals ส่งตรงถึง process)
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+## ทำไมต้องสร้าง venv ภายใน Docker image?
+
+> รันในเทอร์มินัลของคุณเพื่อ build และรัน:
+
+```bash
+docker build -t my-python-app .
+docker run -p 8000:8000 my-python-app
+
+# หรือด้วย docker compose:
+# docker compose up --build
+```
+
+<PyOnly title="PYTHONUNBUFFERED และ PYTHONDONTWRITEBYTECODE อธิบาย">
+
+สอง env vars นี้เป็นมาตรฐานใน Python Dockerfile ทุก production:
+
+**`PYTHONUNBUFFERED=1`** — Python buffer stdout/stderr โดยค่าเริ่มต้น ใน container นี้หมายความว่า logs ของคุณอาจไม่ปรากฏเลย (ติดอยู่ใน buffer) การตั้งค่าเป็น `1` บังคับให้ flush ทันที ซึ่งเป็น requirement 12-Factor "log ไปยัง stdout"
+
+**`PYTHONDONTWRITEBYTECODE=1`** — Python ปกติเขียนไฟล์ `.pyc` ที่ compile แล้วคู่กับ `.py` source files เพื่อเร่ง startup ใน containers นี้คือ noise: เปลือง layer space และอาจทำให้เกิด stale-cache bugs การปิดมันทำให้ image สะอาด
+
+นักพัฒนา Node ไม่ต้องการ flags เหล่านี้เพราะ runtime model ของ Node ทำงานต่างกัน — นี่คือ footgun เฉพาะ Python
+
+</PyOnly>
+
+## .dockerignore
+
+เหมือน `.gitignore` สำหรับ Docker สร้างเสมอเพื่อหลีกเลี่ยงการ copy venv, cache และ secrets ลงใน image:
+
+```
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.env
+.env.*
+*.log
+```
+
+export const quizDocker = [
+  {
+    q: 'ทำไมจึงควรสร้าง virtual environment ภายใน Docker image แทนที่จะใช้ system Python?',
+    options: [
+      'Docker กำหนดให้ทำตาม specification',
+      'venv ภายใน image ให้เรา copy dependency set ที่ isolated ทั้งหมดอย่างสะอาดระหว่าง build และ runtime stages',
+      'System Python ไม่มีใน slim images',
+      'pip ปฏิเสธที่จะติดตั้งหากไม่มี venv',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'PYTHONUNBUFFERED=1 รับประกันอะไรใน containerized Python app?',
+    options: [
+      'Python รันเร็วขึ้นด้วยการข้าม GIL',
+      'Python logs ถูก flush ไปยัง stdout ทันทีแทนที่จะถูก buffer',
+      'Python ข้ามการเขียนไฟล์ .pyc bytecode',
+      'uvicorn รับฟังบน network interfaces ทั้งหมด',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'ใน multi-stage Dockerfile คุณนำ installed packages จาก builder stage เข้าสู่ runner stage อย่างไร?',
+    options: [
+      'RUN pip install อีกครั้งใน runner stage',
+      'COPY --from=builder /app/.venv /app/.venv',
+      'ADD venv /app/.venv',
+      'Docker รวม layers ระหว่าง stages อัตโนมัติ',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="tooling/docker-python" questions={quizDocker} />
+
+<ProgressTracker client:visible id="tooling/docker-python" />

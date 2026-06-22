@@ -1,0 +1,177 @@
+---
+title: Routing & Parameters
+description: Defining routes with @app.get/@app.post, path parameters, and query parameters with type hints — compared to Express routes.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+
+## Route decorators vs app.get()
+
+In Express you call `app.get(path, handler)`. In FastAPI you decorate a function with `@app.get(path)`. The decorator registers the function as the handler for that HTTP method + path combination. The function can be `async def` or a plain `def`.
+
+export const basicRouteTs = `// Express
+const app = express();
+
+app.get('/items', (req, res) => {
+  res.json([{ id: 1, name: 'Widget' }]);
+});
+
+app.post('/items', (req, res) => {
+  const body = req.body;          // manually parsed
+  res.status(201).json(body);
+});`;
+
+export const basicRoutePy = `# FastAPI
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.get("/items")
+async def list_items():
+    return [{"id": 1, "name": "Widget"}]
+
+@app.post("/items", status_code=201)
+async def create_item(item: dict):
+    return item`;
+
+<TsGo client:visible ts={basicRouteTs} go={basicRoutePy} />
+
+FastAPI supports all standard HTTP methods: `@app.get`, `@app.post`, `@app.put`, `@app.patch`, `@app.delete`, `@app.options`.
+
+## Path parameters
+
+Wrap the parameter name in curly braces in the path string, then add a matching typed argument to the function. FastAPI casts the value and returns a `422 Unprocessable Entity` automatically if the cast fails.
+
+export const pathTs = `// Express — everything is a string, cast manually
+app.get('/items/:id', (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) return res.status(422).json({ error: 'id must be integer' });
+  res.json({ id, name: 'Widget' });
+});
+
+// NestJS
+@Get(':id')
+findOne(@Param('id', ParseIntPipe) id: number) {
+  return { id, name: 'Widget' };
+}`;
+
+export const pathPy = `# FastAPI — type hint does the cast + validation
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.get("/items/{item_id}")
+async def get_item(item_id: int):      # GET /items/abc → 422 automatically
+    return {"id": item_id, "name": "Widget"}
+
+# Multiple path params
+@app.get("/users/{user_id}/items/{item_id}")
+async def get_user_item(user_id: int, item_id: int):
+    return {"user_id": user_id, "item_id": item_id}`;
+
+<TsGo client:visible ts={pathTs} go={pathPy} />
+
+## Query parameters
+
+Any function argument that is NOT in the path string is treated as a query parameter. Add a default value to make it optional.
+
+export const queryTs = `// Express
+app.get('/items', (req, res) => {
+  const skip = Number(req.query.skip) || 0;
+  const limit = Number(req.query.limit) || 10;
+  const q = req.query.q as string | undefined;
+  res.json({ skip, limit, q });
+});`;
+
+export const queryPy = `# FastAPI — query params from function signature
+from fastapi import FastAPI
+from typing import Optional
+
+app = FastAPI()
+
+@app.get("/items")
+async def search_items(
+    skip: int = 0,           # GET /items?skip=5
+    limit: int = 10,         # GET /items?limit=20
+    q: Optional[str] = None, # GET /items?q=widget
+):
+    return {"skip": skip, "limit": limit, "q": q}`;
+
+<TsGo client:visible ts={queryTs} go={queryPy} />
+
+## Try it — routing logic as a plain dict
+
+The in-browser runner cannot run a real HTTP server, but you can explore how FastAPI-style route matching works using a plain dict:
+
+export const routingCode = `# Route registry — mirrors how FastAPI maps handlers
+routes = {
+    ("GET",    "/items"):          "list_items",
+    ("POST",   "/items"):          "create_item",
+    ("GET",    "/items/{id}"):     "get_item",
+    ("PUT",    "/items/{id}"):     "update_item",
+    ("DELETE", "/items/{id}"):     "delete_item",
+}
+
+def match_route(method: str, path: str) -> str:
+    # exact match first
+    key = (method, path)
+    if key in routes:
+        return routes[key]
+    # template match (naive)
+    for (m, tmpl), handler in routes.items():
+        if m != method:
+            continue
+        parts_tmpl = tmpl.split("/")
+        parts_path = path.split("/")
+        if len(parts_tmpl) != len(parts_path):
+            continue
+        if all(t.startswith("{") or t == p for t, p in zip(parts_tmpl, parts_path)):
+            return handler
+    return "404 Not Found"
+
+tests = [
+    ("GET",    "/items"),
+    ("POST",   "/items"),
+    ("GET",    "/items/42"),
+    ("DELETE", "/items/99"),
+    ("GET",    "/unknown"),
+]
+for method, path in tests:
+    print(f"{method:6s} {path:20s} -> {match_route(method, path)}")
+`;
+
+<Playground client:visible code={routingCode} />
+
+export const quizRouting = [
+  {
+    q: 'How does FastAPI know a function parameter is a path parameter vs a query parameter?',
+    options: [
+      'You decorate it with @PathParam or @QueryParam',
+      'Path params appear in the path string as {name}; everything else is a query param',
+      'You use req.params vs req.query like Express',
+      'You annotate it with Path() or Query() — there is no other way',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'What HTTP status does FastAPI return if a client sends GET /items/abc and item_id is typed as int?',
+    options: ['400 Bad Request', '404 Not Found', '422 Unprocessable Entity', '500 Internal Server Error'],
+    answer: 2,
+  },
+  {
+    q: 'How do you make a query parameter optional in FastAPI?',
+    options: [
+      'Use @Optional decorator on the parameter',
+      'Give the parameter a default value (e.g. q: str = None)',
+      'Wrap the path in brackets',
+      'Add ?optional=true to the path string',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="api-fastapi/routing-params" questions={quizRouting} />
+
+<ProgressTracker client:visible id="api-fastapi/routing-params" />

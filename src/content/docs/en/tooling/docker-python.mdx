@@ -1,0 +1,200 @@
+---
+title: Dockerizing a Python App
+description: A multi-stage Dockerfile for a Python app — slim base, venv inside the image, non-root user — mapped to a Node Dockerfile.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## The Node Dockerfile you already know
+
+If you have containerized a Node/TypeScript app before, you know the pattern: copy `package.json`, run `npm ci`, copy source, build, and run. Python's Dockerfile follows the same multi-stage logic — but with a few Python-specific best practices you need to internalize.
+
+## Side-by-side: Node vs Python Dockerfile
+
+export const nodeDockerfile = `# ---- Node / TypeScript multi-stage Dockerfile ----
+FROM node:20-alpine AS deps
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=builder /app/dist ./dist
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+USER appuser
+EXPOSE 3000
+CMD ["node", "dist/main.js"]`;
+
+export const pythonDockerfile = `# ---- Python multi-stage Dockerfile ----
+FROM python:3.12-slim AS builder
+WORKDIR /app
+
+# Install build tools, then create venv inside the image
+RUN python -m venv /app/.venv
+ENV PATH="/app/.venv/bin:$PATH"
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+FROM python:3.12-slim AS runner
+WORKDIR /app
+
+# Copy the pre-built venv from builder
+COPY --from=builder /app/.venv /app/.venv
+ENV PATH="/app/.venv/bin:$PATH"
+
+# Copy application source
+COPY src/ ./src/
+
+# Run as non-root user
+RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
+USER appuser
+
+EXPOSE 8000
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]`;
+
+<TsGo client:visible ts={nodeDockerfile} go={pythonDockerfile} />
+
+## The full Python Dockerfile explained
+
+Here is the production-grade Dockerfile with comments:
+
+```dockerfile
+# syntax=docker/dockerfile:1
+
+# ---- Stage 1: Build / dependency installation ----
+FROM python:3.12-slim AS builder
+
+WORKDIR /app
+
+# PYTHONDONTWRITEBYTECODE: don't write .pyc files (saves space)
+# PYTHONUNBUFFERED: log output immediately (12-Factor: log to stdout)
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+# Create the virtual environment INSIDE the image
+# This lets us copy the entire /app/.venv to the final stage
+RUN python -m venv /app/.venv
+ENV PATH="/app/.venv/bin:$PATH"
+
+# Copy dependency manifest first (Docker layer caching)
+COPY pyproject.toml uv.lock* requirements.txt* ./
+
+# Install dependencies — no cache to keep image small
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# ---- Stage 2: Runtime image ----
+FROM python:3.12-slim AS runner
+
+WORKDIR /app
+
+# Copy the fully-populated venv from builder
+COPY --from=builder /app/.venv /app/.venv
+ENV PATH="/app/.venv/bin:$PATH" \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+# Copy application source (after deps — better cache hit on rebuilds)
+COPY src/ ./src/
+
+# Create and switch to a non-root user (security best practice)
+RUN addgroup --system appgroup && \
+    adduser --system --ingroup appgroup --no-create-home appuser
+USER appuser
+
+# Expose the port the app listens on
+EXPOSE 8000
+
+# CMD uses exec form (no shell wrapper — signals go directly to process)
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+## Why venv inside the Docker image?
+
+> Run this in your terminal to build and run:
+
+```bash
+docker build -t my-python-app .
+docker run -p 8000:8000 my-python-app
+
+# Or with docker compose:
+# docker compose up --build
+```
+
+<PyOnly title="PYTHONUNBUFFERED and PYTHONDONTWRITEBYTECODE explained">
+
+These two env vars are standard in every production Python Dockerfile:
+
+**`PYTHONUNBUFFERED=1`** — Python buffers stdout/stderr by default. In a container, this means your logs may never appear (they are stuck in a buffer). Setting this to `1` forces immediate flushing, which is the 12-Factor "log to stdout" requirement.
+
+**`PYTHONDONTWRITEBYTECODE=1`** — Python normally writes compiled `.pyc` files alongside your `.py` source files to speed up startup. In containers this is noise: it wastes layer space and can cause stale-cache bugs. Disabling it keeps the image clean.
+
+Node developers do not need these flags because Node's runtime model works differently — this is a Python-specific footgun.
+
+</PyOnly>
+
+## .dockerignore
+
+Like `.gitignore` for Docker. Always create one to avoid copying your venv, cache, and secrets into the image:
+
+```
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.env
+.env.*
+*.log
+```
+
+export const quizDocker = [
+  {
+    q: 'Why should you create a virtual environment INSIDE the Docker image instead of relying on the system Python?',
+    options: [
+      'Docker requires it by specification',
+      'A venv inside the image lets you copy the entire isolated dependency set cleanly between build and runtime stages',
+      'System Python is not available in slim images',
+      'pip refuses to install without a venv',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'What does PYTHONUNBUFFERED=1 ensure in a containerized Python app?',
+    options: [
+      'Python runs faster by skipping the GIL',
+      'Python logs are flushed to stdout immediately instead of being buffered',
+      'Python skips writing .pyc bytecode files',
+      'uvicorn listens on all network interfaces',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'In a multi-stage Dockerfile, how do you bring the installed packages from the builder stage into the runner stage?',
+    options: [
+      'RUN pip install again in the runner stage',
+      'COPY --from=builder /app/.venv /app/.venv',
+      'ADD venv /app/.venv',
+      'Docker automatically merges layers between stages',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="tooling/docker-python" questions={quizDocker} />
+
+<ProgressTracker client:visible id="tooling/docker-python" />

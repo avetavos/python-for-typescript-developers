@@ -1,0 +1,184 @@
+---
+title: Variables & Types
+description: Dynamic typing, type hints, และค่าคงที่ตามธรรมเนียมใน Python เทียบกับ let/const และ static types ของ TypeScript
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## Variables: แนวคิดที่คุ้นเคย แต่กฎต่างกัน
+
+ใน TypeScript คุณประกาศตัวแปรด้วย `let` หรือ `const` และจะใส่ annotation บอก type หรือไม่ก็ได้ คอมไพเลอร์ของ TypeScript จะบังคับใช้ type นั้นตลอดอายุของตัวแปร ส่วนใน Python คุณแค่เขียนชื่อแล้ว assign ค่า — ไม่มีคีย์เวิร์ด ไม่มีคอมไพเลอร์ ตัวแปรจะมีอยู่ตั้งแต่บรรทัดนั้นเป็นต้นไป และ type ของมันก็คือสิ่งที่คุณ assign ลงไป
+
+ความแตกต่างสำคัญ: type system ของ TypeScript อยู่ตอน compile-time (และหายไปตอน runtime) ส่วน type hints แบบ optional ของ Python เป็นเพียง annotation เท่านั้น — interpreter ไม่บังคับใช้มัน และเครื่องมือภายนอกอย่าง `mypy` จะทำหน้าที่ตรวจสอบแยกต่างหาก
+
+## การประกาศตัวแปร
+
+export const declareTs = `// TypeScript
+let age: number = 30;
+let name: string = "Alice";
+const PI: number = 3.14159;
+let isActive: boolean = true;
+
+// Inferred type — TS figures it out
+let score = 100;  // inferred as number`;
+
+export const declarePy = `# Python
+age: int = 30
+name: str = "Alice"
+PI: float = 3.14159
+is_active: bool = True
+
+# No annotation needed — works the same
+score = 100  # Python infers nothing; it is just an int`;
+
+<TsGo client:visible ts={declareTs} go={declarePy} />
+
+สังเกตความต่างของสไตล์:
+- ไม่มีคีย์เวิร์ด `let` หรือ `const` — ตัว assignment นั่นแหละคือการประกาศ
+- ใช้ `snake_case` สำหรับชื่อตัวแปร (ไม่ใช่ `camelCase`)
+- `True` / `False` ขึ้นต้นด้วยตัวพิมพ์ใหญ่ (ไม่ใช่ตัวพิมพ์เล็กแบบ JS/TS)
+
+## ค่าคงที่ตามธรรมเนียม: UPPER_CASE
+
+Python ไม่มีคีย์เวิร์ด `const` ธรรมเนียมของชุมชนคือตั้งชื่อค่าคงที่ด้วย `UPPER_SNAKE_CASE` ไม่มีอะไรห้ามคุณ assign ค่าใหม่ทับ — มันเป็นเพียงสัญญาณบอกนักพัฒนาคนอื่นเท่านั้น
+
+export const constTs = `// TypeScript — enforced at compile time
+const MAX_RETRIES: number = 3;
+const API_BASE = "https://api.example.com";
+
+// MAX_RETRIES = 5;  // TS error: cannot assign to const`;
+
+export const constPy = `# Python — convention only, NOT enforced
+MAX_RETRIES: int = 3
+API_BASE: str = "https://api.example.com"
+
+# Technically legal (but don't do this):
+# MAX_RETRIES = 5  # no error, just bad style`;
+
+<TsGo client:visible ts={constTs} go={constPy} />
+
+## Dynamic typing ในการใช้งานจริง
+
+ตัวแปรใน Python ไม่ได้ถูกล็อกไว้กับ type เริ่มต้นของมัน ตัวแปรเป็นเพียงชื่อที่ชี้ไปยัง object — คุณสามารถ rebind ไปยัง type ใดก็ได้เมื่อใดก็ได้ TypeScript จะปฏิเสธสิ่งนี้ตอน compile-time ส่วน Python จะไม่
+
+export const dynamicTs = `// TypeScript
+let value: string | number = "hello";
+value = 42;   // OK — union type
+// value = true; // Error — not in the union`;
+
+export const dynamicPy = `# Python
+value = "hello"
+print(type(value))   # <class 'str'>
+
+value = 42
+print(type(value))   # <class 'int'>
+
+value = [1, 2, 3]
+print(type(value))   # <class 'list'>`;
+
+<TsGo client:visible ts={dynamicTs} go={dynamicPy} />
+
+## การ assign หลายค่าพร้อมกัน
+
+Python ให้คุณ unpack หลายค่าในบรรทัดเดียว — เป็นรูปแบบที่นักพัฒนา TypeScript คุ้นเคยจาก array destructuring
+
+export const multiTs = `// TypeScript destructuring
+const [x, y, z] = [1, 2, 3];
+const { name, age } = { name: "Alice", age: 30 };`;
+
+export const multiPy = `# Python tuple unpacking
+x, y, z = 1, 2, 3
+print(x, y, z)  # 1 2 3
+
+# Works with any iterable
+first, *rest = [10, 20, 30, 40]
+print(first, rest)  # 10 [20, 30, 40]`;
+
+<TsGo client:visible ts={multiTs} go={multiPy} />
+
+## ลองเล่นดู
+
+export const variablesCode = `# Experiment with Python variables
+age: int = 30
+name: str = "Alice"
+PI: float = 3.14159
+is_active: bool = True
+
+print(f"name={name}, age={age}, PI={PI}, is_active={is_active}")
+
+# Dynamic reassignment — Python allows this
+age = "thirty"
+print(f"age is now: {age} (type: {type(age).__name__})")
+
+# Multiple assignment
+x, y, z = 1, 2, 3
+print(f"x={x}, y={y}, z={z}")
+
+# Star unpacking
+first, *rest = [10, 20, 30, 40]
+print(f"first={first}, rest={rest}")
+`;
+
+<Playground client:visible code={variablesCode} />
+
+<PyOnly title="Type hints เป็น optional และไม่ถูกบังคับใช้ตอน runtime">
+
+ใน TypeScript นั้น type เป็นการรับประกันตอน compile-time — คอมไพเลอร์จะปฏิเสธความไม่ตรงกันของ type ก่อนที่โค้ดของคุณจะรันด้วยซ้ำ
+
+ใน Python นั้น type hints อย่าง `name: str = "Alice"` เป็น **เอกสารสำหรับมนุษย์และเครื่องมือ** — ตัว interpreter ของ Python จะเพิกเฉยต่อมันโดยสิ้นเชิงตอน runtime คุณสามารถส่ง `int` เข้าไปในฟังก์ชันที่ annotate ไว้เป็น `str` ได้ และ Python ก็จะไม่บ่นอะไร
+
+สำหรับการวิเคราะห์แบบ static (เทียบเท่ากับคอมไพเลอร์ของ TypeScript) ให้รัน `mypy` หรือ `pyright` แยกต่างหาก:
+
+```bash
+pip install mypy
+mypy your_script.py
+```
+
+เอดิเตอร์รุ่นใหม่ (VS Code ที่ใช้ Pylance, PyCharm) จะรันการวิเคราะห์นี้ให้อัตโนมัติขณะที่คุณพิมพ์
+
+</PyOnly>
+
+export const quizVariables = [
+  {
+    q: 'ข้อความใดประกาศค่าคงที่ใน Python ได้อย่างถูกต้องตามธรรมเนียม?',
+    options: [
+      'const MAX_SIZE = 100',
+      'final MAX_SIZE: int = 100',
+      'MAX_SIZE: int = 100',
+      'let MAX_SIZE = 100',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'Python ใช้อะไรแทนคีย์เวิร์ด `let` ในการประกาศตัวแปร?',
+    options: [
+      'คีย์เวิร์ด `var`',
+      'คีย์เวิร์ด `def`',
+      'ไม่ใช้อะไรเลย — การ assign คือการสร้างตัวแปร',
+      'คีย์เวิร์ด `new`',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'ธรรมเนียมการตั้งชื่อตัวแปรทั่วไปของ Python คืออะไร?',
+    options: ['camelCase', 'PascalCase', 'UPPER_SNAKE_CASE', 'snake_case'],
+    answer: 3,
+  },
+  {
+    q: 'หลังจาก `x: int = 5` คุณเขียน `x = "hello"` จะเกิดอะไรขึ้นตอน runtime?',
+    options: [
+      'Python โยน TypeError',
+      'Python reassign x เป็น string อย่างเงียบ ๆ',
+      'Python โยน SyntaxError',
+      'Type hint ป้องกันการ reassign',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="python-101/variables" questions={quizVariables} />
+
+<ProgressTracker client:visible id="python-101/variables" />

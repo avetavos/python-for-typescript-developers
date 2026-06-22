@@ -1,0 +1,236 @@
+---
+title: Profiling & Performance
+description: Measuring Python performance with timeit and cProfile — compared to Node.js console.time and --prof — with a focus on reading and acting on profile output.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## The profiling mindset
+
+Before optimising anything, you need to **measure**. The same rule applies in both TypeScript and Python: do not guess where the bottleneck is — profile first, optimise second, measure again.
+
+| Node.js tool | Python equivalent |
+|---|---|
+| `console.time` / `console.timeEnd` | `timeit.timeit()` |
+| `performance.now()` | `time.perf_counter()` |
+| `node --prof` + `node --prof-process` | `cProfile` + `pstats` |
+| Chrome DevTools flame graph | `snakeviz` (pip install snakeviz) |
+| `clinic.js` / `0x` | `py-spy` (external, sampling profiler) |
+
+## timeit: precise microbenchmarks
+
+`timeit` runs a snippet thousands of times and reports the total time. It is the Python equivalent of `console.time` but much more rigorous — it disables garbage collection during the run to reduce noise.
+
+export const timeitTs = `// TypeScript — manual timing
+console.time("list comp");
+for (let i = 0; i < 10_000; i++) {
+  Array.from({ length: 100 }, (_, i) => i ** 2);
+}
+console.timeEnd("list comp");`;
+
+export const timeitPy = `import timeit
+
+# timeit runs the snippet 10,000 times; returns total seconds
+t = timeit.timeit(
+    '[x**2 for x in range(100)]',
+    number=10_000
+)
+print(f"List comprehension: {t:.4f}s")
+
+# Compare two approaches
+t2 = timeit.timeit(
+    'list(map(lambda x: x**2, range(100)))',
+    number=10_000
+)
+print(f"map(): {t2:.4f}s")`;
+
+<TsGo client:visible ts={timeitTs} go={timeitPy} />
+
+## Try it — timeit in the browser
+
+export const timeitPlaygroundCode = `import timeit
+
+# Compare list comprehension vs map vs generator-to-list
+approaches = {
+    "list comp": '[x**2 for x in range(100)]',
+    "map+list ": 'list(map(lambda x: x**2, range(100)))',
+    "for loop  ": 'r=[]; [r.append(x**2) for x in range(100)]',
+}
+
+results = {}
+for name, stmt in approaches.items():
+    t = timeit.timeit(stmt, number=5000)
+    results[name] = t
+    print(f"  {name}: {t:.4f}s")
+
+fastest = min(results, key=results.get)
+print(f"\\nFastest: {fastest}")
+`;
+
+<Playground client:visible code={timeitPlaygroundCode} />
+
+## cProfile: function-level profiling
+
+`cProfile` is Python's built-in deterministic profiler. It records every function call, how many times each was called, and how long each took. It is the equivalent of `node --prof` but ships with Python and needs no extra tools to read.
+
+export const cprofTs = `// Node.js — file-based profiling
+// node --prof server.js
+// node --prof-process isolate-*.log > profile.txt`;
+
+export const cprofPy = `import cProfile
+import pstats
+import io
+
+def slow_function():
+    total = 0
+    for i in range(1000):
+        total += sum(range(i))
+    return total
+
+# Profile a specific function
+pr = cProfile.Profile()
+pr.enable()
+slow_function()
+pr.disable()
+
+# Print top 5 by cumulative time
+s = io.StringIO()
+ps = pstats.Stats(pr, stream=s).sort_stats('cumulative')
+ps.print_stats(5)
+print(s.getvalue())`;
+
+<TsGo client:visible ts={cprofTs} go={cprofPy} />
+
+## cProfile in the browser
+
+export const cprofilePlaygroundCode = `import cProfile
+import pstats
+import io
+
+def inner(n: int) -> int:
+    return sum(range(n))
+
+def middle(n: int) -> int:
+    return sum(inner(i) for i in range(n))
+
+def outer(n: int) -> int:
+    return middle(n) + inner(n)
+
+pr = cProfile.Profile()
+pr.enable()
+result = outer(200)
+pr.disable()
+
+s = io.StringIO()
+ps = pstats.Stats(pr, stream=s).sort_stats("cumulative")
+ps.print_stats(8)
+print(f"Result: {result}")
+print()
+print(s.getvalue())
+`;
+
+<Playground client:visible code={cprofilePlaygroundCode} />
+
+## Reading pstats output
+
+```
+ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+     1    0.000    0.000    0.004    0.004 script.py:4(slow_function)
+  1000    0.004    0.000    0.004    0.000 {built-in method builtins.sum}
+```
+
+| Column | Meaning |
+|---|---|
+| `ncalls` | Number of times the function was called |
+| `tottime` | Time spent in this function (excluding callees) |
+| `cumtime` | Cumulative time (including all sub-calls) |
+| `percall` | Average time per call |
+
+**Sort strategies:**
+- `sort_stats('cumulative')` — find the slowest end-to-end call chains (start here)
+- `sort_stats('tottime')` — find functions doing the most work themselves
+- `sort_stats('ncalls')` — find functions called unexpectedly often
+
+## Workflow: profile → identify → fix → measure
+
+```python
+# 1. Profile
+import cProfile
+cProfile.run('my_function()', 'profile.stats')
+
+# 2. Inspect interactively
+import pstats
+p = pstats.Stats('profile.stats')
+p.sort_stats('cumulative').print_stats(10)
+
+# 3. Visualise (install once)
+# pip install snakeviz
+# snakeviz profile.stats   # opens browser flame graph
+```
+
+<PyOnly title="line_profiler: line-by-line profiling">
+
+`cProfile` tells you which function is slow. `line_profiler` tells you which line inside that function. Install with `pip install line_profiler`, then:
+
+```python
+# decorated_function.py
+@profile  # added by kernprof at runtime
+def process_orders(orders):
+    results = []
+    for order in orders:       # line 4
+        tax = order.total * 0.07  # line 5
+        results.append(tax)    # line 6
+    return results
+
+# Run:
+# kernprof -l -v decorated_function.py
+```
+
+Output shows `% Time` per line — immediately visible where to focus.
+
+</PyOnly>
+
+export const quizProfiling = [
+  {
+    q: 'What does `timeit.timeit(stmt, number=10_000)` return?',
+    options: [
+      'The average time per run in milliseconds',
+      'The total time for all 10,000 runs in seconds',
+      'A list of individual run times',
+      'The fastest single run time',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'In cProfile\'s pstats output, what does `cumtime` represent?',
+    options: [
+      'Time spent in the function excluding all sub-calls',
+      'Cumulative time including all functions it called',
+      'The total number of calls',
+      'Memory used by the function',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'Which pstats sort key finds the functions consuming the most total time themselves (not sub-calls)?',
+    options: ["'cumulative'", "'tottime'", "'ncalls'", "'filename'"],
+    answer: 1,
+  },
+  {
+    q: 'Why does timeit disable garbage collection during its runs?',
+    options: [
+      'To prevent memory leaks in the benchmark',
+      'To reduce timing noise from GC pauses so results are more reproducible',
+      'Because GC is incompatible with the timeit module',
+      'To allow the benchmark to allocate unlimited memory',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="advanced/profiling" questions={quizProfiling} />
+
+<ProgressTracker client:visible id="advanced/profiling" />

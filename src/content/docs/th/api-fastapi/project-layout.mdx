@@ -1,0 +1,152 @@
+---
+title: โครงสร้างโปรเจกต์
+description: โครงสร้างไฟล์ FastAPI ทั่วไป, main.py และ pyproject.toml เปรียบเทียบกับโปรเจกต์ Express หรือ NestJS
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+
+## เปรียบเทียบ file tree
+
+โปรเจกต์ NestJS หรือ Express มี convention ของตัวเอง FastAPI ไม่ได้บังคับโครงสร้าง แต่ community ได้ลงตัวกับรูปแบบที่ดูคุ้นเคย
+
+export const layoutTs = `# โปรเจกต์ Express / NestJS
+my-api/
+├── src/
+│   ├── main.ts          # bootstrap
+│   ├── app.module.ts    # root module (NestJS)
+│   ├── items/
+│   │   ├── items.controller.ts
+│   │   ├── items.service.ts
+│   │   └── items.dto.ts
+│   └── database/
+│       └── database.module.ts
+├── test/
+├── package.json
+└── tsconfig.json`;
+
+export const layoutPy = `# โปรเจกต์ FastAPI
+my-api/
+├── app/
+│   ├── main.py          # FastAPI() instance + startup
+│   ├── routers/
+│   │   └── items.py     # APIRouter — เหมือน controller
+│   ├── models/
+│   │   └── item.py      # SQLAlchemy ORM models
+│   ├── schemas/
+│   │   └── item.py      # Pydantic schemas (DTOs)
+│   ├── dependencies.py  # shared Depends() factories
+│   └── database.py      # engine + Session
+├── tests/
+├── pyproject.toml       # เหมือน package.json
+└── .env`;
+
+<TsGo client:visible ts={layoutTs} go={layoutPy} />
+
+การ mapping แทบจะ 1:1:
+- `controller` → `routers/` (ใช้ `APIRouter`)
+- `service` → เพิ่ม `services/` layer ได้ แต่ FastAPI ไม่บังคับ
+- `dto` → `schemas/` (Pydantic models)
+- `entity` → `models/` (SQLAlchemy models)
+- `app.module.ts` → `main.py`
+
+## main.py — entry point
+
+export const mainTs = `// Express src/main.ts
+import express from 'express';
+import { itemsRouter } from './items/items.router';
+
+const app = express();
+app.use(express.json());
+app.use('/items', itemsRouter);
+
+app.listen(3000, () => console.log('listening on 3000'));`;
+
+export const mainPy = `# app/main.py
+from fastapi import FastAPI
+from app.routers import items
+
+app = FastAPI(title="Items API", version="1.0.0")
+
+app.include_router(items.router, prefix="/items", tags=["items"])
+
+# Optional startup/shutdown events
+@app.on_event("startup")
+async def startup():
+    print("Server is starting up")
+
+# รัน: uvicorn app.main:app --reload`;
+
+<TsGo client:visible ts={mainTs} go={mainPy} />
+
+## pyproject.toml — เทียบเท่า package.json
+
+export const pkgTs = `// package.json
+{
+  "name": "my-api",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "node dist/main.js",
+    "dev": "ts-node-dev src/main.ts",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "express": "^4.18.0",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@types/express": "^4.17.0"
+  }
+}`;
+
+export const pkgPy = `# pyproject.toml  (PEP 517/518 — ใช้กับ pip / poetry / uv)
+[project]
+name = "my-api"
+version = "1.0.0"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.29",
+    "pydantic>=2.0",
+    "sqlalchemy>=2.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "httpx", "mypy"]
+
+[tool.uvicorn]
+# เริ่ม: uvicorn app.main:app --reload
+# หรือ:  python -m uvicorn app.main:app --reload`;
+
+<TsGo client:visible ts={pkgTs} go={pkgPy} />
+
+> **รันที่เครื่องตัวเอง — ต้องการ FastAPI + server**
+> สร้างโครงสร้างด้านบน, ติดตั้ง dependencies ด้วย `pip install -e ".[dev]"` หรือ `uv sync` แล้วรัน `uvicorn app.main:app --reload`
+
+export const quizLayout = [
+  {
+    q: 'ใน FastAPI project, Pydantic schemas (รูปร่าง request/response) นิยมวางไว้ในไดเรกทอรีใด?',
+    options: ['models/', 'schemas/', 'controllers/', 'dto/'],
+    answer: 1,
+  },
+  {
+    q: 'อะไรคือ FastAPI equivalent ของการลงทะเบียน NestJS module ใน app.module.ts?',
+    options: [
+      'app.use_module()',
+      'app.register_router()',
+      'app.include_router()',
+      'app.add_module()',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'ไฟล์ใดในโปรเจกต์ Python ยุคใหม่ทำหน้าที่เหมือน package.json?',
+    options: ['setup.py', 'requirements.txt', 'pyproject.toml', 'Pipfile'],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="api-fastapi/project-layout" questions={quizLayout} />
+
+<ProgressTracker client:visible id="api-fastapi/project-layout" />

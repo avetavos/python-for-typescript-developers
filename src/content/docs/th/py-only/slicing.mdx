@@ -1,0 +1,197 @@
+---
+title: "Sequence Slicing"
+description: syntax slice [start:stop:step] ของ Python, negative index และการกลับลำดับ vs Array.slice() ของ TypeScript
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## Array.slice() ใน TypeScript, [start:stop:step] ใน Python
+
+TypeScript ใช้ `Array.prototype.slice(start, end)` เพื่อดึง subarray Python มี syntax slicing ที่กว้างกว่ามากซึ่งสร้างอยู่ใน syntax ของภาษาโดยตรง ไม่ใช่ method call: `sequence[start:stop:step]` สิ่งนี้ทำงานบน list, string, tuple และ sequence ใดก็ตาม ทำให้โค้ดที่เกี่ยวข้องกับ sequence กระชับและอ่านง่ายกว่ามาก
+
+## Slice พื้นฐาน
+
+export const tsSlicing = `// TypeScript: Array.slice(start, end) — end is exclusive
+const data = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+console.log(data.slice(2, 5));   // [2, 3, 4]
+console.log(data.slice(0, 3));   // [0, 1, 2]
+console.log(data.slice(7));      // [7, 8, 9]
+
+// No built-in step — need filter or manual loop
+const evens = data.filter((_, i) => i % 2 === 0);
+console.log(evens);              // [0, 2, 4, 6, 8]
+
+// Reverse
+console.log([...data].reverse()); // [9, 8, 7, 6, 5, 4, 3, 2, 1, 0]`;
+
+export const pySlicing = `# Python: [start:stop:step] — stop is exclusive, step is optional
+data = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+print(data[2:5])    # [2, 3, 4]
+print(data[:3])     # [0, 1, 2]  — omit start → from beginning
+print(data[7:])     # [7, 8, 9]  — omit stop → to end
+print(data[::2])    # [0, 2, 4, 6, 8]  — every other element
+print(data[::-1])   # [9, 8, 7, 6, 5, 4, 3, 2, 1, 0]  — reverse`;
+
+<TsGo client:visible ts={tsSlicing} go={pySlicing} />
+
+สามส่วนของ slice ล้วนเป็น optional: `[:]` คัดลอก sequence ทั้งหมด, `[::2]` ดึงทุก element ที่สอง, `[::-1]` กลับลำดับ
+
+## Negative index
+
+Python อนุญาตให้ใช้ index ติดลบเพื่อนับจากท้าย `-1` คือ element สุดท้าย, `-2` คือ element รองสุดท้าย และต่อไป สิ่งนี้ทำงานทั้งใน index เดี่ยวและใน slice
+
+export const tsNeg = `// TypeScript: negative index requires .at() (ES2022) or length math
+const data = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+console.log(data.at(-1));           // 9  — last element
+console.log(data.at(-3));           // 7
+
+// Last 3 elements via slice
+console.log(data.slice(-3));        // [7, 8, 9]
+
+// All but first and last
+console.log(data.slice(1, -1));     // [1, 2, 3, 4, 5, 6, 7, 8]`;
+
+export const pyNeg = `# Python: negative index works natively everywhere
+data = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+print(data[-1])     # 9   — last element
+print(data[-3:])    # [7, 8, 9] — last 3 elements
+print(data[1:-1])   # [1, 2, 3, 4, 5, 6, 7, 8] — all but first and last`;
+
+<TsGo client:visible ts={tsNeg} go={pyNeg} />
+
+## Slicing บน string
+
+Python slice ทำงานบน string เหมือนกับ list คืนค่าเป็น string ใหม่ TypeScript ใช้ `.slice()` หรือ `.substring()` บน string
+
+export const tsSlicingStr = `// TypeScript: string slicing with .slice()
+const text = "Hello, World!";
+
+console.log(text.slice(7, 12));  // "World"
+console.log(text.split("").reverse().join("")); // "!dlroW ,olleH"`;
+
+export const pySlicingStr = `# Python: slicing works identically on strings
+text = "Hello, World!"
+
+print(text[7:12])   # "World"
+print(text[::-1])   # "!dlroW ,olleH"  — reverse a string`;
+
+<TsGo client:visible ts={tsSlicingStr} go={pySlicingStr} />
+
+## ลองด้วยตัวเอง
+
+export const playgroundSlicing = `data = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+print(data[2:5])
+print(data[:3])
+print(data[7:])
+print(data[::2])
+print(data[::-1])
+
+print(data[-1])
+print(data[-3:])
+print(data[1:-1])
+
+text = "Hello, World!"
+print(text[7:12])
+print(text[::-1])
+`;
+
+<Playground client:visible code={playgroundSlicing} />
+
+<PyOnly title="Object slice และการ assign ผ่าน slice">
+
+**`slice()` object**
+
+Python มี built-in type `slice` ที่ช่วยให้คุณสร้างและนำ slice กลับมาใช้ใหม่ได้ มีประโยชน์เมื่อ slice เดิมถูกใช้หลายครั้ง:
+
+```python
+HEADER = slice(0, 3)
+BODY   = slice(3, -1)
+FOOTER = slice(-1, None)
+
+data = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+print(data[HEADER])  # [0, 1, 2]
+print(data[BODY])    # [3, 4, 5, 6, 7, 8]
+print(data[FOOTER])  # [9]
+```
+
+**การ assign ผ่าน slice**
+
+สำหรับ list (ไม่ใช่ tuple หรือ string ซึ่ง immutable) คุณสามารถ assign ผ่าน slice เพื่อแทนที่ส่วนหนึ่งของ list ได้:
+
+```python
+data = [0, 1, 2, 3, 4]
+data[1:3] = [10, 20, 30]  # แทนที่ 2 element ด้วย 3 element
+print(data)  # [0, 10, 20, 30, 3, 4]
+
+data[::2] = [0, 0, 0]  # แทนที่ทุก element ที่ index คู่
+print(data)  # [0, 10, 0, 30, 0, 4]
+```
+
+**Slice บน NumPy array**
+
+ถ้าคุณทำงานกับ NumPy, PyTorch หรือไลบรารีวิทยาศาสตร์อื่น ๆ syntax slice เดียวกันจะขยายเป็นหลายมิติ:
+
+```python
+import numpy as np
+matrix = np.arange(16).reshape(4, 4)
+print(matrix[1:3, ::2])  # rows 1-2, every other column
+```
+
+นี่คือสาเหตุที่ syntax slice เป็นสิ่งที่ต้องเรียนรู้ใน Python — มันปรากฏอยู่ทุกที่ใน ecosystem ด้านวิทยาศาสตร์ข้อมูล
+
+</PyOnly>
+
+export const quizSlicing = [
+  {
+    q: 'data[2:5] บน list [0,1,2,3,4,5,6,7,8,9] ให้ผลลัพธ์อะไร?',
+    options: [
+      '[2, 3, 4, 5]',
+      '[2, 3, 4]',
+      '[3, 4, 5]',
+      '[2, 5]',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'data[::-1] ทำอะไร?',
+    options: [
+      'ดึง element สุดท้าย',
+      'ลบ element สุดท้าย',
+      'กลับลำดับ sequence ทั้งหมด',
+      'ดึงทุก element อื่น ๆ จากท้าย',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'สำหรับ data = [0,1,2,3,4,5,6,7,8,9], data[-3:] ให้ผลลัพธ์อะไร?',
+    options: [
+      '[0, 1, 2]',
+      '[7, 8, 9]',
+      '[6, 7, 8]',
+      '[8, 9]',
+    ],
+    answer: 1,
+  },
+  {
+    q: "text = 'Hello'; text[::2] ให้ผลลัพธ์อะไร?",
+    options: [
+      "'Hlo'",
+      "'elo'",
+      "'Hel'",
+      "'ll'",
+    ],
+    answer: 0,
+  },
+];
+
+<Quiz client:visible id="py-only/slicing" questions={quizSlicing} />
+
+<ProgressTracker client:visible id="py-only/slicing" />

@@ -1,0 +1,107 @@
+---
+title: Building an API with FastAPI
+description: Why FastAPI, how it compares to Express and NestJS, and what you will build in this module.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+
+## What is FastAPI?
+
+If you come from the Node.js world you already know the pattern: a lightweight framework that maps HTTP verbs and URL paths to handler functions, handles request parsing, and returns JSON responses. FastAPI does exactly that for Python — but with a few superpowers baked in from the start.
+
+FastAPI is built on two libraries you will get to know well:
+
+- **Starlette** — an ASGI web toolkit (the async equivalent of Node's `http` module).
+- **Pydantic** — a data-validation library powered by Python type hints (think Zod + class-transformer rolled into one).
+
+The result is a framework that generates OpenAPI docs automatically, validates request bodies and query parameters with zero boilerplate, and runs fully async by default.
+
+## FastAPI vs Express vs NestJS
+
+export const introTs = `// Express — manual everything
+const express = require('express');
+const app = express();
+app.use(express.json());
+
+app.get('/items/:id', (req, res) => {
+  const id = Number(req.params.id); // manual cast
+  if (isNaN(id)) return res.status(422).json({ error: 'bad id' });
+  res.json({ id, name: 'Widget' });
+});
+
+app.listen(3000);
+
+// NestJS — decorators + DI, similar concept
+// @Get(':id') findOne(@Param('id') id: string) { ... }`;
+
+export const introPy = `# FastAPI — types do the work
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.get("/items/{item_id}")
+async def get_item(item_id: int):   # int cast + 422 on failure — automatic
+    return {"id": item_id, "name": "Widget"}
+
+# Run with:
+#   uvicorn main:app --reload
+# Docs at: http://localhost:8000/docs`;
+
+<TsGo client:visible ts={introTs} go={introPy} />
+
+Key differences at a glance:
+
+| Feature | Express | NestJS | FastAPI |
+|---|---|---|---|
+| Type safety | Manual / TS compiler | TS + class-validator | Python type hints |
+| Validation | Manual / Joi / Zod | class-validator | Pydantic (automatic) |
+| Async model | Callbacks / Promises | Promises / Observables | `async/await` (ASGI) |
+| OpenAPI docs | swagger-jsdoc | @nestjs/swagger | Built-in, automatic |
+| DI container | None built-in | Yes (IoC) | `Depends()` (lightweight) |
+| Performance | Fast | Moderate | Very fast (Starlette) |
+
+## What you will build
+
+Throughout this module you will construct a small **Items API** — the same kind of CRUD service you have probably built a dozen times in Node. Along the way you will cover:
+
+1. Project layout and startup
+2. Routing, path params, and query params
+3. Pydantic models for request / response schemas
+4. Automatic validation and constraints
+5. Response models and status codes
+6. Dependency injection with `Depends`
+7. Middleware and CORS
+8. Error handling with `HTTPException`
+9. Database integration with SQLAlchemy
+10. Testing with `TestClient` + pytest
+
+> **Run this locally — needs FastAPI + a server.**
+> Install the stack: `pip install fastapi uvicorn[standard] pydantic sqlalchemy pytest httpx`
+
+export const quizIndex = [
+  {
+    q: 'Which library provides automatic request validation in FastAPI?',
+    options: ['Starlette', 'Pydantic', 'SQLAlchemy', 'Uvicorn'],
+    answer: 1,
+  },
+  {
+    q: 'What is the FastAPI equivalent of `app.listen(3000)` in Express?',
+    options: [
+      'app.start(3000)',
+      'FastAPI.run(port=3000)',
+      'uvicorn main:app --port 3000',
+      'app.serve(3000)',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'FastAPI generates OpenAPI (Swagger) docs automatically. Where are they served by default?',
+    options: ['/swagger', '/openapi', '/docs', '/api-docs'],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="api-fastapi/index" questions={quizIndex} />
+
+<ProgressTracker client:visible id="api-fastapi/index" />

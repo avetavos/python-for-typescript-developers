@@ -1,0 +1,218 @@
+---
+title: Database with SQLAlchemy
+description: Connecting a database using SQLAlchemy ORM models and sessions in FastAPI — conceptually compared to TypeORM or Prisma in Node.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## ORMs: TypeORM / Prisma → SQLAlchemy
+
+Python's dominant ORM for FastAPI applications is **SQLAlchemy 2.0**. The mental model is the same as TypeORM entities or Prisma models: you define a class that maps to a table, and SQLAlchemy generates SQL for you. The major difference is that SQLAlchemy uses Python's class-definition syntax rather than TypeScript decorators.
+
+export const ormTs = `// TypeORM entity
+import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+
+@Entity('items')
+export class Item {
+  @PrimaryGeneratedColumn() id: number;
+  @Column({ length: 100 }) name: string;
+  @Column('decimal', { precision: 10, scale: 2 }) price: number;
+  @Column({ default: true }) inStock: boolean;
+}
+
+// Prisma schema
+model Item {
+  id      Int     @id @default(autoincrement())
+  name    String  @db.VarChar(100)
+  price   Decimal @db.Decimal(10,2)
+  inStock Boolean @default(true)
+}`;
+
+export const ormPy = `# SQLAlchemy 2.0 ORM model
+from sqlalchemy import String, Numeric, Boolean
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+class Base(DeclarativeBase):
+    pass
+
+class Item(Base):
+    __tablename__ = "items"
+
+    id:       Mapped[int]   = mapped_column(primary_key=True)
+    name:     Mapped[str]   = mapped_column(String(100))
+    price:    Mapped[float] = mapped_column(Numeric(10, 2))
+    in_stock: Mapped[bool]  = mapped_column(Boolean, default=True)`;
+
+<TsGo client:visible ts={ormTs} go={ormPy} />
+
+## Database connection — engine and session
+
+TypeORM and Prisma manage connection pools automatically. In SQLAlchemy you create an `engine` (the connection pool) and a `SessionLocal` factory (one session per request).
+
+export const connTs = `// TypeORM — DataSource
+import { DataSource } from 'typeorm';
+export const AppDataSource = new DataSource({
+  type: 'postgres',
+  url: process.env.DATABASE_URL,
+  entities: [Item],
+  synchronize: false,   // use migrations in production
+});
+
+// Prisma — PrismaClient
+import { PrismaClient } from '@prisma/client';
+export const prisma = new PrismaClient();`;
+
+export const connPy = `# SQLAlchemy 2.0 — engine + session factory
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+import os
+
+DATABASE_URL = os.environ["DATABASE_URL"]
+
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+
+# Async variant (recommended for FastAPI):
+# from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+# engine = create_async_engine(DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://"))
+# AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)`;
+
+<TsGo client:visible ts={connTs} go={connPy} />
+
+## CRUD operations
+
+SQLAlchemy 2.0 uses a `select()` builder — similar to Prisma's `findMany` / `findUnique` or TypeORM's repository methods.
+
+export const crudTs = `// Prisma CRUD
+const item = await prisma.item.findUnique({ where: { id } });
+const items = await prisma.item.findMany({ skip, take: limit });
+const created = await prisma.item.create({ data: createItemDto });
+await prisma.item.delete({ where: { id } });
+
+// TypeORM
+const item = await repo.findOneBy({ id });
+const items = await repo.find({ skip, take: limit });`;
+
+export const crudPy = `# SQLAlchemy 2.0 — select() style
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+def get_item(db: Session, item_id: int):
+    return db.get(Item, item_id)                     # by PK
+
+def list_items(db: Session, skip: int = 0, limit: int = 10):
+    stmt = select(Item).offset(skip).limit(limit)
+    return db.scalars(stmt).all()
+
+def create_item(db: Session, data: dict):
+    item = Item(**data)
+    db.add(item)
+    db.commit()
+    db.refresh(item)   # reload from DB (gets generated id, etc.)
+    return item
+
+def delete_item(db: Session, item_id: int):
+    item = db.get(Item, item_id)
+    if item:
+        db.delete(item)
+        db.commit()`;
+
+<TsGo client:visible ts={crudTs} go={crudPy} />
+
+## Wiring it all together
+
+Combine the session dependency from the DI lesson with the CRUD functions above:
+
+export const wireTs = `// NestJS — ItemsService injected into controller
+@Controller('items')
+export class ItemsController {
+  constructor(private readonly itemsService: ItemsService) {}
+
+  @Get(':id')
+  findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.itemsService.findOne(id);
+  }
+}`;
+
+export const wirePy = `# FastAPI — Depends(get_db) in the route
+from fastapi import FastAPI, Depends, HTTPException
+from sqlalchemy.orm import Session
+from app.database import SessionLocal
+from app import crud, schemas
+
+app = FastAPI()
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+@app.get("/items/{item_id}", response_model=schemas.ItemResponse)
+async def read_item(item_id: int, db: Session = Depends(get_db)):
+    item = crud.get_item(db, item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return item`;
+
+<TsGo client:visible ts={wireTs} go={wirePy} />
+
+<PyOnly title="Alembic — the migration tool (like Prisma migrate or TypeORM migrations)">
+
+Never use `Base.metadata.create_all()` in production — it cannot handle schema evolution. Use **Alembic** to generate versioned migration scripts, exactly as you would use `prisma migrate dev` or `typeorm migration:generate`.
+
+```bash
+# Install
+pip install alembic
+
+# Initialise (creates alembic/ directory)
+alembic init alembic
+
+# Generate a migration after changing your models
+alembic revision --autogenerate -m "add items table"
+
+# Apply migrations
+alembic upgrade head
+```
+
+Each migration is a plain Python file with `upgrade()` and `downgrade()` functions — readable and version-controlled.
+
+</PyOnly>
+
+> **Run this locally — needs FastAPI + SQLAlchemy + a PostgreSQL or SQLite database.**
+> Playground is skipped: SQLAlchemy requires a real database connection.
+
+export const quizDatabase = [
+  {
+    q: 'What is the SQLAlchemy 2.0 equivalent of Prisma\'s PrismaClient or TypeORM\'s DataSource?',
+    options: ['SessionLocal', 'create_engine()', 'DeclarativeBase', 'Base.metadata'],
+    answer: 1,
+  },
+  {
+    q: 'In SQLAlchemy 2.0, how do you reload a newly created object to get its generated database id?',
+    options: [
+      'db.reload(item)',
+      'db.refresh(item)',
+      'item.reload()',
+      'db.get(Item, item.id)',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'What tool should you use for database schema migrations in a FastAPI + SQLAlchemy project?',
+    options: [
+      'Base.metadata.create_all() in production',
+      'Alembic',
+      'Django migrations',
+      'SQLAlchemy handles migrations automatically',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="api-fastapi/database" questions={quizDatabase} />
+
+<ProgressTracker client:visible id="api-fastapi/database" />

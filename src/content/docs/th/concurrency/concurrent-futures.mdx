@@ -1,0 +1,221 @@
+---
+title: concurrent.futures
+description: high-level API ของ concurrent.futures — ThreadPoolExecutor และ ProcessPoolExecutor ให้ interface แบบ unified คล้าย Promise สำหรับ threads และ processes
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+> หมายเหตุเกี่ยวกับ Playground: `concurrent.futures` spawn OS thread/process — browser sandbox ไม่สามารถทำได้ รัน code snippets ในเครื่องด้วย `python3` component `<TsGo>`, `<Quiz>` และ `<ProgressTracker>` ยังคงทำงานได้ตามปกติ
+
+## High-level API
+
+`concurrent.futures` คือคำตอบของ Python สำหรับ "ฉันต้องการ thread หรือ process แต่ไม่อยาก manage เอง" มันให้ clean, unified API ที่รู้สึกใกล้เคียงกับ `Promise`-based model ของ JavaScript มากกว่า raw `threading` หรือ `multiprocessing`
+
+executor ทั้งสองเป็น drop-in replacement สำหรับกัน — คุณสลับระหว่าง thread-based และ process-based concurrency โดยเปลี่ยนแค่หนึ่งบรรทัด
+
+export const futuresTs = `// TypeScript — Promise.all over an array (built-in)
+const tasks = [1, 2, 3, 4, 5].map((n) =>
+  fetch(\`/api/item/\${n}\`).then((r) => r.json())
+);
+const results = await Promise.all(tasks);
+
+// No need for explicit thread pools — JS handles it`;
+
+export const futuresPy = `# Python — concurrent.futures is the closest equivalent
+from concurrent.futures import ThreadPoolExecutor
+
+def fetch_item(n: int) -> dict:
+    import time; time.sleep(0.1)  # simulate I/O
+    return {"id": n, "value": n * 2}
+
+with ThreadPoolExecutor(max_workers=5) as executor:
+    # executor.map — like Promise.all over an array
+    results = list(executor.map(fetch_item, [1, 2, 3, 4, 5]))
+
+print(results)`;
+
+<TsGo client:visible ts={futuresTs} go={futuresPy} />
+
+## ThreadPoolExecutor — งาน I/O-bound
+
+```python
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import time
+
+def download(url: str) -> str:
+    time.sleep(0.1)  # simulate network I/O
+    return f"Downloaded: {url}"
+
+urls = [
+    "https://api.example.com/users",
+    "https://api.example.com/posts",
+    "https://api.example.com/tags",
+]
+
+# executor.map — results in INPUT order (like Promise.all)
+with ThreadPoolExecutor(max_workers=3) as executor:
+    for result in executor.map(download, urls):
+        print(result)
+
+print("---")
+
+# executor.submit + as_completed — results in COMPLETION order
+with ThreadPoolExecutor(max_workers=3) as executor:
+    futures = {executor.submit(download, url): url for url in urls}
+    for future in as_completed(futures):
+        url = futures[future]
+        print(f"{url} → {future.result()}")
+```
+
+รัน code นี้ในเครื่อง — browser sandbox ไม่สามารถ spawn OS thread/process ได้
+
+## ProcessPoolExecutor — งาน CPU-bound
+
+```python
+from concurrent.futures import ProcessPoolExecutor
+
+def is_prime(n: int) -> bool:
+    if n < 2:
+        return False
+    for i in range(2, int(n ** 0.5) + 1):
+        if n % i == 0:
+            return False
+    return True
+
+if __name__ == "__main__":
+    numbers = list(range(1_000_000, 1_000_100))
+
+    # ThreadPoolExecutor: limited by GIL — no speedup for CPU work
+    # ProcessPoolExecutor: each process has its own GIL → real parallelism
+    with ProcessPoolExecutor(max_workers=4) as executor:
+        primes = [n for n, p in zip(numbers, executor.map(is_prime, numbers)) if p]
+    print(primes[:5])
+```
+
+## Future objects — ตรวจสอบ individual results
+
+```python
+from concurrent.futures import ThreadPoolExecutor, Future
+import time
+
+def task(n: int) -> str:
+    time.sleep(n * 0.01)
+    return f"result-{n}"
+
+with ThreadPoolExecutor(max_workers=3) as executor:
+    f1: Future[str] = executor.submit(task, 1)
+    f2: Future[str] = executor.submit(task, 2)
+    f3: Future[str] = executor.submit(task, 3)
+
+    # .result() blocks until done — like await promise
+    print(f1.result())   # "result-1"
+    print(f2.result())   # "result-2"
+
+    # Check state without blocking
+    print(f3.done())     # True/False
+    print(f3.running())  # True/False
+```
+
+## การเลือกระหว่าง ThreadPoolExecutor และ ProcessPoolExecutor
+
+export const choiceTs = `// TypeScript
+// No explicit choice needed — the event loop handles I/O,
+// Web Workers handle CPU. The runtime decides threading.`;
+
+export const choicePy = `# Python — you choose explicitly
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+
+# I/O-bound (network, disk, DB calls with blocking libraries)
+with ThreadPoolExecutor(max_workers=20) as executor:
+    results = list(executor.map(blocking_http_call, urls))
+
+# CPU-bound (math, compression, parsing, ML inference)
+with ProcessPoolExecutor(max_workers=4) as executor:
+    results = list(executor.map(cpu_intensive_fn, data))
+
+# Rule of thumb for max_workers:
+#   Threads: 5 * os.cpu_count() (I/O-bound — threads mostly sleep)
+#   Processes: os.cpu_count() (CPU-bound — one per core is enough)`;
+
+<TsGo client:visible ts={choiceTs} go={choicePy} />
+
+<PyOnly title="concurrent.futures vs asyncio — ควรใช้อะไร?">
+
+ทั้ง `concurrent.futures` และ `asyncio` จัดการ concurrent I/O คำถามหลักคือ library ของคุณรองรับ `async/await` ไหม:
+
+| สถานการณ์ | แนะนำ |
+|---|---|
+| ใช้ async library (`httpx`, `asyncpg`, `aiofiles`) | `asyncio` |
+| Wrap blocking/sync library (requests, psycopg2) | `ThreadPoolExecutor` |
+| งาน CPU-bound แบบ parallel | `ProcessPoolExecutor` |
+| ต้องการให้ asyncio เรียก blocking code | `loop.run_in_executor()` (เชื่อมทั้งสอง) |
+
+```python
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+
+def blocking_db_call(query: str) -> list:
+    import time; time.sleep(0.1)  # legacy sync driver
+    return [{"result": query}]
+
+async def main() -> None:
+    loop = asyncio.get_event_loop()
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        # run_in_executor bridges asyncio and blocking code
+        result = await loop.run_in_executor(pool, blocking_db_call, "SELECT 1")
+    print(result)
+
+asyncio.run(main())
+```
+
+</PyOnly>
+
+export const quizConcurrentFutures = [
+  {
+    q: 'ข้อได้เปรียบหลักของ `concurrent.futures` เทียบกับ raw `threading` หรือ `multiprocessing` คืออะไร?',
+    options: [
+      'เร็วกว่าเนื่องจาก GIL ที่มีประสิทธิภาพมากกว่า',
+      'ให้ high-level API แบบ unified พร้อม Future objects — ไม่ต้อง manage thread/process เอง',
+      'เลือกอัตโนมัติระหว่าง thread และ process ตาม workload',
+      'ทำงานใน browser sandbox ได้',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'ความแตกต่างระหว่าง `executor.map()` และ `as_completed()` คืออะไร?',
+    options: [
+      '`executor.map()` return results ตามลำดับการเสร็จ; `as_completed()` return ตามลำดับ input',
+      '`executor.map()` return results ตามลำดับ input; `as_completed()` yield futures ตามลำดับการเสร็จ',
+      'เหมือนกัน — แค่ syntax ต่างกัน',
+      '`executor.map()` สำหรับ thread; `as_completed()` สำหรับ process',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'ควรใช้ executor ใดสำหรับงาน CPU-bound เพื่อให้ได้ parallelism จริงๆ?',
+    options: [
+      'ThreadPoolExecutor กับ max_workers เท่ากับ cpu_count',
+      'ProcessPoolExecutor — แต่ละ process มี GIL ของตัวเอง',
+      'ทั้งสองอย่าง — concurrent.futures ลบ GIL สำหรับทุก executor',
+      'asyncio.gather — มันใช้ทุก core อัตโนมัติ',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'จะ run blocking synchronous function ภายใน asyncio event loop โดยไม่ block loop ได้อย่างไร?',
+    options: [
+      '`await` function โดยตรง',
+      'Wrap ด้วย `asyncio.create_task()`',
+      'ใช้ `loop.run_in_executor()` กับ `ThreadPoolExecutor`',
+      'เป็นไปไม่ได้ — blocking และ async ผสมกันไม่ได้',
+    ],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="concurrency/concurrent-futures" questions={quizConcurrentFutures} />
+
+<ProgressTracker client:visible id="concurrency/concurrent-futures" />

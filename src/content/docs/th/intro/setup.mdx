@@ -1,0 +1,188 @@
+---
+title: Setup — ติดตั้ง Python และสร้างโปรเจกต์
+description: ติดตั้ง Python สร้าง virtual environment และรัน script แรก — เปรียบเทียบกับ workflow ของ npm/Node ที่คุณรู้จักอยู่แล้ว
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+> หมายเหตุเกี่ยวกับ Playground: บทเรียนนี้เป็นเรื่องของการติดตั้งและตั้งค่า ขั้นตอนต้องการเทอร์มินัลจริง การติดตั้ง Python และการเข้าถึง filesystem — ไม่มีสิ่งใดเหล่านี้ในเบราว์เซอร์ sandbox รันคำสั่งด้านล่างในเทอร์มินัลของคุณเอง
+
+## การเปรียบเทียบ toolchain
+
+ก่อนเขียนโค้ด คุณต้องเข้าใจว่า toolchain ของ Python แมปกับ Node อย่างไร:
+
+export const toolchainTs = `# Node / TypeScript toolchain
+node       → runtime (executes JS)
+npm        → package manager (installs packages)
+npx        → run a package binary without installing globally
+tsc        → TypeScript compiler
+package.json → project manifest
+node_modules/ → installed dependencies (per project)`;
+
+export const toolchainPy = `# Python toolchain
+python3    → runtime (executes Python)
+pip        → package manager (installs packages)
+pipx       → run a tool without polluting your env
+mypy/pyright → optional type checker (like tsc)
+pyproject.toml → project manifest (modern)
+venv/      → isolated dependency folder (per project)`;
+
+<TsGo client:visible ts={toolchainTs} go={toolchainPy} />
+
+## ติดตั้ง Python
+
+**macOS** (แนะนำ — ใช้ Homebrew):
+```bash
+brew install python@3.12
+python3 --version   # Python 3.12.x
+pip3 --version
+```
+
+**Windows** (แนะนำ — ใช้ installer อย่างเป็นทางการ):
+1. ดาวน์โหลดจาก [python.org/downloads](https://python.org/downloads)
+2. เช็ค "Add python.exe to PATH" ระหว่างการติดตั้ง
+3. เปิดเทอร์มินัลใหม่: `python --version`
+
+**Linux (Ubuntu/Debian)**:
+```bash
+sudo apt update && sudo apt install python3 python3-pip python3-venv
+python3 --version
+```
+
+## Virtual environments — venv เทียบเท่ากับ node_modules
+
+ใน Node `npm install` สร้าง `node_modules/` ภายในโปรเจกต์ของคุณ แต่ละโปรเจกต์มีสำเนา dependencies ของตัวเอง Python มีสิ่งเทียบเคียงคือ **virtual environment** (`venv`) — ไดเรกทอรีที่แยกจากกันซึ่งมี Python interpreter และ packages
+
+หากไม่มี venv `pip install` จะติดตั้ง packages ทั่วโลก (globally) และมันจะชนกันระหว่างโปรเจกต์ ใช้ venv เสมอ
+
+export const venvTs = `# Node: project isolation is automatic
+mkdir my-project && cd my-project
+npm init -y
+npm install express       # goes into ./node_modules
+# no extra setup needed`;
+
+export const venvPy = `# Python: you must explicitly create isolation
+mkdir my-project && cd my-project
+python3 -m venv venv      # creates ./venv directory
+source venv/bin/activate  # macOS/Linux
+# venv\\Scripts\\activate   # Windows PowerShell
+
+pip install fastapi        # installs into ./venv, not globally
+python3 script.py`;
+
+<TsGo client:visible ts={venvTs} go={venvPy} />
+
+หลังจากรัน `source venv/bin/activate` prompt ของคุณจะเปลี่ยนเพื่อแสดง `(venv)` ตอนนี้ `python` และ `pip` ชี้ไปยัง venv local รัน `deactivate` เพื่อออก
+
+<PyOnly title="ทำไม Python ถึงต้องมีขั้นตอน activate ที่ชัดเจน?">
+
+Node resolve packages โดยเดินขึ้นไปใน directory tree เพื่อค้นหา `node_modules/` Python ไม่ทำแบบนี้ — มันค้นหาเฉพาะใน Python installation ที่ active อยู่ script `activate` ตั้งค่า environment variables (`PATH`, `VIRTUAL_ENV`) เพื่อให้คำสั่ง `python` และ `pip` resolve ไปยังสำเนา venv แทนที่จะเป็นสำเนา system
+
+Tools อย่าง `direnv` หรือ `pyenv-virtualenv` สามารถ auto-activate venv ที่ถูกต้องเมื่อคุณ `cd` เข้าไปในไดเรกทอรีโปรเจกต์ ให้ความรู้สึกอัตโนมัติเหมือน Node
+
+</PyOnly>
+
+## การรัน scripts
+
+export const runScriptTs = `# TypeScript
+npx ts-node src/index.ts         # run directly
+npx tsc && node dist/index.js    # compile then run
+npm run dev                       # package.json script`;
+
+export const runScriptPy = `# Python
+python3 src/main.py              # run directly, no compile
+python3 -m module_name           # run a module as a script
+python3 -i src/main.py           # run then drop into REPL`;
+
+<TsGo client:visible ts={runScriptTs} go={runScriptPy} />
+
+## การติดตั้งและบันทึก dependencies
+
+export const depsTs = `# Node
+npm install express              # install + save to package.json
+npm install --save-dev jest      # devDependency
+npm install                      # install from package.json
+npm ci                           # clean install from package-lock.json`;
+
+export const depsPy = `# Python (classic workflow)
+pip install fastapi               # installs but does NOT save
+pip freeze > requirements.txt     # snapshot current env
+pip install -r requirements.txt   # install from snapshot
+
+# Modern workflow with pyproject.toml
+pip install .                     # install project deps from pyproject.toml`;
+
+<TsGo client:visible ts={depsTs} go={depsPy} />
+
+<PyOnly title="pip freeze vs package.json — ความแตกต่างสำคัญ">
+
+`npm install express` จะเพิ่ม `"express"` ลงใน `package.json` อัตโนมัติ `pip install fastapi` ไม่อัปเดต file ใดๆ — มันแค่วาง bytes ลงใน `venv/` คุณต้องรัน `pip freeze > requirements.txt` อย่างชัดเจนเพื่อบันทึก environment ปัจจุบัน
+
+คำตอบแบบ Python สมัยใหม่คือ `pyproject.toml` พร้อม tool อย่าง `hatch`, `poetry` หรือ `uv` สิ่งเหล่านี้ทำงานเหมือน npm มากขึ้น: `poetry add fastapi` เพิ่ม dependency และอัปเดต `pyproject.toml` ในขั้นตอนเดียว เราครอบคลุม `pyproject.toml` ในบทเรียน Project Anatomy
+
+</PyOnly>
+
+## ตัวอย่าง workflow ฉบับสมบูรณ์
+
+นี่คือลำดับ "เริ่มโปรเจกต์ Python ใหม่" ทั้งหมด เปรียบเทียบกับสิ่งที่คุณทำสำหรับโปรเจกต์ Node:
+
+export const workflowTs = `# Node project setup
+mkdir api && cd api
+npm init -y
+npm install express typescript ts-node @types/node
+npx tsc --init
+# edit tsconfig.json...
+npm run dev`;
+
+export const workflowPy = `# Python project setup
+mkdir api && cd api
+python3 -m venv venv
+source venv/bin/activate   # activate venv
+pip install fastapi uvicorn
+
+# Run the app
+uvicorn main:app --reload
+
+# Capture deps for teammates
+pip freeze > requirements.txt`;
+
+<TsGo client:visible ts={workflowTs} go={workflowPy} />
+
+export const quizSetup = [
+  {
+    q: 'Python มีสิ่งเทียบเคียงกับ `node_modules/` คืออะไร?',
+    options: [
+      'ไดเรกทอรี `packages/` ที่ root ของโปรเจกต์',
+      'Virtual environment ที่สร้างด้วย `python3 -m venv`',
+      'ไดเรกทอรี `site-packages/` ทั่วโลก',
+      'โฟลเดอร์ซ่อน `.python/`',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'หลังจาก `pip install fastapi` คุณบันทึก dependency อย่างไรเพื่อให้เพื่อนร่วมทีม reproduce ได้?',
+    options: [
+      'pip บันทึกมันลง pyproject.toml อัตโนมัติ',
+      'รัน `pip freeze > requirements.txt` แล้ว commit ไฟล์',
+      'เพิ่มมันด้วยตัวเองใน package.json',
+      'รัน `pip save fastapi`',
+    ],
+    answer: 1,
+  },
+  {
+    q: '`source venv/bin/activate` ทำอะไร?',
+    options: [
+      'ติดตั้ง packages ที่ระบุใน requirements.txt',
+      'สร้าง virtual environment ใหม่',
+      'ตั้งค่า PATH เพื่อให้ `python` และ `pip` resolve ไปยังสำเนา venv',
+      'คอมไพล์ Python source files เป็น bytecode',
+    ],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="intro/setup" questions={quizSetup} />
+
+<ProgressTracker client:visible id="intro/setup" />

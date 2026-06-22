@@ -1,0 +1,200 @@
+---
+title: Duck Typing และ EAFP
+description: Duck typing ของ Python และ pattern การขอการยกเว้น (EAFP) vs structural types และ LBYL ของ TypeScript
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## มองโครงสร้างต่างมุม
+
+TypeScript และ Python ต่างก็เป็นภาษา structurally typed ค่าหนึ่งจะเข้ากันได้กับ type หนึ่งถ้ามันมี shape ที่ถูกต้อง แต่กลไกที่ใช้ต่างกันโดยสิ้นเชิง
+
+TypeScript ตรวจสอบโครงสร้าง **ตอน compile** ผ่าน interface และ type aliases ถ้าค่าไม่ตรงตาม interface compiler จะปฏิเสธก่อนที่ code จะรัน Python ตรวจสอบโครงสร้าง **ตอน runtime** โดยลอง call method หรือเข้าถึง attribute โดยตรง ถ้า object มีสิ่งนั้น ก็ดำเนินต่อไป ถ้าไม่มี จะได้รับ `AttributeError`
+
+แนวทาง runtime นี้เรียกว่า **duck typing**: ถ้ามันเดินเหมือนเป็ดและร้องเหมือนเป็ด มันก็คือเป็ด Python ไม่สนใจ type ที่ประกาศไว้ สนใจแค่ว่า object ทำสิ่งที่คุณถามได้หรือไม่
+
+## Duck typing: interface vs behavior
+
+export const tsDuckTyping = `// TypeScript: explicit interface required
+interface Speaker {
+  speak(): string;
+}
+
+class Dog implements Speaker {
+  speak(): string { return "Woof!"; }
+}
+
+class Cat implements Speaker {
+  speak(): string { return "Meow!"; }
+}
+
+// TypeScript verifies the interface at compile time
+function makeSound(animal: Speaker): void {
+  console.log(animal.speak());
+}
+
+makeSound(new Dog());
+makeSound(new Cat());`;
+
+export const pyDuckTyping = `# Python: no interface needed — just call the method
+class Dog:
+    def speak(self) -> str:
+        return "Woof!"
+
+class Cat:
+    def speak(self) -> str:
+        return "Meow!"
+
+class Duck:
+    def speak(self) -> str:
+        return "Quack!"
+
+# Python checks at runtime whether .speak() exists
+def make_sound(animal) -> None:
+    print(animal.speak())
+
+make_sound(Dog())
+make_sound(Cat())
+make_sound(Duck())  # works — Duck was never declared as Speaker`;
+
+<TsGo client:visible ts={tsDuckTyping} go={pyDuckTyping} />
+
+ใน TypeScript `Duck` ต้องประกาศ `implement Speaker` อย่างชัดเจน ใน Python object ใดก็ตามที่มี method `.speak()` ใช้ได้ทันที โดยไม่ต้องประกาศอะไรเลย
+
+## LBYL กับ EAFP
+
+ความแตกต่างเชิงโครงสร้างนี้ขยายไปถึงการจัดการ error นักพัฒนา TypeScript มักใช้ **Look Before You Leap (LBYL)**: ตรวจสอบว่า operation ปลอดภัยก่อนที่จะลงมือ วัฒนธรรม Python ชอบ **Easier to Ask Forgiveness than Permission (EAFP)**: ลองทำเลย แล้วค่อยจัดการ exception ถ้าล้มเหลว
+
+export const tsLbylEafp = `// TypeScript: LBYL — check first, then act
+function getValue(obj: Record<string, unknown>, key: string): unknown {
+  if (key in obj) {
+    return obj[key];
+  }
+  return undefined;
+}
+
+// Also common in TypeScript
+function parseNumber(s: string): number | null {
+  const n = Number(s);
+  return isNaN(n) ? null : n;
+}`;
+
+export const pyLbylEafp = `# Python: EAFP — try it and handle failure
+def get_value(d: dict, key: str):
+    try:
+        return d[key]
+    except KeyError:
+        return None
+
+# LBYL equivalent works too, but is less idiomatic
+def get_value_lbyl(d: dict, key: str):
+    if key in d:
+        return d[key]
+    return None
+
+# EAFP for type conversion
+def parse_number(s: str):
+    try:
+        return int(s)
+    except ValueError:
+        return None`;
+
+<TsGo client:visible ts={tsLbylEafp} go={pyLbylEafp} />
+
+## ลองด้วยตัวเอง
+
+export const playgroundDuckTypingEafp = `class Dog:
+    def speak(self):
+        return "Woof!"
+
+class Cat:
+    def speak(self):
+        return "Meow!"
+
+class Duck:
+    def speak(self):
+        return "Quack!"
+
+def make_sound(animal):
+    print(animal.speak())
+
+for animal in [Dog(), Cat(), Duck()]:
+    make_sound(animal)
+
+# EAFP pattern
+def get_value(d, key):
+    try:
+        return d[key]
+    except KeyError:
+        return "not found"
+
+data = {"name": "Alice", "age": 30}
+print(get_value(data, "name"))
+print(get_value(data, "email"))
+`;
+
+<Playground client:visible code={playgroundDuckTypingEafp} />
+
+<PyOnly title="ทำไมวัฒนธรรม Python ชอบ try/except มากกว่าการตรวจสอบด้วย hasattr">
+
+นักพัฒนา TypeScript มักตั้งคำถามกับ EAFP ว่า "ทำไมไม่ตรวจสอบด้วย `hasattr` หรือ `in` ก่อนเข้าถึง?" ใน Python มีเหตุผลที่เป็นรูปธรรมสองข้อที่ชอบ `try/except` มากกว่า
+
+**Race conditions.** ใน concurrent code การตรวจสอบการมีอยู่ก่อนเข้าถึงสร้างช่องว่างเวลาที่ resource อาจหายไประหว่างการตรวจสอบและการใช้งาน EAFP กำจัดช่องว่างนี้ได้โดยสมบูรณ์
+
+**ความอ่านง่ายและเจตนา.** LBYL ต้องระบุเงื่อนไขซ้ำสองครั้ง ครั้งแรกเพื่อตรวจสอบ และอีกครั้งโดยปริยายในการดำเนินการ EAFP แสดงเจตนาตรงๆ ว่า "ฉันคาดว่าสิ่งนี้จะสำเร็จ และนี่คือสิ่งที่จะทำถ้าไม่สำเร็จ" บล็อก `try` ของ Python อ่านเป็น happy path และบล็อก `except` อ่านเป็นการจัดการกับกรณีที่ผิดปกติ
+
+**ประสิทธิภาพ.** สำหรับกรณีที่ความสำเร็จเป็น path ปกติ EAFP อาจเร็วกว่า บล็อก `try` ที่สำเร็จมี overhead แทบไม่มีเลย LBYL ต้องจ่ายต้นทุนของการตรวจสอบทุกครั้ง ไม่ว่าค่าจะมีอยู่หรือไม่
+
+สำนวน Python คือ ใช้ `try/except` สำหรับสิ่งที่อาจล้มเหลวจริงๆ ใช้ `if`/`in`/`hasattr` เมื่อคุณกำลัง branch ตามเงื่อนไขที่มีโอกาสเป็นจริงหรือเท็จพอๆ กัน ความแตกต่างคือระหว่าง **error ที่คาดไว้** กับ **branch ปกติ**
+
+</PyOnly>
+
+export const quizDuckTypingEafp = [
+  {
+    q: '"duck typing" ใน Python คืออะไร?',
+    options: [
+      'ระบบ type annotation สำหรับ class ที่เป็นนก',
+      'object ถูกใช้งานตาม behavior ที่มี ไม่ใช่จาก type ที่ประกาศ',
+      'วิธีการแปลง type หนึ่งไปเป็นอีก type',
+      'การตรวจสอบ interface ตอน compile',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'EAFP ย่อมาจากอะไร?',
+    options: [
+      'Every Attribute Found Properly',
+      'Easier to Ask Forgiveness than Permission',
+      'Exceptions Always Follow Patterns',
+      'Errors Are Forbidden in Production',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'ใน Python ถ้าคุณเรียก `.speak()` บน object ที่ไม่มี method นั้น จะเกิดอะไรขึ้น?',
+    options: [
+      'Python คืนค่า `undefined`',
+      'Python คืนค่า `None` อย่างเงียบๆ',
+      'Python raise `AttributeError` ตอน runtime',
+      'Python raise error ตอน compile',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'วัฒนธรรม Python ชอบ pattern ไหนสำหรับการเข้าถึง dictionary key ที่อาจไม่มีอยู่?',
+    options: [
+      'ตรวจสอบด้วย `in` ก่อนเข้าถึง (LBYL)',
+      'ใช้ `try/except KeyError` (EAFP)',
+      'ใช้ optional chaining ด้วย `?.`',
+      'ใช้ `hasattr` ก่อนทุกการเข้าถึง',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="py-only/duck-typing-eafp" questions={quizDuckTypingEafp} />
+
+<ProgressTracker client:visible id="py-only/duck-typing-eafp" />

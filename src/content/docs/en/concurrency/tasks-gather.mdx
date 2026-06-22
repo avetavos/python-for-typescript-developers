@@ -1,0 +1,214 @@
+---
+title: Tasks & gather
+description: asyncio.create_task and asyncio.gather — Python's equivalent of Promise.all for running coroutines concurrently.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## Promise.all → asyncio.gather
+
+In JavaScript you use `Promise.all([p1, p2, p3])` to run multiple async operations concurrently and wait for all of them. Python's direct equivalent is `asyncio.gather()`.
+
+export const gatherTs = `// TypeScript — Promise.all
+async function fetchUser(id: number): Promise<string> {
+  await delay(20);
+  return \`user-\${id}\`;
+}
+
+// Run all three concurrently, wait for all
+const [users, posts, tags] = await Promise.all([
+  fetchUser(1),
+  fetchPosts(1),
+  fetchTags(1),
+]);
+console.log(users, posts, tags);`;
+
+export const gatherPy = `# Python — asyncio.gather
+import asyncio
+
+async def fetch_user(user_id: int) -> str:
+    await asyncio.sleep(0.02)
+    return f"user-{user_id}"
+
+# Run all three concurrently, wait for all
+users, posts, tags = await asyncio.gather(
+    fetch_user(1),
+    fetch_posts(1),
+    fetch_tags(1),
+)
+print(users, posts, tags)`;
+
+<TsGo client:visible ts={gatherTs} go={gatherPy} />
+
+`asyncio.gather()` preserves the **input order** in the returned results, just like `Promise.all`. Even if `fetch_tags` finishes first, the third element of the tuple will always be its result.
+
+## asyncio.create_task — scheduling work early
+
+`Promise.all` automatically starts executing promises as soon as you pass them. Python has the same concept via `asyncio.create_task()`: it schedules a coroutine to run on the event loop immediately, without waiting for `await`.
+
+export const createTaskTs = `// TypeScript — promise starts running immediately on creation
+const p1 = fetchUser(1);    // already running
+const p2 = fetchPosts(1);   // already running
+
+// Now wait for both
+const user = await p1;
+const posts = await p2;`;
+
+export const createTaskPy = `# Python — task starts running immediately on create_task
+import asyncio
+
+async def work(name: str) -> str:
+    await asyncio.sleep(0.01)
+    return f"Task {name} finished"
+
+async def main() -> None:
+    task_a = asyncio.create_task(work("A"))  # scheduled immediately
+    task_b = asyncio.create_task(work("B"))  # scheduled immediately
+
+    result_a = await task_a   # wait for A
+    result_b = await task_b   # wait for B
+    print(result_a)
+    print(result_b)`;
+
+<TsGo client:visible ts={createTaskTs} go={createTaskPy} />
+
+## create_task vs gather — when to use which
+
+export const choiceTs = `// TypeScript
+// Promise.all — when you want to fire and collect all at once
+const results = await Promise.all([fetch("/a"), fetch("/b")]);
+
+// Separate promises — when you want to do other work in between
+const p = fetch("/a");
+doSomethingElse();        // runs while fetch is in flight
+const result = await p;`;
+
+export const choicePy = `# Python
+import asyncio
+
+# asyncio.gather — fire and collect all at once (simpler)
+results = await asyncio.gather(coro_a(), coro_b(), coro_c())
+
+# create_task — when you need a handle to cancel or inspect later
+task = asyncio.create_task(long_running())
+await do_something_else()   # runs while task is in progress
+result = await task
+
+# cancel a task (no direct Promise equivalent in JS)
+task.cancel()`;
+
+<TsGo client:visible ts={choiceTs} go={choicePy} />
+
+## Error handling
+
+`asyncio.gather` behaves like `Promise.all` by default: if any coroutine raises an exception, the exception propagates and the others are cancelled.
+
+export const errorTs = `// TypeScript — Promise.all rejects on first failure
+try {
+  const results = await Promise.all([ok(), willFail(), ok()]);
+} catch (err) {
+  console.error("one failed:", err);
+}
+
+// Promise.allSettled — wait for all regardless of failures
+const settled = await Promise.allSettled([ok(), willFail()]);`;
+
+export const errorPy = `# Python
+import asyncio
+
+# gather raises on first failure (like Promise.all)
+try:
+    results = await asyncio.gather(ok(), will_fail(), ok())
+except Exception as e:
+    print(f"one failed: {e}")
+
+# return_exceptions=True — like Promise.allSettled
+results = await asyncio.gather(
+    ok(), will_fail(), ok(),
+    return_exceptions=True,   # exceptions become values, not raises
+)
+# results = ["ok", ValueError("boom"), "ok"]`;
+
+<TsGo client:visible ts={errorTs} go={errorPy} />
+
+## Try it
+
+export const tasksGatherCode = `import asyncio
+
+async def fetch(label: str, delay: float) -> str:
+    await asyncio.sleep(delay)
+    return f"{label}: fetched"
+
+# gather — all three run concurrently
+results = await asyncio.gather(
+    fetch("users",  0.03),
+    fetch("posts",  0.01),
+    fetch("tags",   0.02),
+)
+for r in results:
+    print(r)
+
+print("---")
+
+# create_task — start tasks before waiting
+async def work(name: str) -> str:
+    await asyncio.sleep(0.01)
+    return f"Task {name} done"
+
+task_a = asyncio.create_task(work("A"))
+task_b = asyncio.create_task(work("B"))
+print(await task_a)
+print(await task_b)
+`;
+
+<Playground client:visible code={tasksGatherCode} />
+
+export const quizTasksGather = [
+  {
+    q: 'What is the Python equivalent of JavaScript\'s `Promise.all([p1, p2, p3])`?',
+    options: [
+      'asyncio.wait([c1, c2, c3])',
+      'asyncio.gather(c1, c2, c3)',
+      'asyncio.run([c1, c2, c3])',
+      'asyncio.create_task([c1, c2, c3])',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'What does `asyncio.create_task(coro())` do immediately when called?',
+    options: [
+      'Runs the coroutine to completion synchronously',
+      'Schedules the coroutine on the event loop so it starts running right away',
+      'Blocks until the coroutine produces its first value',
+      'Creates a new OS thread for the coroutine',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'How do you make `asyncio.gather` behave like `Promise.allSettled` (collect all results even if some fail)?',
+    options: [
+      'Pass `ignore_errors=True`',
+      'Wrap each coroutine in a try/except',
+      'Pass `return_exceptions=True`',
+      'Use `asyncio.wait` instead',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'Does `asyncio.gather` preserve the order of results relative to the input coroutines?',
+    options: [
+      'No — results arrive in completion order',
+      'Yes — results are always in the same order as the input coroutines',
+      'Only when using `return_exceptions=True`',
+      'Order depends on Python version',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="concurrency/tasks-gather" questions={quizTasksGather} />
+
+<ProgressTracker client:visible id="concurrency/tasks-gather" />

@@ -1,0 +1,87 @@
+---
+title: Advanced Python — Overview
+description: A guided tour of Python's advanced toolkit for experienced TypeScript developers — typing, dataclasses, descriptors, itertools, pattern matching, testing, and profiling.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+
+## What makes Python "advanced"?
+
+You already know Python's basics — variables, functions, classes, collections, async. The advanced tier is where Python's design philosophy really shines. These are the tools that make large Python codebases readable, fast, and maintainable.
+
+If you come from TypeScript, you already have strong intuitions about types, generics, decorators, and structured testing. This module maps those intuitions directly to their Python equivalents — and flags the places where Python does something there is simply no TS parallel for.
+
+## What you will learn
+
+| Lesson | Core concept | TS parallel |
+|---|---|---|
+| **Typing & Protocols** | `Protocol`, `TypeVar`, `TypedDict`, `Optional`/`Union` | Structural interfaces, generics, mapped types |
+| **Dataclasses** | `@dataclass`, `frozen`, `field()` | Class + interface hybrid, records |
+| **Metaclasses & Descriptors** | `__get__`/`__set__`, `type` subclassing | No equivalent — Python-only power |
+| **itertools & functools** | `chain`, `groupby`, `lru_cache`, `partial` | Lodash / Array methods |
+| **Pattern Matching** | `match`/`case` with structural patterns | `switch` + destructuring |
+| **pytest deep-dive** | Fixtures, parametrize, assertions | Jest: `beforeEach`, `it.each`, `expect` |
+| **Profiling** | `timeit`, `cProfile`, reading stats | Node `--prof`, `console.time` |
+
+## A mental model for the whole module
+
+Python's type system is **opt-in and runtime-invisible** — just like TypeScript's types disappear after compilation. The difference is that Python's annotations survive as metadata you can inspect, which is exactly what `dataclasses`, `Protocol`, and `TypedDict` rely on.
+
+export const overviewTs = `// TypeScript — types are a compiler concern
+interface Shape {
+  area(): number;
+}
+
+// Generics are erased at runtime
+function first<T>(arr: T[]): T {
+  return arr[0];
+}`;
+
+export const overviewPy = `# Python — types are annotations (not enforced)
+from typing import Protocol, TypeVar
+
+class Shape(Protocol):
+    def area(self) -> float: ...
+
+T = TypeVar('T')
+
+def first(arr: list[T]) -> T:
+    return arr[0]
+
+print(first([10, 20, 30]))  # 10`;
+
+<TsGo client:visible ts={overviewTs} go={overviewPy} />
+
+## How to read this module
+
+Each lesson follows the same pattern:
+1. **TS analogy first** — anchor in what you already know.
+2. **Python mechanics** — the actual syntax and semantics.
+3. **Interactive playground** (where the concept is self-contained).
+4. **PyOnly callouts** — things that have no TS equivalent.
+5. **Quiz** — a quick knowledge check.
+
+Work through them in order, or jump to the lesson most relevant to your current project.
+
+export const quizIndex = [
+  {
+    q: 'Which Python module provides `Protocol`, `TypeVar`, and `TypedDict`?',
+    options: ['builtins', 'typing', 'types', 'abc'],
+    answer: 1,
+  },
+  {
+    q: 'Python type hints are enforced at runtime by default.',
+    options: [
+      'True — the interpreter raises TypeError on mismatch',
+      'False — they are annotations only; runtime ignores them',
+      'True — but only for function return types',
+      'False — unless you import `typing_extensions`',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="advanced/index" questions={quizIndex} />
+
+<ProgressTracker client:visible id="advanced/index" />

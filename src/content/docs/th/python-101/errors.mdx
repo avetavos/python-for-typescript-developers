@@ -1,0 +1,230 @@
+---
+title: Error Handling
+description: try/except/else/finally, raise และ exception classes ใน Python เทียบกับ try/catch ของ TypeScript
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## Error handling: try/except แทน try/catch
+
+การจัดการ error ของ Python แมปเข้ากับ `try`/`catch`/`finally` ของ TypeScript โดยตรง — พร้อมส่วนเสริมที่ทรงพลังหนึ่งอย่าง: ประโยค `else` ที่จะทำงานก็ต่อเมื่อ **ไม่มี** exception ถูก raise คีย์เวิร์ดคือ `try`/`except`/`else`/`finally` และคุณใช้ `raise` เพื่อโยน exception แทน `throw`
+
+## try / except พื้นฐาน
+
+export const basicErrTs = `// TypeScript
+function divide(a: number, b: number): number {
+  if (b === 0) throw new Error("Cannot divide by zero");
+  return a / b;
+}
+
+try {
+  const result = divide(10, 2);
+  console.log(\`Result: \${result}\`);
+} catch (err) {
+  if (err instanceof Error) {
+    console.error(\`Error: \${err.message}\`);
+  }
+} finally {
+  console.log("Always runs");
+}`;
+
+export const basicErrPy = `# Python
+def divide(a: float, b: float) -> float:
+    if b == 0:
+        raise ValueError("Cannot divide by zero")
+    return a / b
+
+try:
+    result = divide(10, 2)
+    print(f"Result: {result}")
+except ValueError as e:
+    print(f"Error: {e}")
+finally:
+    print("Always runs")`;
+
+<TsGo client:visible ts={basicErrTs} go={basicErrPy} />
+
+ความต่างสำคัญ:
+- ใช้ `except` แทน `catch`
+- ใช้ `raise` แทน `throw`
+- คุณจับ **exception type ที่เฉพาะเจาะจง** โดยตรง (เช่น `except ValueError`) ไม่ใช่ค่าทั่วไป
+- syntax `as e` ผูก exception object เข้ากับตัวแปร
+
+## exception หลายชนิด
+
+export const multiExcTs = `// TypeScript
+try {
+  const data = JSON.parse("{ bad json }");
+  const num = parseInt("abc", 10);
+  if (isNaN(num)) throw new RangeError("NaN");
+} catch (err) {
+  if (err instanceof SyntaxError) {
+    console.error("JSON error:", err.message);
+  } else if (err instanceof RangeError) {
+    console.error("Range error:", err.message);
+  } else {
+    throw err;  // re-raise unknown errors
+  }
+}`;
+
+export const multiExcPy = `# Python — multiple except clauses
+import json
+
+try:
+    data = json.loads("{ bad json }")
+    value = int("abc")
+except json.JSONDecodeError as e:
+    print(f"JSON error: {e}")
+except ValueError as e:
+    print(f"Value error: {e}")
+except Exception as e:
+    raise  # re-raise any other exception
+
+# You can also catch multiple types in one clause:
+# except (ValueError, TypeError) as e:
+#     print(f"Either error: {e}")`;
+
+<TsGo client:visible ts={multiExcTs} go={multiExcPy} />
+
+## คลาส exception ที่กำหนดเอง
+
+export const customExcTs = `// TypeScript
+class AppError extends Error {
+  constructor(
+    message: string,
+    public readonly code: number
+  ) {
+    super(message);
+    this.name = "AppError";
+  }
+}
+
+try {
+  throw new AppError("Not found", 404);
+} catch (err) {
+  if (err instanceof AppError) {
+    console.log(\`[\${err.code}] \${err.message}\`);
+  }
+}`;
+
+export const customExcPy = `# Python
+class AppError(Exception):
+    def __init__(self, message: str, code: int) -> None:
+        super().__init__(message)
+        self.code = code
+
+try:
+    raise AppError("Not found", 404)
+except AppError as e:
+    print(f"[{e.code}] {e}")`;
+
+<TsGo client:visible ts={customExcTs} go={customExcPy} />
+
+## ลองเล่นดู
+
+export const errorsCode = `def divide(a: float, b: float) -> float:
+    if b == 0:
+        raise ValueError("Cannot divide by zero")
+    return a / b
+
+# Successful case
+try:
+    result = divide(10, 2)
+    print(f"10 / 2 = {result}")
+except ValueError as e:
+    print(f"Error: {e}")
+else:
+    print("No error occurred (else clause)")
+finally:
+    print("Always runs")
+
+print()
+
+# Error case
+try:
+    result = divide(10, 0)
+except ValueError as e:
+    print(f"Caught: {e}")
+else:
+    print("This will NOT print")
+finally:
+    print("Finally again")
+`;
+
+<Playground client:visible code={errorsCode} />
+
+<PyOnly title="ประโยค else บน try — ไม่มีสิ่งที่เทียบเท่าใน TypeScript">
+
+`try`/`catch` ของ TypeScript ไม่มีประโยค `else` ส่วน `else` ของ Python จะทำงาน **ก็ต่อเมื่อบล็อก `try` ทำงานจบโดยไม่มี exception ถูก raise** — หลังจากบล็อก `try` และก่อน `finally` นี่เป็นวิธีที่สะอาดในการแยก "สิ่งที่จะทำเมื่อสำเร็จ" ออกจาก "สิ่งที่จะทำเมื่อเกิด error" โดยไม่ต้องซ้อนกัน:
+
+```python
+import json
+
+def parse_config(raw: str) -> dict:
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as e:
+        print(f"Invalid JSON: {e}")
+        return {}
+    else:
+        # Runs only if json.loads succeeded
+        print(f"Parsed {len(data)} keys")
+        return data
+    finally:
+        # Always runs — good for cleanup
+        print("parse_config done")
+```
+
+ประโยค `else` ช่วยเลี่ยงบั๊กที่พบบ่อย: ถ้าคุณวางโค้ดเส้นทางสำเร็จไว้ภายในบล็อก `try` exception ใด ๆ ที่มันโยนออกมาก็จะถูกจับโดย `except` ซึ่งอาจไม่ใช่สิ่งที่ตั้งใจไว้
+
+</PyOnly>
+
+export const quizErrors = [
+  {
+    q: 'อะไรคือสิ่งที่เทียบเท่า `throw new Error("msg")` ของ JavaScript ใน Python?',
+    options: [
+      'throw Exception("msg")',
+      'raise Exception("msg")',
+      'error Exception("msg")',
+      'panic Exception("msg")',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'ประโยค `else` ของบล็อก `try` ทำงานเมื่อใดใน Python?',
+    options: [
+      'เมื่อมี exception ใด ๆ ถูก raise',
+      'ทำงานเสมอ หลังจากทั้ง try และ except',
+      'เฉพาะเมื่อไม่มี exception ถูก raise ในบล็อก try',
+      'เฉพาะเมื่อ exception type ที่เฉพาะเจาะจงถูก raise',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'จะจับ exception หลายชนิดในประโยค `except` เดียวได้อย่างไร?',
+    options: [
+      'except ValueError | TypeError as e:',
+      'except ValueError, TypeError as e:',
+      'except (ValueError, TypeError) as e:',
+      'except [ValueError, TypeError] as e:',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'บล็อก `finally` ทำงานเมื่อใด?',
+    options: [
+      'เฉพาะเมื่อมี exception ถูก raise',
+      'เฉพาะเมื่อไม่มี exception ถูก raise',
+      'ทำงานเสมอ ไม่ว่าจะมี exception ถูก raise หรือไม่',
+      'เฉพาะหลังจากประโยค else',
+    ],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="python-101/errors" questions={quizErrors} />
+
+<ProgressTracker client:visible id="python-101/errors" />

@@ -1,0 +1,232 @@
+---
+title: "Generators และ yield"
+description: generator ของ Python, keyword yield และ lazy iteration vs generator ของ TypeScript
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## Generator มีอยู่ในทั้งสองภาษา แต่ Python ใช้งานมันหนักกว่า
+
+TypeScript ก็มี generator เช่นกัน: `function*` กับ `yield` ทำงานแทบเหมือนกันในมุมมองแรก คุณได้ lazy iterator, สามารถเรียก `.next()` ได้ และ function จะหยุดทำงานชั่วคราวระหว่าง yield แต่ใน Python นั้น generator ไม่ใช่ฟีเจอร์เฉพาะกลุ่ม — มันถูกถักทอเข้ากับ standard library `range()`, การวนซ้ำไฟล์, `zip()`, `map()`, `filter()` และ module `itertools` ทั้งหมดล้วนคืนค่า lazy iterator ที่สร้างจาก generator protocol เดียวกัน แม้แต่ `async`/`await` ใน Python ก็สร้างอยู่บน generator ภายใน ถ้าคุณเข้าใจ generator ของ Python คุณก็เข้าใจส่วนสำคัญของภาษานี้ไปมากแล้ว
+
+## การสร้างและใช้งาน generator
+
+generator ของ Python คือ function ใดก็ตามที่มีคำสั่ง `yield` อยู่ การเรียก function นั้นจะคืนค่า generator object — โค้ดจะยังไม่ทำงานจนกว่าคุณจะวนซ้ำ
+
+export const tsGen = `// TypeScript generator with function*
+function* countUp(start: number, stop: number): Generator<number> {
+  let current = start;
+  while (current <= stop) {
+    yield current;
+    current++;
+  }
+}
+
+const gen = countUp(1, 5);
+for (const val of gen) {
+  process.stdout.write(val + " ");
+}
+console.log();
+
+// Infinite generator
+function* fibonacci(): Generator<number> {
+  let [a, b] = [0, 1];
+  while (true) {
+    yield a;
+    [a, b] = [b, a + b];
+  }
+}
+
+const fib = fibonacci();
+const firstTen = Array.from({ length: 10 }, () => fib.next().value);
+console.log(firstTen);`;
+
+export const pyGen = `# Python generator with def + yield
+def count_up(start, stop):
+    current = start
+    while current <= stop:
+        yield current
+        current += 1
+
+gen = count_up(1, 5)
+for val in gen:
+    print(val, end=" ")
+print()
+
+# Infinite generator
+def fibonacci():
+    a, b = 0, 1
+    while True:
+        yield a
+        a, b = b, a + b
+
+fib = fibonacci()
+first_ten = [next(fib) for _ in range(10)]
+print(first_ten)`;
+
+<TsGo client:visible ts={tsGen} go={pyGen} />
+
+ข้อแตกต่างสำคัญที่ควรสังเกต:
+- Python ใช้ `def` ธรรมดา — ไม่มี syntax แบบ `function*` การมี `yield` อยู่ที่ใดก็ตามใน function body จะทำให้มันกลายเป็น generator โดยอัตโนมัติ
+- ลูป `for` ของ Python ทำงานได้โดยตรงกับ iterable ทุกชนิด รวมถึง generator โดยไม่ต้องเรียก `.next()` เอง
+- TypeScript ต้องระบุ return type เป็น `Generator<T>` แต่ Python จะอนุมานให้โดยอัตโนมัติ
+
+## การสื่อสารสองทางด้วย send()
+
+generator ของ Python รองรับการส่งข้อมูลสองทาง คุณสามารถส่งค่ากลับเข้าไปใน generator ที่หยุดอยู่โดยใช้ `.send()` ค่าที่ส่งไปจะกลายเป็นผลลัพธ์ของ expression `yield` ภายใน generator TypeScript รองรับสิ่งนี้ผ่าน `gen.next(value)` แต่ฟีเจอร์นี้ไม่ค่อยถูกใช้ใน ecosystem ของ TS
+
+export const tsGenSend = `// TypeScript: sending values into a generator
+function* accumulator(): Generator<number, void, number> {
+  let total = 0;
+  while (true) {
+    const value = yield total;
+    if (value === undefined) break;
+    total += value;
+  }
+}
+
+const acc = accumulator();
+acc.next();        // prime the generator
+console.log(acc.next(10).value); // 10
+console.log(acc.next(20).value); // 30
+console.log(acc.next(5).value);  // 35`;
+
+export const pyGenSend = `# Python: sending values into a generator with .send()
+def accumulator():
+    total = 0
+    while True:
+        value = yield total
+        if value is None:
+            break
+        total += value
+
+acc = accumulator()
+next(acc)           # prime the generator (advance to first yield)
+print(acc.send(10)) # 10
+print(acc.send(20)) # 30
+print(acc.send(5))  # 35`;
+
+<TsGo client:visible ts={tsGenSend} go={pyGenSend} />
+
+## ลองด้วยตัวเอง
+
+export const playgroundGen = `def count_up(start, stop):
+    current = start
+    while current <= stop:
+        yield current
+        current += 1
+
+gen = count_up(1, 5)
+for val in gen:
+    print(val, end=" ")
+print()
+
+def fibonacci():
+    a, b = 0, 1
+    while True:
+        yield a
+        a, b = b, a + b
+
+fib = fibonacci()
+first_ten = [next(fib) for _ in range(10)]
+print(first_ten)
+`;
+
+<Playground client:visible code={playgroundGen} />
+
+<PyOnly title="Generator protocol: __iter__ และ __next__">
+
+เมื่อลูป `for` ของ Python วนซ้ำ object ใดก็ตาม มันจะเรียก dunder method สองตัวเบื้องหลัง:
+
+1. `__iter__(self)` — ถูกเรียกครั้งเดียวเพื่อรับ iterator object สำหรับ generator มันจะคืนค่า `self`
+2. `__next__(self)` — ถูกเรียกซ้ำเพื่อรับค่าถัดไป เมื่อ generator หมดแล้วจะ raise `StopIteration` ซึ่งเป็นสัญญาณให้ลูป `for` หยุด
+
+generator object จะ implement ทั้งสองนี้โดยอัตโนมัติ คุณสามารถ implement protocol นี้ด้วยตนเองใน class ใดก็ได้เพื่อทำให้มัน iterable:
+
+```python
+class CountUp:
+    def __init__(self, start, stop):
+        self.current = start
+        self.stop = stop
+
+    def __iter__(self):
+        return self  # the iterator is the object itself
+
+    def __next__(self):
+        if self.current > self.stop:
+            raise StopIteration
+        val = self.current
+        self.current += 1
+        return val
+
+for v in CountUp(1, 5):
+    print(v)
+```
+
+นี่คือสิ่งที่ generator ช่วยให้คุณไม่ต้องเขียนด้วยมือ
+
+**`yield from` สำหรับการมอบหมาย**
+
+`yield from` จะมอบหมายการวนซ้ำให้กับ iterable อื่น โดยส่งต่อแต่ละค่าผ่านไปโดยไม่ต้องเขียนลูปด้วยตนเอง:
+
+```python
+def chain(*iterables):
+    for it in iterables:
+        yield from it
+
+list(chain([1, 2], [3, 4], [5]))  # [1, 2, 3, 4, 5]
+```
+
+`yield from` ยังส่งต่อ `.send()` และ `.throw()` ไปยัง inner generator ด้วย ซึ่งเป็นวิธีที่ `asyncio` ของ Python เคยรวม coroutine เข้าด้วยกันก่อนที่จะมี syntax `async`/`await`
+
+</PyOnly>
+
+export const quizGen = [
+  {
+    q: 'อะไรทำให้ function ของ Python กลายเป็น generator?',
+    options: [
+      'การตกแต่งด้วย @generator',
+      'การใช้ syntax แบบ function*',
+      'การมีคำสั่ง yield อยู่ที่ใดก็ตามใน function body',
+      'การคืนค่า list จาก function',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'generator จะ raise exception อะไรเมื่อหมดค่าแล้ว?',
+    options: [
+      'GeneratorExit',
+      'StopIteration',
+      'IndexError',
+      'RuntimeError',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'gen.send(value) ทำอะไร?',
+    options: [
+      'เพิ่มค่าต่อท้าย list ภายในของ generator',
+      'เริ่ม generator ใหม่ตั้งแต่ต้นโดยใช้ value เป็น argument',
+      'ทำให้ generator ทำงานต่อและทำให้ value เป็นผลลัพธ์ของ yield expression ปัจจุบัน',
+      'ส่งค่าไปยัง standard output',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'จุดประสงค์ของ yield from คืออะไร?',
+    options: [
+      'นำเข้าค่าจาก module อื่น',
+      'มอบหมายการวนซ้ำให้กับ iterable อื่น โดยส่งต่อแต่ละค่าที่ yield',
+      'สร้าง generator ใหม่จาก list',
+      'เป็น alias ของ return ใน generator function',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="py-only/generators-yield" questions={quizGen} />
+
+<ProgressTracker client:visible id="py-only/generators-yield" />

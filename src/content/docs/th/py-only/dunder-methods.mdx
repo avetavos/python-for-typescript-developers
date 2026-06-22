@@ -1,0 +1,219 @@
+---
+title: "Dunder Methods (เมธอดมหัศจรรย์)"
+description: เมธอดพิเศษอย่าง __init__, __str__, __len__, __eq__ และการ overload operator ใน Python
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## Operator overloading: TypeScript ทำไม่ได้ แต่ Python ทำได้
+
+TypeScript ไม่รองรับ operator overloading เลย ถ้าคุณสร้าง class `Vector` คุณต้องเรียกเมธอด `.add(other)` โดยตรง — การเขียน `v1 + v2` ไม่มีทางใช้ได้กับ type ที่กำหนดเอง Python แก้ปัญหานี้ผ่าน **dunder methods** (ย่อมาจาก "double underscore") ซึ่งเรียกอีกชื่อว่า magic methods เมธอดเหล่านี้คือเมธอดธรรมดาที่มีชื่ออย่าง `__add__`, `__str__`, และ `__len__` ซึ่ง Python จะเรียกโดยอัตโนมัติเมื่อคุณใช้ operator หรือ built-in function กับ object ของคุณ
+
+คำว่า "dunder" เป็นคำแสลงในชุมชน Python ที่ใช้เรียกชื่อที่ขึ้นต้นและลงท้ายด้วย underscore สองตัว คุณนิยามเมธอดเหล่านี้เอง และ Python จะเรียกใช้ให้เบื้องหลัง
+
+## นิยามการบวก Vector
+
+ตัวอย่างที่อธิบายได้ชัดเจนที่สุดคือ vector 2 มิติ ใน TypeScript คุณต้องตั้งชื่อ operation อย่างชัดเจน ส่วนใน Python คุณเชื่อมโยงกับ `+` ได้โดยการนิยาม `__add__`
+
+export const tsDunder = `// TypeScript: no operator overloading — you must name the method
+class Vector {
+  constructor(public x: number, public y: number) {}
+
+  toString(): string {
+    return \`Vector(\${this.x}, \${this.y})\`;
+  }
+
+  add(other: Vector): Vector {
+    return new Vector(this.x + other.x, this.y + other.y);
+  }
+
+  equals(other: Vector): boolean {
+    return this.x === other.x && this.y === other.y;
+  }
+
+  get length(): number {
+    return 2;
+  }
+}
+
+const v1 = new Vector(1, 2);
+const v2 = new Vector(3, 4);
+const v3 = v1.add(v2);    // must call .add(), can't write v1 + v2
+console.log(v3.toString()); // "Vector(4, 6)"`;
+
+export const pyDunder = `# Python: operator overloading via dunder methods
+class Vector:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+    def __str__(self):
+        return f"Vector(\${self.x}, \${self.y})"
+
+    def __repr__(self):
+        return f"Vector(\${self.x!r}, \${self.y!r})"
+
+    def __len__(self):
+        return 2
+
+    def __eq__(self, other):
+        return self.x == other.x and self.y == other.y
+
+    def __add__(self, other):
+        return Vector(self.x + other.x, self.y + other.y)
+
+v1 = Vector(1, 2)
+v2 = Vector(3, 4)
+v3 = v1 + v2          # calls v1.__add__(v2) automatically
+print(str(v1))         # calls v1.__str__()
+print(len(v1))         # calls v1.__len__()
+print(v1 == Vector(1, 2))  # calls v1.__eq__(...)`;
+
+<TsGo client:visible ts={tsDunder} go={pyDunder} />
+
+## Python เรียก dunder ได้อย่างไร
+
+เมื่อ Python ประมวลผล `v1 + v2` มันจะเรียก `type(v1).__add__(v1, v2)` ภายใน เมื่อคุณเรียก `str(v1)` Python จะเรียก `v1.__str__()` และเมื่อคุณเรียก `len(v1)` Python จะเรียก `v1.__len__()` ซึ่งหมายความว่า built-in function และ operator ทุกตัวมี dunder hook ที่สอดรับให้คุณนำไปนำมาใช้ได้
+
+นอกจากนี้ยังมี `__repr__` ซึ่งต่างจาก `__str__` คือ `str()` ออกแบบมาสำหรับการแสดงผลที่มนุษย์อ่านได้ ส่วน `repr()` (และ REPL แบบ interactive) ใช้ `__repr__` สำหรับ output ที่ชัดเจนและมุ่งเน้นนักพัฒนา แฟล็ก `!r` ใน f-string จะเรียก `repr()` กับค่านั้น
+
+## ลองทดสอบ
+
+export const playgroundDunder = `class Vector:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+    def __str__(self):
+        return f"Vector(\${self.x}, \${self.y})"
+
+    def __repr__(self):
+        return f"Vector(\${self.x!r}, \${self.y!r})"
+
+    def __len__(self):
+        return 2
+
+    def __eq__(self, other):
+        return self.x == other.x and self.y == other.y
+
+    def __add__(self, other):
+        return Vector(self.x + other.x, self.y + other.y)
+
+v1 = Vector(1, 2)
+v2 = Vector(3, 4)
+v3 = v1 + v2
+
+print(str(v1))
+print(len(v1))
+print(v1 == Vector(1, 2))
+print(v3)
+`;
+
+<Playground client:visible code={playgroundDunder} />
+
+<PyOnly title="Dunder methods by category">
+
+Python นิยาม dunder methods ไว้หลายสิบตัว นี่คือตัวที่สำคัญที่สุดจัดกลุ่มตามวัตถุประสงค์:
+
+**วงจรชีวิต Object**
+- `__init__(self, ...)` — เรียกหลังจากสร้าง object แล้ว (เนื้อหาของ constructor)
+- `__new__(cls, ...)` — เรียกเพื่อสร้าง object แทบไม่ค่อย override
+- `__del__(self)` — เรียกเมื่อ object ถูก garbage-collected
+
+**การแสดงผลเป็น string**
+- `__str__(self)` — เรียกโดย `str()` และ `print()`; อ่านง่ายสำหรับมนุษย์
+- `__repr__(self)` — เรียกโดย `repr()` และ REPL; ชัดเจน ควรนำกลับมา evaluate ได้
+- `__format__(self, spec)` — เรียกโดย `format()` และ format spec ใน f-string เช่น `f"{v:.2f}"`
+
+**Arithmetic operators**
+- `__add__` / `__radd__` — `+` (fallback ฝั่งขวา)
+- `__sub__` / `__rsub__` — `-`
+- `__mul__` / `__rmul__` — `*`
+- `__truediv__` — `/`
+- `__floordiv__` — `//`
+- `__mod__` — `%`
+- `__pow__` — `**`
+- `__neg__` — unary `-`
+
+**Comparison operators**
+- `__eq__` — `==`
+- `__ne__` — `!=` (ค่าเริ่มต้นคือ `not __eq__` ถ้าไม่ได้นิยาม)
+- `__lt__` — `<`
+- `__le__` — `<=`
+- `__gt__` — `>`
+- `__ge__` — `>=`
+
+หมายเหตุ: การนิยาม `__eq__` จะทำให้ class ของคุณ unhashable โดยอัตโนมัติ (เนื่องจาก object ที่เท่ากันต้อง hash เหมือนกัน) เพิ่ม `__hash__` ถ้าคุณต้องการใช้ instance เป็น key ของ dict หรือ member ของ set
+
+**Container protocol**
+- `__len__(self)` — `len(obj)`
+- `__getitem__(self, key)` — `obj[key]`
+- `__setitem__(self, key, value)` — `obj[key] = value`
+- `__delitem__(self, key)` — `del obj[key]`
+- `__contains__(self, item)` — `item in obj`
+- `__iter__(self)` — `for x in obj`
+- `__next__(self)` — เลื่อน iterator ไปข้างหน้า
+
+**Context manager protocol** (คำสั่ง `with`)
+- `__enter__(self)` — เรียกเมื่อเข้า block `with`; ค่าที่ return ถูก bind กับ `as`
+- `__exit__(self, exc_type, exc_val, exc_tb)` — เรียกเมื่อออก แม้เกิด exception
+
+**Callable**
+- `__call__(self, ...)` — ทำให้ instance เรียกได้เหมือน function: `obj(args)`
+
+**Attribute access**
+- `__getattr__(self, name)` — เรียกเฉพาะเมื่อ lookup ปกติล้มเหลว
+- `__setattr__(self, name, value)` — ดักทุก attribute assignment
+- `__getattribute__(self, name)` — ดักทุก attribute read (ใช้ด้วยความระมัดระวัง)
+
+</PyOnly>
+
+export const quizDunder = [
+  {
+    q: 'Python เรียก dunder method ใดเมื่อคุณเขียน `v1 + v2`?',
+    options: [
+      '__plus__',
+      '__add__',
+      '__sum__',
+      '__operator__',
+    ],
+    answer: 1,
+  },
+  {
+    q: '`__str__` และ `__repr__` ต่างกันอย่างไร?',
+    options: [
+      'ไม่มีความแตกต่าง ทั้งสองเป็น alias เดียวกัน',
+      '__str__ ใช้ภายใน; __repr__ ใช้สำหรับ end user',
+      '__str__ สำหรับแสดงผลที่อ่านง่ายสำหรับมนุษย์; __repr__ สำหรับ output ที่ชัดเจนมุ่งเน้นนักพัฒนา',
+      '__repr__ เรียกได้เฉพาะจาก logging library เท่านั้น',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'dunder methods คู่ใดที่ต้องนำมาใช้เพื่อรองรับคำสั่ง `with` บน class ที่กำหนดเอง?',
+    options: [
+      '__open__ และ __close__',
+      '__start__ และ __stop__',
+      '__enter__ และ __exit__',
+      '__begin__ และ __end__',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'เกิดอะไรขึ้นกับ `__hash__` เมื่อคุณนิยาม `__eq__` บน class?',
+    options: [
+      'ไม่มีอะไรเปลี่ยนแปลง; __hash__ เป็นอิสระ',
+      'class กลายเป็น unhashable โดยค่าเริ่มต้น (hash ถูกตั้งเป็น None)',
+      'Python สร้าง __hash__ อัตโนมัติให้สอดคล้องกับ __eq__',
+      '__hash__ จะ raise TypeError',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="py-only/dunder-methods" questions={quizDunder} />
+
+<ProgressTracker client:visible id="py-only/dunder-methods" />

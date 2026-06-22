@@ -1,0 +1,236 @@
+---
+title: Profiling & Performance
+description: การวัด performance ของ Python ด้วย timeit และ cProfile — เปรียบเทียบกับ console.time และ --prof ของ Node.js — โดยเน้นที่การอ่านและใช้ประโยชน์จาก profile output
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## Mindset ของการ profiling
+
+ก่อนจะ optimise อะไร คุณต้อง **วัด** ก่อน กฎเดียวกันใช้ได้ทั้งใน TypeScript และ Python: อย่าเดาว่า bottleneck อยู่ที่ไหน — profile ก่อน, optimise ทีหลัง, วัดอีกครั้ง
+
+| เครื่องมือ Node.js | คู่เทียบ Python |
+|---|---|
+| `console.time` / `console.timeEnd` | `timeit.timeit()` |
+| `performance.now()` | `time.perf_counter()` |
+| `node --prof` + `node --prof-process` | `cProfile` + `pstats` |
+| Chrome DevTools flame graph | `snakeviz` (pip install snakeviz) |
+| `clinic.js` / `0x` | `py-spy` (external, sampling profiler) |
+
+## timeit: microbenchmarks ที่แม่นยำ
+
+`timeit` รัน snippet หลายพันครั้งและรายงานเวลารวม มันเทียบเท่ากับ `console.time` แต่เข้มงวดกว่ามาก — มันปิด garbage collection ระหว่างการรันเพื่อลด noise
+
+export const timeitTs = `// TypeScript — manual timing
+console.time("list comp");
+for (let i = 0; i < 10_000; i++) {
+  Array.from({ length: 100 }, (_, i) => i ** 2);
+}
+console.timeEnd("list comp");`;
+
+export const timeitPy = `import timeit
+
+# timeit รัน snippet 10,000 ครั้ง; return เวลารวมในหน่วยวินาที
+t = timeit.timeit(
+    '[x**2 for x in range(100)]',
+    number=10_000
+)
+print(f"List comprehension: {t:.4f}s")
+
+# เปรียบเทียบสองแนวทาง
+t2 = timeit.timeit(
+    'list(map(lambda x: x**2, range(100)))',
+    number=10_000
+)
+print(f"map(): {t2:.4f}s")`;
+
+<TsGo client:visible ts={timeitTs} go={timeitPy} />
+
+## ลองเล่น — timeit ใน browser
+
+export const timeitPlaygroundCode = `import timeit
+
+# เปรียบเทียบ list comprehension vs map vs generator-to-list
+approaches = {
+    "list comp": '[x**2 for x in range(100)]',
+    "map+list ": 'list(map(lambda x: x**2, range(100)))',
+    "for loop  ": 'r=[]; [r.append(x**2) for x in range(100)]',
+}
+
+results = {}
+for name, stmt in approaches.items():
+    t = timeit.timeit(stmt, number=5000)
+    results[name] = t
+    print(f"  {name}: {t:.4f}s")
+
+fastest = min(results, key=results.get)
+print(f"\\nFastest: {fastest}")
+`;
+
+<Playground client:visible code={timeitPlaygroundCode} />
+
+## cProfile: function-level profiling
+
+`cProfile` คือ built-in deterministic profiler ของ Python มันบันทึกทุก function call, จำนวนครั้งที่แต่ละ function ถูกเรียก และนานแค่ไหน มันเทียบเท่ากับ `node --prof` แต่ติดมากับ Python และไม่ต้องใช้เครื่องมือพิเศษในการอ่าน
+
+export const cprofTs = `// Node.js — file-based profiling
+// node --prof server.js
+// node --prof-process isolate-*.log > profile.txt`;
+
+export const cprofPy = `import cProfile
+import pstats
+import io
+
+def slow_function():
+    total = 0
+    for i in range(1000):
+        total += sum(range(i))
+    return total
+
+# Profile specific function
+pr = cProfile.Profile()
+pr.enable()
+slow_function()
+pr.disable()
+
+# Print top 5 by cumulative time
+s = io.StringIO()
+ps = pstats.Stats(pr, stream=s).sort_stats('cumulative')
+ps.print_stats(5)
+print(s.getvalue())`;
+
+<TsGo client:visible ts={cprofTs} go={cprofPy} />
+
+## cProfile ใน browser
+
+export const cprofilePlaygroundCode = `import cProfile
+import pstats
+import io
+
+def inner(n: int) -> int:
+    return sum(range(n))
+
+def middle(n: int) -> int:
+    return sum(inner(i) for i in range(n))
+
+def outer(n: int) -> int:
+    return middle(n) + inner(n)
+
+pr = cProfile.Profile()
+pr.enable()
+result = outer(200)
+pr.disable()
+
+s = io.StringIO()
+ps = pstats.Stats(pr, stream=s).sort_stats("cumulative")
+ps.print_stats(8)
+print(f"Result: {result}")
+print()
+print(s.getvalue())
+`;
+
+<Playground client:visible code={cprofilePlaygroundCode} />
+
+## การอ่าน pstats output
+
+```
+ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+     1    0.000    0.000    0.004    0.004 script.py:4(slow_function)
+  1000    0.004    0.000    0.004    0.000 {built-in method builtins.sum}
+```
+
+| Column | ความหมาย |
+|---|---|
+| `ncalls` | จำนวนครั้งที่ฟังก์ชันถูกเรียก |
+| `tottime` | เวลาที่ใช้ใน function นี้ (ไม่รวม callees) |
+| `cumtime` | เวลา cumulative (รวมทุก sub-calls) |
+| `percall` | เวลาเฉลี่ยต่อ call |
+
+**Sort strategies:**
+- `sort_stats('cumulative')` — หา call chains ที่ช้าที่สุด end-to-end (เริ่มที่นี่)
+- `sort_stats('tottime')` — หา functions ที่ทำงานมากที่สุดด้วยตัวเอง
+- `sort_stats('ncalls')` — หา functions ที่ถูกเรียกโดยไม่คาดคิดบ่อยเกินไป
+
+## Workflow: profile → identify → fix → measure
+
+```python
+# 1. Profile
+import cProfile
+cProfile.run('my_function()', 'profile.stats')
+
+# 2. Inspect interactively
+import pstats
+p = pstats.Stats('profile.stats')
+p.sort_stats('cumulative').print_stats(10)
+
+# 3. Visualise (ติดตั้งครั้งเดียว)
+# pip install snakeviz
+# snakeviz profile.stats   # เปิด browser flame graph
+```
+
+<PyOnly title="line_profiler: profiling แบบ line-by-line">
+
+`cProfile` บอกว่า function ใดช้า `line_profiler` บอกว่า line ใดภายใน function นั้น ติดตั้งด้วย `pip install line_profiler` จากนั้น:
+
+```python
+# decorated_function.py
+@profile  # เพิ่มโดย kernprof ที่ runtime
+def process_orders(orders):
+    results = []
+    for order in orders:       # line 4
+        tax = order.total * 0.07  # line 5
+        results.append(tax)    # line 6
+    return results
+
+# รัน:
+# kernprof -l -v decorated_function.py
+```
+
+Output แสดง `% Time` ต่อ line — เห็นทันทีว่าควร focus ที่ไหน
+
+</PyOnly>
+
+export const quizProfiling = [
+  {
+    q: '`timeit.timeit(stmt, number=10_000)` return อะไร?',
+    options: [
+      'เวลาเฉลี่ยต่อ run ในหน่วย milliseconds',
+      'เวลารวมสำหรับ 10,000 runs ในหน่วยวินาที',
+      'list ของ run times แต่ละครั้ง',
+      'เวลา run ที่เร็วที่สุดครั้งเดียว',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'ใน pstats output ของ cProfile `cumtime` หมายความว่าอะไร?',
+    options: [
+      'เวลาที่ใช้ใน function โดยไม่รวม sub-calls',
+      'เวลา cumulative รวมทุก functions ที่มันเรียก',
+      'จำนวน calls ทั้งหมด',
+      'Memory ที่ function ใช้',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'pstats sort key ใดที่หา functions ที่ consume เวลามากที่สุดด้วยตัวเอง (ไม่รวม sub-calls)?',
+    options: ["'cumulative'", "'tottime'", "'ncalls'", "'filename'"],
+    answer: 1,
+  },
+  {
+    q: 'ทำไม timeit จึงปิด garbage collection ระหว่างการรัน?',
+    options: [
+      'เพื่อป้องกัน memory leaks ใน benchmark',
+      'เพื่อลด timing noise จาก GC pauses ให้ผลลัพธ์ reproducible มากขึ้น',
+      'เพราะ GC incompatible กับ timeit module',
+      'เพื่ออนุญาตให้ benchmark allocate memory ไม่จำกัด',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="advanced/profiling" questions={quizProfiling} />
+
+<ProgressTracker client:visible id="advanced/profiling" />

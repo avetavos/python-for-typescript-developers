@@ -1,0 +1,226 @@
+---
+title: Control Flow
+description: if/elif/else, for...in, while, range และ match/case ใน Python เทียบกับโครงสร้างควบคุมของ TypeScript
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+
+## Control flow: แนวคิดเดียวกัน แต่ syntax สะอาดกว่า
+
+Control flow ของ TypeScript แปลเป็น Python ได้แทบจะคำต่อคำ ความต่างที่ใหญ่ที่สุดเป็นเรื่องผิวเผิน: ไม่มีปีกกา (การย่อหน้าคือโครงสร้าง), ใช้ `elif` แทน `else if` และใช้ `match`/`case` แทน `switch` ลูป `for` ของ Python จะเป็น `for ... in` เสมอ — ไม่มีลูปสไตล์ C แบบ `for (let i = 0; ...)`
+
+## if / elif / else
+
+export const ifTs = `// TypeScript
+const score: number = 85;
+let grade: string;
+
+if (score >= 90) {
+  grade = "A";
+} else if (score >= 80) {
+  grade = "B";
+} else if (score >= 70) {
+  grade = "C";
+} else {
+  grade = "F";
+}
+
+console.log(\`Grade: \${grade}\`);  // Grade: B`;
+
+export const ifPy = `# Python
+score: int = 85
+
+if score >= 90:
+    grade = "A"
+elif score >= 80:
+    grade = "B"
+elif score >= 70:
+    grade = "C"
+else:
+    grade = "F"
+
+print(f"Grade: {grade}")  # Grade: B`;
+
+<TsGo client:visible ts={ifTs} go={ifPy} />
+
+## for ... in และ range()
+
+`for` ของ Python จะวนซ้ำบน iterable เสมอ — ไม่ว่าจะเป็น list, string, dict หรือ `range` ไม่มีลูปแบบ indexed สไตล์ C สำหรับการเข้าถึงด้วย index ให้ใช้ `enumerate()`
+
+export const forTs = `// TypeScript
+// Indexed loop
+for (let i = 0; i < 5; i++) {
+  console.log(i);
+}
+
+// for...of over array
+const fruits = ["apple", "banana", "cherry"];
+for (const fruit of fruits) {
+  console.log(fruit);
+}
+
+// Index + value
+fruits.forEach((fruit, i) => console.log(i, fruit));`;
+
+export const forPy = `# Python
+# range() replaces the C-style for loop
+for i in range(5):   # 0, 1, 2, 3, 4
+    print(i)
+
+# Iterate over any iterable directly
+fruits = ["apple", "banana", "cherry"]
+for fruit in fruits:
+    print(fruit)
+
+# Index + value with enumerate()
+for i, fruit in enumerate(fruits):
+    print(i, fruit)`;
+
+<TsGo client:visible ts={forTs} go={forPy} />
+
+`range(start, stop, step)` สะท้อนรูปแบบของ TypeScript:
+
+| TypeScript | Python |
+|---|---|
+| `for (let i = 0; i < 10; i++)` | `for i in range(10)` |
+| `for (let i = 1; i <= 10; i++)` | `for i in range(1, 11)` |
+| `for (let i = 0; i < 10; i += 2)` | `for i in range(0, 10, 2)` |
+| `for (let i = 10; i > 0; i--)` | `for i in range(10, 0, -1)` |
+
+## while
+
+`while` ทำงานเหมือนกันทุกประการ — วนซ้ำจนกว่าเงื่อนไขจะเป็น false
+
+export const whileTs = `// TypeScript
+let n: number = 1;
+while (n <= 5) {
+  console.log(n);
+  n++;
+}`;
+
+export const whilePy = `# Python
+n: int = 1
+while n <= 5:
+    print(n)
+    n += 1   # no ++ operator in Python`;
+
+<TsGo client:visible ts={whileTs} go={whilePy} />
+
+หมายเหตุ: Python ไม่มี operator `++` หรือ `--` ให้ใช้ `+= 1` และ `-= 1` แทน
+
+## match / case — switch ของ Python
+
+Python 3.10 ได้แนะนำ `match`/`case` ซึ่งทรงพลังกว่า `switch` ของ TypeScript มันรองรับ OR pattern ด้วย `|`, wildcard `_` และ structural pattern matching (การ match รูปร่างของ object)
+
+export const matchTs = `// TypeScript switch
+const command: string = "quit";
+
+switch (command) {
+  case "start":
+    console.log("Starting...");
+    break;
+  case "stop":
+  case "quit":
+    console.log("Stopping");
+    break;
+  default:
+    console.log(\`Unknown: \${command}\`);
+}`;
+
+export const matchPy = `# Python match/case (Python 3.10+)
+command: str = "quit"
+
+match command:
+    case "start":
+        print("Starting...")
+    case "stop" | "quit":   # OR pattern — no fallthrough needed
+        print("Stopping")
+    case _:                 # wildcard — like default
+        print(f"Unknown: {command}")`;
+
+<TsGo client:visible ts={matchTs} go={matchPy} />
+
+ต่างจาก `switch` ตรงที่ `match` จะไม่ fall through คุณไม่ต้องใช้ `break` เลย อักขระ `|` ใช้รวมหลาย case เข้าไว้ในประโยค `case` เดียว
+
+## ลองเล่นดู
+
+export const controlFlowCode = `# if/elif/else
+score = 85
+if score >= 90:
+    grade = "A"
+elif score >= 80:
+    grade = "B"
+elif score >= 70:
+    grade = "C"
+else:
+    grade = "F"
+print(f"Grade: {grade}")
+
+# for + range
+print("Counting:")
+for i in range(1, 6):
+    print(f"  {i}")
+
+# for + enumerate
+fruits = ["apple", "banana", "cherry"]
+print("Fruits:")
+for i, fruit in enumerate(fruits):
+    print(f"  {i}: {fruit}")
+
+# match/case
+for cmd in ["start", "quit", "help"]:
+    match cmd:
+        case "start":
+            result = "Starting..."
+        case "stop" | "quit":
+            result = "Stopping"
+        case _:
+            result = f"Unknown: {cmd}"
+    print(result)
+`;
+
+<Playground client:visible code={controlFlowCode} />
+
+export const quizControlFlow = [
+  {
+    q: 'อะไรคือสิ่งที่เทียบเท่า `else if` ของ TypeScript ใน Python?',
+    options: ['elseif', 'else if', 'elif', 'elsif'],
+    answer: 2,
+  },
+  {
+    q: 'ข้อใดต่อไปนี้คือสิ่งที่เทียบเท่า `for (let i = 1; i <= 5; i++)` ใน Python อย่างถูกต้อง?',
+    options: [
+      'for i in range(5):',
+      'for i in range(1, 5):',
+      'for i in range(1, 6):',
+      'for i in range(0, 5):',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'ใน `match`/`case` ของ Python จะเกิดอะไรขึ้นหลังจาก case ที่ตรงกันถูกรัน?',
+    options: [
+      'มัน fall through ไปยัง case ถัดไป',
+      'มันต้องใช้คำสั่ง `break`',
+      'มันหยุดโดยอัตโนมัติ — ไม่มี fallthrough',
+      'มันโยน StopIteration error',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'จะเอาทั้ง index และ value พร้อมกันขณะวน list ใน Python ได้อย่างไร?',
+    options: [
+      'for i, v in list.entries()',
+      'for i, v in enumerate(list)',
+      'for [i, v] in list',
+      'list.forEach(lambda i, v: ...)',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="python-101/control-flow" questions={quizControlFlow} />
+
+<ProgressTracker client:visible id="python-101/control-flow" />

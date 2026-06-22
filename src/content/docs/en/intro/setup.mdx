@@ -1,0 +1,188 @@
+---
+title: Setup — Installing Python and Creating a Project
+description: Install Python, create a virtual environment, and run your first script — mapped to the npm/Node workflow you already know.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+> Playground note: This is a setup/installation lesson. The steps require a real terminal, a Python installation, and filesystem access — none of which are available inside the browser sandbox. Run the commands below in your own terminal.
+
+## The toolchain comparison
+
+Before writing any code, you need to understand how Python's toolchain maps to Node's:
+
+export const toolchainTs = `# Node / TypeScript toolchain
+node       → runtime (executes JS)
+npm        → package manager (installs packages)
+npx        → run a package binary without installing globally
+tsc        → TypeScript compiler
+package.json → project manifest
+node_modules/ → installed dependencies (per project)`;
+
+export const toolchainPy = `# Python toolchain
+python3    → runtime (executes Python)
+pip        → package manager (installs packages)
+pipx       → run a tool without polluting your env
+mypy/pyright → optional type checker (like tsc)
+pyproject.toml → project manifest (modern)
+venv/      → isolated dependency folder (per project)`;
+
+<TsGo client:visible ts={toolchainTs} go={toolchainPy} />
+
+## Installing Python
+
+**macOS** (recommended — use Homebrew):
+```bash
+brew install python@3.12
+python3 --version   # Python 3.12.x
+pip3 --version
+```
+
+**Windows** (recommended — use the official installer):
+1. Download from [python.org/downloads](https://python.org/downloads)
+2. Check "Add python.exe to PATH" during installation
+3. Open a new terminal: `python --version`
+
+**Linux (Ubuntu/Debian)**:
+```bash
+sudo apt update && sudo apt install python3 python3-pip python3-venv
+python3 --version
+```
+
+## Virtual environments — the venv equivalent of node_modules
+
+In Node, `npm install` creates `node_modules/` inside your project. Each project gets its own copy of every dependency. Python's equivalent is a **virtual environment** (`venv`) — an isolated directory containing a Python interpreter and packages.
+
+Without a venv, `pip install` installs packages globally and they collide across projects. Always use a venv.
+
+export const venvTs = `# Node: project isolation is automatic
+mkdir my-project && cd my-project
+npm init -y
+npm install express       # goes into ./node_modules
+# no extra setup needed`;
+
+export const venvPy = `# Python: you must explicitly create isolation
+mkdir my-project && cd my-project
+python3 -m venv venv      # creates ./venv directory
+source venv/bin/activate  # macOS/Linux
+# venv\\Scripts\\activate   # Windows PowerShell
+
+pip install fastapi        # installs into ./venv, not globally
+python3 script.py`;
+
+<TsGo client:visible ts={venvTs} go={venvPy} />
+
+After running `source venv/bin/activate`, your prompt changes to show `(venv)`. Now `python` and `pip` point to the local venv. Run `deactivate` to exit.
+
+<PyOnly title="Why does Python need an explicit activate step?">
+
+Node resolves packages by walking up the directory tree looking for `node_modules/`. Python does not do this — it looks only in the currently active Python installation. The `activate` script sets environment variables (`PATH`, `VIRTUAL_ENV`) so that `python` and `pip` commands resolve to the venv copy instead of the system copy.
+
+Tools like `direnv` or `pyenv-virtualenv` can auto-activate the right venv when you `cd` into a project directory, giving you the same automatic feel as Node.
+
+</PyOnly>
+
+## Running scripts
+
+export const runScriptTs = `# TypeScript
+npx ts-node src/index.ts         # run directly
+npx tsc && node dist/index.js    # compile then run
+npm run dev                       # package.json script`;
+
+export const runScriptPy = `# Python
+python3 src/main.py              # run directly, no compile
+python3 -m module_name           # run a module as a script
+python3 -i src/main.py           # run then drop into REPL`;
+
+<TsGo client:visible ts={runScriptTs} go={runScriptPy} />
+
+## Installing and saving dependencies
+
+export const depsTs = `# Node
+npm install express              # install + save to package.json
+npm install --save-dev jest      # devDependency
+npm install                      # install from package.json
+npm ci                           # clean install from package-lock.json`;
+
+export const depsPy = `# Python (classic workflow)
+pip install fastapi               # installs but does NOT save
+pip freeze > requirements.txt     # snapshot current env
+pip install -r requirements.txt   # install from snapshot
+
+# Modern workflow with pyproject.toml
+pip install .                     # install project deps from pyproject.toml`;
+
+<TsGo client:visible ts={depsTs} go={depsPy} />
+
+<PyOnly title="pip freeze vs package.json — a key difference">
+
+`npm install express` automatically adds `"express"` to `package.json`. `pip install fastapi` does NOT update any file — it just puts bytes into `venv/`. You must explicitly run `pip freeze > requirements.txt` to capture the current environment.
+
+The modern Python answer is `pyproject.toml` with a tool like `hatch`, `poetry`, or `uv`. These behave more like npm: `poetry add fastapi` adds the dependency and updates `pyproject.toml` in one step. We cover `pyproject.toml` in the Project Anatomy lesson.
+
+</PyOnly>
+
+## Full workflow example
+
+Here is a complete "start a new Python project" sequence, mapped to what you do for a Node project:
+
+export const workflowTs = `# Node project setup
+mkdir api && cd api
+npm init -y
+npm install express typescript ts-node @types/node
+npx tsc --init
+# edit tsconfig.json...
+npm run dev`;
+
+export const workflowPy = `# Python project setup
+mkdir api && cd api
+python3 -m venv venv
+source venv/bin/activate   # activate venv
+pip install fastapi uvicorn
+
+# Run the app
+uvicorn main:app --reload
+
+# Capture deps for teammates
+pip freeze > requirements.txt`;
+
+<TsGo client:visible ts={workflowTs} go={workflowPy} />
+
+export const quizSetup = [
+  {
+    q: 'What is the Python equivalent of `node_modules/`?',
+    options: [
+      'A `packages/` directory at the project root',
+      'A virtual environment created with `python3 -m venv`',
+      'The global `site-packages/` directory',
+      'A `.python/` hidden folder',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'After `pip install fastapi`, how do you save the dependency so a teammate can reproduce it?',
+    options: [
+      'pip saves it automatically to pyproject.toml',
+      'Run `pip freeze > requirements.txt` then commit the file',
+      'Add it manually to package.json',
+      'Run `pip save fastapi`',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'What does `source venv/bin/activate` do?',
+    options: [
+      'Installs packages listed in requirements.txt',
+      'Creates a new virtual environment',
+      'Sets PATH so that `python` and `pip` resolve to the venv copy',
+      'Compiles Python source files to bytecode',
+    ],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="intro/setup" questions={quizSetup} />
+
+<ProgressTracker client:visible id="intro/setup" />

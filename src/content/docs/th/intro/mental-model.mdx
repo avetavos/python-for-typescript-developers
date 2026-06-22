@@ -1,0 +1,243 @@
+---
+title: Mental Model — คิดแบบ Python
+description: การเปลี่ยน mindset ที่สำคัญสำหรับ TypeScript developers เมื่อมาใช้ Python — dynamic typing, interpreter, indentation และ explicit self
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## การเปลี่ยนแปลงที่ใหญ่ที่สุด: compiler หายไปแล้ว
+
+ใน TypeScript, compiler (`tsc`) คือด่านแรกของการป้องกัน มันจับความไม่ตรงกันของ type ก่อนที่โค้ดจะทำงาน เมื่อคุณย้ายมา Python ตาข่ายความปลอดภัยนั้นหายไปที่ runtime — interpreter ไม่ตรวจสอบ types Type hints แบบ optional มีอยู่ (และคุณควรใช้) แต่การบังคับใช้ต้องใช้ tool แยก เช่น `mypy` หรือ `pyright`
+
+**Mental model:** TypeScript พูดว่า "พิสูจน์ว่าปลอดภัยก่อนรัน" Python พูดว่า "รันเลย ถ้าคุณส่ง type ผิด คุณจะได้รับ runtime error"
+
+## Dynamic typing
+
+ตัวแปร Python คือ labels ที่ชี้ไปยัง object ใดก็ได้ type ของค่านั้นอยู่ที่ object เอง ไม่ใช่ที่ชื่อตัวแปร ซึ่งแตกต่างจาก TypeScript โดยพื้นฐานที่ตัวแปรมี type ณ เวลา compile
+
+export const dynamicTs = `// TypeScript: variable has a compile-time type
+let count: number = 0;
+count = "five"; // Error: Type 'string' is not assignable to type 'number'
+
+function double(n: number): number {
+  return n * 2;
+}`;
+
+export const dynamicPy = `# Python: variable is just a label
+count = 0
+count = "five"   # perfectly legal at runtime
+
+def double(n: int) -> int:   # hints are documentation only
+    return n * 2
+
+print(double(3))    # 6
+print(double("x"))  # TypeError at RUNTIME, not before`;
+
+<TsGo client:visible ts={dynamicTs} go={dynamicPy} />
+
+## Interpreter และ REPL
+
+TypeScript คอมไพล์ไปเป็น JavaScript ก่อนรัน Python ถูก interpret — คุณรัน source files โดยตรงด้วย `python3` ไม่มีขั้นตอน build สำหรับการพัฒนา
+
+export const runTs = `# TypeScript workflow
+# tsc index.ts          → compiles to index.js
+# node index.js         → runs the compiled output
+# ts-node index.ts      → shortcut for development`;
+
+export const runPy = `# Python workflow
+# python3 script.py     → runs directly, no compile step
+# python3               → opens the interactive REPL
+# python3 -c "print(1)" → run a one-liner inline`;
+
+<TsGo client:visible ts={runTs} go={runPy} />
+
+## Significant indentation — ไม่มี curly braces
+
+นี่คือการเปลี่ยนแปลงที่ TypeScript developers สังเกตเห็นก่อน Python ใช้การย่อหน้า (4 spaces ตามข้อกำหนด) เพื่อกำหนด blocks ไม่มี `{` และ `}` เครื่องหมาย colon (`:`) จะเปิด block ใหม่เสมอ
+
+export const indentTs = `// TypeScript
+function classify(n: number): string {
+  if (n > 0) {
+    return "positive";
+  } else if (n < 0) {
+    return "negative";
+  } else {
+    return "zero";
+  }
+}`;
+
+export const indentPy = `# Python — indentation IS the block
+def classify(n: int) -> str:
+    if n > 0:
+        return "positive"
+    elif n < 0:         # note: elif, not else if
+        return "negative"
+    else:
+        return "zero"
+
+print(classify(5))   # positive
+print(classify(-3))  # negative
+print(classify(0))   # zero`;
+
+<TsGo client:visible ts={indentTs} go={indentPy} />
+
+การย่อหน้าผิดจะเป็น syntax error editor Python ส่วนใหญ่บังคับ indentation 4 spaces อัตโนมัติ
+
+## One obvious way — โค้ดแบบ "Pythonic"
+
+TypeScript มีความยืดหยุ่น: คุณสามารถใช้ classes, functional composition, prototype chains หรือ plain objects สลับกันได้ Python ส่งเสริมรูปแบบที่เป็นธรรมชาติและเป็นเอกลักษณ์เดียว ชุมชนมีชื่อให้มัน: **Pythonic** โค้ด Pythonic คือโค้ดที่กระชับ อ่านง่าย และใช้ฟีเจอร์ภาษาตามที่ตั้งใจ
+
+export const pythonicTs = `// TypeScript: multiple ways to filter
+const evens1 = nums.filter(n => n % 2 === 0);
+const evens2 = nums.reduce((acc, n) => n % 2 === 0 ? [...acc, n] : acc, []);
+// Both work; TS community accepts both`;
+
+export const pythonicPy = `# Python: list comprehension is the Pythonic way
+nums = [1, 2, 3, 4, 5, 6]
+evens = [n for n in nums if n % 2 == 0]
+print(evens)   # [2, 4, 6]
+
+# Works but less Pythonic:
+# evens = list(filter(lambda n: n % 2 == 0, nums))`;
+
+<TsGo client:visible ts={pythonicTs} go={pythonicPy} />
+
+## Explicit `self` ใน methods
+
+TypeScript class methods รับ `this` โดยปริยาย Python class methods ต้องการ parameter `self` ที่ชัดเจนเป็น argument แรก — interpreter จะใส่ค่าให้เมื่อคุณเรียก method แต่คุณต้องประกาศมันเอง
+
+export const selfTs = `// TypeScript: implicit this
+class Counter {
+  private count: number = 0;
+
+  increment(): void {
+    this.count++;          // 'this' is implicit
+  }
+
+  value(): number {
+    return this.count;
+  }
+}`;
+
+export const selfPy = `# Python: explicit self
+class Counter:
+    def __init__(self):     # called on Counter()
+        self.count = 0      # instance attribute
+
+    def increment(self):    # self is the instance
+        self.count += 1
+
+    def value(self) -> int:
+        return self.count
+
+c = Counter()
+c.increment()
+c.increment()
+print(c.value())   # 2`;
+
+<TsGo client:visible ts={selfTs} go={selfPy} />
+
+<PyOnly title="__init__ ไม่ใช่ constructor — มันคือ initialiser">
+
+`constructor` ของ TypeScript สร้าง object และ initialise มันในขั้นตอนเดียว ใน Python:
+
+1. `__new__` สร้าง object (คุณแทบไม่เคย override อันนี้)
+2. `__init__` initialise object ที่เพิ่งสร้าง — นี่คืออันที่คุณ override
+
+เมื่อคุณเขียน `Counter()` Python จะเรียก `Counter.__new__(Counter)` เพื่อจัดสรรหน่วยความจำ จากนั้นส่งผลลัพธ์ไปยัง `Counter.__init__(self)` เพื่อให้คุณตั้งค่า attributes Parameter `self` ใน `__init__` คือ instance ที่เพิ่งถูก allocate นั้น
+
+ในทางปฏิบัติ คุณจะเขียนแค่ `__init__` เท่านั้น ลองคิดว่ามันคือ "constructor body" โดยไม่มีขั้นตอนการสร้าง object
+
+</PyOnly>
+
+export const playgroundMentalModel = `# Mental model: types live on objects, not variables
+x = 42
+print(type(x).__name__)   # int
+
+x = "hello"
+print(type(x).__name__)   # str
+
+# Significant indentation
+def classify(n: int) -> str:
+    if n > 0:
+        return "positive"
+    elif n < 0:
+        return "negative"
+    else:
+        return "zero"
+
+for num in [5, -3, 0]:
+    print(f"{num} is {classify(num)}")
+
+# Pythonic list comprehension
+evens = [n for n in range(1, 11) if n % 2 == 0]
+print("Evens:", evens)
+
+# Explicit self
+class Counter:
+    def __init__(self):
+        self.count = 0
+
+    def increment(self):
+        self.count += 1
+
+    def value(self) -> int:
+        return self.count
+
+c = Counter()
+c.increment()
+c.increment()
+print("Counter:", c.value())
+`;
+
+<Playground client:visible code={playgroundMentalModel} />
+
+export const quizMentalModel = [
+  {
+    q: 'ใน Python type ของค่าถูกเก็บไว้ที่ไหน?',
+    options: [
+      'ใน variable declaration',
+      'ใน type table แยกต่างหากที่ interpreter ดูแล',
+      'บน object เอง ไม่ใช่ที่ตัวแปร',
+      'ใน function signature ที่สร้างตัวแปร',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'อะไรเปิด indented block ใหม่ใน Python?',
+    options: [
+      'opening curly brace `{`',
+      'keyword `begin`',
+      'colon `:` ที่ท้าย statement',
+      'keyword `do`',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'ทำไม Python class methods ต้องประกาศ `self` เป็น parameter แรก?',
+    options: [
+      'เป็น syntax requirement — Python ไม่ส่ง instance โดยปริยาย',
+      'เป็นตัวเลือกแต่แนะนำตามข้อกำหนด',
+      'ต้องการเฉพาะใน `__init__` ไม่ใช่ methods อื่น',
+      '`self` เป็น keyword ที่ initialise instance memory',
+    ],
+    answer: 0,
+  },
+  {
+    q: 'วิธีแบบ Pythonic ในการกรองเลขคู่จาก list คืออะไร?',
+    options: [
+      '`list(filter(lambda n: n % 2 == 0, nums))`',
+      '`[n for n in nums if n % 2 == 0]`',
+      '`nums.filter(n => n % 2 === 0)`',
+      '`nums.where(lambda n: n % 2 == 0)`',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="intro/mental-model" questions={quizMentalModel} />
+
+<ProgressTracker client:visible id="intro/mental-model" />

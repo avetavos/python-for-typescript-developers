@@ -1,0 +1,212 @@
+---
+title: Validation
+description: การ validation อัตโนมัติผ่าน Pydantic types และ Field constraints เปรียบเทียบกับ class-validator และ Zod
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## Validation เกิดขึ้นอัตโนมัติ
+
+ใน Express คุณต้องเลือก validation library (Joi, Zod, class-validator) แล้วเชื่อมต่อเอง ใน FastAPI validation ไม่ใช่ตัวเลือก แต่รันอัตโนมัติสำหรับทุก request ทันทีที่คุณประกาศ typed parameter ถ้า validation ล้มเหลว FastAPI จะส่งคืน `422 Unprocessable Entity` พร้อม structured error body ก่อนที่ handler function จะทำงาน
+
+## Basic type constraints ด้วย Field
+
+`pydantic.Field` เทียบเท่ากับ `.min()`, `.max()`, `.regex()` ของ Zod หรือ decorator `@IsEmail()`, `@Min()` ของ NestJS
+
+export const fieldTs = `// Zod
+const CreateItemSchema = z.object({
+  name: z.string().min(1).max(100),
+  price: z.number().positive().max(99999),
+  quantity: z.number().int().min(0).default(1),
+  email: z.string().email().optional(),
+  slug: z.string().regex(/^[a-z0-9-]+$/).optional(),
+});
+
+// class-validator (NestJS)
+export class CreateItemDto {
+  @IsString() @MinLength(1) @MaxLength(100) name: string;
+  @IsNumber() @IsPositive() @Max(99999) price: number;
+  @IsInt() @Min(0) @IsOptional() quantity?: number = 1;
+  @IsEmail() @IsOptional() email?: string;
+}`;
+
+export const fieldPy = `# Pydantic with Field constraints
+from pydantic import BaseModel, Field, EmailStr
+from typing import Optional
+
+class CreateItem(BaseModel):
+    name: str        = Field(min_length=1, max_length=100)
+    price: float     = Field(gt=0, le=99999)
+    quantity: int    = Field(default=1, ge=0)
+    email: Optional[EmailStr] = None          # ต้องการ: pip install pydantic[email]
+    slug: Optional[str] = Field(
+        default=None,
+        pattern=r"^[a-z0-9-]+$"
+    )`;
+
+<TsGo client:visible ts={fieldTs} go={fieldPy} />
+
+ตาราง Field constraint:
+
+| `Field` kwarg ใน Pydantic | ความหมาย | เทียบเท่าใน Zod |
+|---|---|---|
+| `gt=0` | มากกว่า | `.positive()` |
+| `ge=0` | มากกว่าหรือเท่ากับ | `.min(0)` |
+| `lt=100` | น้อยกว่า | `.max(99)` |
+| `le=100` | น้อยกว่าหรือเท่ากับ | `.max(100)` |
+| `min_length=1` | ความยาวขั้นต่ำ | `.min(1)` |
+| `max_length=100` | ความยาวสูงสุด | `.max(100)` |
+| `pattern=r"..."` | regex | `.regex(...)` |
+
+## The 422 error response
+
+เมื่อ validation ล้มเหลว FastAPI จะส่ง structured JSON body อัตโนมัติ ไม่ต้องเพิ่ม middleware และไม่ต้องเขียน try/catch
+
+export const errorRespTs = `// Zod การเชื่อมต่อ manual
+app.post('/items', (req, res) => {
+  const result = CreateItemSchema.safeParse(req.body);
+  if (!result.success) {
+    return res.status(422).json({ errors: result.error.flatten() });
+  }
+  // ...
+});`;
+
+export const errorRespPy = `# FastAPI — 422 อัตโนมัติ ไม่ต้องเขียน code
+from fastapi import FastAPI
+from pydantic import BaseModel, Field
+
+app = FastAPI()
+
+class CreateItem(BaseModel):
+    name: str = Field(min_length=1)
+    price: float = Field(gt=0)
+
+@app.post("/items")
+async def create_item(item: CreateItem):
+    return item   # ถึงตรงนี้ได้ก็ผ่าน validation แล้ว
+
+# POST /items {} คืนค่า:
+# {
+#   "detail": [
+#     {"loc": ["body","name"], "msg":"Field required", "type":"missing"},
+#     {"loc": ["body","price"],"msg":"Field required", "type":"missing"}
+#   ]
+# }`;
+
+<TsGo client:visible ts={errorRespTs} go={errorRespPy} />
+
+<PyOnly title="@field_validator — custom validation logic">
+
+สำหรับ logic ที่เกิน constraints (เช่น "price ต้องหารด้วย 0.5 ลงตัว") ใช้ `@field_validator` decorator ของ Pydantic นี่คือ equivalent ของ `.refine()` ใน Zod
+
+```python
+from pydantic import BaseModel, field_validator
+
+class CreateItem(BaseModel):
+    name: str
+    price: float
+
+    @field_validator("price")
+    @classmethod
+    def price_must_be_multiple_of_half(cls, v: float) -> float:
+        if round(v * 2) != v * 2:
+            raise ValueError("price must be a multiple of 0.50")
+        return v
+```
+
+</PyOnly>
+
+## ลองเล่น — manual validation แบบ Pydantic
+
+> รันที่เครื่องตัวเองด้วย FastAPI สำหรับ validation จริง snippet ด้านล่างแสดง logic เดียวกันโดยใช้ stdlib เท่านั้น
+
+export const validationCode = `from dataclasses import dataclass
+from typing import Optional
+import re
+
+@dataclass
+class ValidationError:
+    field: str
+    message: str
+
+def validate_item(data: dict) -> list:
+    errors = []
+
+    # name: required, 1-100 chars
+    name = data.get("name", "")
+    if not name:
+        errors.append(ValidationError("name", "Field required"))
+    elif len(name) > 100:
+        errors.append(ValidationError("name", "max_length=100"))
+
+    # price: required, must be > 0
+    price = data.get("price")
+    if price is None:
+        errors.append(ValidationError("price", "Field required"))
+    elif not isinstance(price, (int, float)) or price <= 0:
+        errors.append(ValidationError("price", "gt=0"))
+
+    # quantity: optional, must be >= 0 integer
+    qty = data.get("quantity", 1)
+    if not isinstance(qty, int) or qty < 0:
+        errors.append(ValidationError("quantity", "ge=0"))
+
+    # slug: optional regex
+    slug = data.get("slug")
+    if slug and not re.match(r"^[a-z0-9-]+$", slug):
+        errors.append(ValidationError("slug", "pattern mismatch"))
+
+    return errors
+
+tests = [
+    {"name": "Widget", "price": 9.99, "quantity": 2, "slug": "widget-pro"},
+    {},
+    {"name": "X", "price": -5, "quantity": -1, "slug": "BAD SLUG"},
+]
+
+for t in tests:
+    errs = validate_item(t)
+    if errs:
+        print(f"INVALID {t}")
+        for e in errs:
+            print(f"  [{e.field}] {e.message}")
+    else:
+        print(f"VALID   {t}")
+`;
+
+<Playground client:visible code={validationCode} />
+
+export const quizValidation = [
+  {
+    q: 'FastAPI ส่ง HTTP status ใดอัตโนมัติเมื่อ Pydantic validation ล้มเหลว?',
+    options: ['400 Bad Request', '401 Unauthorized', '422 Unprocessable Entity', '500 Internal Server Error'],
+    answer: 2,
+  },
+  {
+    q: 'Pydantic Field kwarg ใดกำหนด "มากกว่าศูนย์"?',
+    options: ['min=0', 'positive=True', 'gt=0', 'ge=1'],
+    answer: 2,
+  },
+  {
+    q: 'Pydantic v2 equivalent ของ Zod\'s .refine() สำหรับ custom field logic คืออะไร?',
+    options: ['@validator', '@field_validator', '@model_validator', '@custom_field'],
+    answer: 1,
+  },
+  {
+    q: 'ใน FastAPI ต้องเขียน try/catch หรือ middleware เพื่อส่งคืน 422 เมื่อ input ไม่ถูกต้องหรือไม่?',
+    options: [
+      'ใช่ ครอบ handler ด้วย try/catch',
+      'ใช่ เพิ่ม validation middleware',
+      'ไม่ FastAPI จัดการอัตโนมัติก่อน handler ทำงาน',
+      'ไม่ แต่ต้องเรียก item.validate() เอง',
+    ],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="api-fastapi/validation" questions={quizValidation} />
+
+<ProgressTracker client:visible id="api-fastapi/validation" />

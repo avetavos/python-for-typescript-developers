@@ -1,0 +1,247 @@
+---
+title: "Context Managers และ with"
+description: with statement, protocol __enter__/__exit__ และ contextlib ของ Python vs try/finally ของ TypeScript
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## try/finally ใน TypeScript, with ใน Python
+
+ใน TypeScript เมื่อคุณต้องการรับประกันว่า resource จะถูกคืนไม่ว่าจะเกิด exception หรือไม่ คุณจะใช้บล็อก `try/finally` Python มี pattern เดียวกันแต่ยกระดับขึ้นเป็น syntax ระดับภาษาผ่าน `with` statement `with` รับประกันว่า resource จะถูก setup และ teardown อย่างถูกต้องแม้ว่าโค้ดภายในจะ raise exception โดยไม่ต้องเขียน `try/finally` ด้วยมือทุกครั้ง
+
+## ตัวอย่างขั้นพื้นฐาน: การเปิดไฟล์
+
+การเปิดไฟล์คือตัวอย่างที่พบบ่อยที่สุด TypeScript ไม่มี file API ระดับภาษาในตัว แต่ pattern จะมีลักษณะดังนี้:
+
+export const tsCm = `// TypeScript: manual try/finally for resource cleanup
+import * as fs from "fs";
+
+function readFile(path: string): string {
+  const fd = fs.openSync(path, "r");
+  try {
+    const buf = Buffer.alloc(1024);
+    const bytesRead = fs.readSync(fd, buf, 0, 1024, 0);
+    return buf.toString("utf8", 0, bytesRead);
+  } finally {
+    fs.closeSync(fd); // always runs
+  }
+}`;
+
+export const pyCm = `# Python: with statement handles open/close automatically
+def read_file(path):
+    with open(path, "r") as f:
+        return f.read()
+    # f.close() is called automatically — even if read() raises`;
+
+<TsGo client:visible ts={tsCm} go={pyCm} />
+
+บล็อก `with` เรียก `f.close()` โดยอัตโนมัติเมื่อออกจากบล็อก ไม่ว่าจะออกปกติหรือเพราะ exception ไม่ต้องมี `try/finally` ที่ซ้ำซ้อน
+
+## การสร้าง context manager ด้วย class
+
+object ใดก็ตามที่ implement เมธอด `__enter__` และ `__exit__` สามารถใช้กับ `with` statement ได้ นี่คือ context manager protocol
+
+export const tsCmContextlib = `// TypeScript: class-based resource management
+class ManagedResource {
+  constructor(private name: string) {}
+
+  acquire(): this {
+    console.log(\`Acquiring \${this.name}\`);
+    return this;
+  }
+
+  release(): void {
+    console.log(\`Releasing \${this.name}\`);
+  }
+
+  use<T>(fn: (r: this) => T): T {
+    this.acquire();
+    try {
+      return fn(this);
+    } finally {
+      this.release();
+    }
+  }
+}
+
+new ManagedResource("database connection").use(resource => {
+  console.log(\`Using \${resource}\`);
+});`;
+
+export const pyCmContextlib = `# Python: __enter__ and __exit__ make any class a context manager
+class ManagedResource:
+    def __init__(self, name):
+        self.name = name
+
+    def __enter__(self):
+        print(f"Acquiring \${self.name}")
+        return self  # bound to the 'as' variable
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        print(f"Releasing \${self.name}")
+        return False  # False = don't suppress exceptions
+
+with ManagedResource("database connection") as resource:
+    print(f"Using \${resource.name}")`;
+
+<TsGo client:visible ts={tsCmContextlib} go={pyCmContextlib} />
+
+`__exit__` รับ argument สามตัวที่อธิบาย exception (ถ้ามี): type, value และ traceback ถ้าคืนค่า `True` exception จะถูก suppress ถ้าคืนค่า `False` หรือ `None` exception จะถูกส่งต่อออกไป
+
+## การสร้าง context manager ด้วย @contextmanager
+
+การเขียน class เต็มรูปแบบเพียงเพื่อจัดการ setup/teardown เล็กน้อยอาจดูมากเกินไป `@contextmanager` decorator จาก `contextlib` ให้คุณเขียน generator ธรรมดาแทนได้ โค้ดก่อน `yield` คือ `__enter__` โค้ดหลัง `yield` คือ `__exit__`
+
+export const tsCmGen = `// TypeScript: helper function simulating @contextmanager
+function withTimer<T>(label: string, fn: () => T): T {
+  console.log(\`[\${label}] starting\`);
+  try {
+    return fn();
+  } finally {
+    console.log(\`[\${label}] done\`);
+  }
+}
+
+const result = withTimer("my block", () => {
+  let total = 0;
+  for (let i = 0; i < 1000; i++) total += i;
+  console.log(\`sum = \${total}\`);
+  return total;
+});`;
+
+export const pyCmGen = `# Python: @contextmanager turns a generator into a context manager
+from contextlib import contextmanager
+
+@contextmanager
+def timer(label):
+    print(f"[\${label}] starting")
+    yield                          # control passes to the 'with' block here
+    print(f"[\${label}] done")
+
+with timer("my block"):
+    total = sum(range(1000))
+    print(f"sum = \${total}")`;
+
+<TsGo client:visible ts={tsCmGen} go={pyCmGen} />
+
+## ลองด้วยตัวเอง
+
+export const playgroundCm = `from contextlib import contextmanager
+
+class ManagedResource:
+    def __init__(self, name):
+        self.name = name
+
+    def __enter__(self):
+        print(f"Acquiring \${self.name}")
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        print(f"Releasing \${self.name}")
+        return False
+
+with ManagedResource("database connection") as resource:
+    print(f"Using \${resource.name}")
+
+@contextmanager
+def timer(label):
+    print(f"[\${label}] starting")
+    yield
+    print(f"[\${label}] done")
+
+with timer("my block"):
+    total = sum(range(1000))
+    print(f"sum = \${total}")
+`;
+
+<Playground client:visible code={playgroundCm} />
+
+<PyOnly title="การจัดการ exception ใน __exit__ และการใช้ with หลายตัว">
+
+**การดักจับ exception ใน `__exit__`**
+
+`__exit__` ได้รับ exception ที่ยังไม่ถูก handle ถ้าคืนค่า truthy exception จะถูก suppress — ซึ่งมักไม่ใช่สิ่งที่ต้องการ ยกเว้นเมื่อคุณกำลังเขียน suppress context manager โดยเฉพาะ:
+
+```python
+from contextlib import suppress
+
+with suppress(FileNotFoundError):
+    os.remove("maybe_exists.txt")
+# ไม่ raise แม้ไม่มีไฟล์นั้นอยู่
+```
+
+**การใช้ context manager หลายตัวในบรรทัดเดียว**
+
+Python ให้คุณรวม context manager หลายตัวในบรรทัดเดียวโดยใช้เครื่องหมายจุลภาคคั่น:
+
+```python
+with open("input.txt") as fin, open("output.txt", "w") as fout:
+    fout.write(fin.read())
+```
+
+ซึ่งเทียบเท่ากับการซ้อน `with` สองชั้นพอดี แต่ไม่เยื้องโค้ดออกไปโดยไม่จำเป็น
+
+**`contextlib.ExitStack` สำหรับจำนวน context manager แบบ dynamic**
+
+เมื่อคุณไม่รู้จำนวน context manager ตอน compile time ให้ใช้ `ExitStack`:
+
+```python
+from contextlib import ExitStack
+
+files = ["a.txt", "b.txt", "c.txt"]
+with ExitStack() as stack:
+    handles = [stack.enter_context(open(f)) for f in files]
+    # handles ทั้งหมดจะถูกปิดเมื่อออกจากบล็อก with
+```
+
+</PyOnly>
+
+export const quizCm = [
+  {
+    q: 'เมธอดใดถูกเรียกเมื่อเข้าสู่บล็อก with?',
+    options: [
+      '__init__',
+      '__enter__',
+      '__start__',
+      '__open__',
+    ],
+    answer: 1,
+  },
+  {
+    q: '__exit__ คืนค่า True หมายความว่าอะไร?',
+    options: [
+      'context manager ทำงานสำเร็จ',
+      'exception จะถูก suppress และไม่ถูกส่งต่อออกไป',
+      'resource จะถูกปิดทันที',
+      'with block จะรันซ้ำ',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'ใน @contextmanager decorator โค้ดหลัง yield ทำงานเมื่อไหร่?',
+    options: [
+      'ก่อนที่ with block จะทำงาน',
+      'เมื่อ yield ถูกเรียกครั้งที่สอง',
+      'เมื่อออกจาก with block ไม่ว่าจะปกติหรือจาก exception',
+      'เฉพาะเมื่อไม่มี exception เกิดขึ้น',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'วิธีใดถูกต้องในการใช้ context manager สองตัวพร้อมกัน?',
+    options: [
+      'with open("a") and open("b"):',
+      'with open("a") as f1, open("b") as f2:',
+      'with (open("a"), open("b")):',
+      'with open("a"): with open("b"):',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="py-only/context-managers" questions={quizCm} />
+
+<ProgressTracker client:visible id="py-only/context-managers" />

@@ -1,0 +1,231 @@
+---
+title: Threading & the GIL
+description: Python's threading module, the Global Interpreter Lock, when threads help (I/O-bound), and when they don't (CPU-bound) — compared to JavaScript Web Workers.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+> Playground note: `threading` requires spawning OS threads — browser sandboxes cannot do this. Run the code snippets locally with `python3`. The `<TsGo>`, `<Quiz>`, and `<ProgressTracker>` components still work normally.
+
+## Threads vs the event loop
+
+JavaScript gives you one model for concurrent I/O work: the single-threaded event loop with `async/await`. For CPU-heavy work you spawn a `Worker`, which runs in a completely separate thread with its own memory — there is no shared state by default.
+
+Python's `threading` module creates OS threads that **share the same memory space**. This makes passing data between threads easy, but it also means you have to protect shared data with locks to avoid race conditions.
+
+export const threadingTs = `// TypeScript — Web Worker (separate memory, message passing)
+const worker = new Worker(new URL("./worker.ts", import.meta.url));
+worker.postMessage({ numbers: [1, 2, 3, 4, 5] });
+worker.onmessage = (e) => console.log("result:", e.data);
+
+// Inside worker.ts:
+self.onmessage = (e) => {
+  const sum = e.data.numbers.reduce((a: number, b: number) => a + b, 0);
+  self.postMessage(sum);
+};`;
+
+export const threadingPy = `# Python — threads share memory directly
+import threading
+
+results: list[int] = []
+lock = threading.Lock()
+
+def worker(numbers: list[int]) -> None:
+    total = sum(numbers)
+    with lock:            # protect shared state
+        results.append(total)
+
+t = threading.Thread(target=worker, args=([1, 2, 3, 4, 5],))
+t.start()
+t.join()   # wait for thread to finish
+print(results)  # [15]`;
+
+<TsGo client:visible ts={threadingTs} go={threadingPy} />
+
+## Basic threading
+
+```python
+import threading
+import time
+
+def download(url: str) -> None:
+    print(f"Downloading {url}...")
+    time.sleep(1)  # simulate I/O wait
+    print(f"Done: {url}")
+
+urls = [
+    "https://api.example.com/users",
+    "https://api.example.com/posts",
+    "https://api.example.com/tags",
+]
+
+threads = [threading.Thread(target=download, args=(url,)) for url in urls]
+
+for t in threads:
+    t.start()        # start all threads
+
+for t in threads:
+    t.join()         # wait for all to finish
+
+print("All downloads complete")
+```
+
+Run this locally — browser sandboxes can't spawn OS threads/processes.
+
+## Thread with return value
+
+Threads do not return values directly (unlike `async/await`). The common pattern is to use a shared list or a `queue.Queue`:
+
+```python
+import threading
+import queue
+
+def fetch_data(label: str, result_queue: queue.Queue) -> None:
+    # simulate work
+    import time; time.sleep(0.1)
+    result_queue.put(f"data from {label}")
+
+q: queue.Queue[str] = queue.Queue()
+
+threads = [
+    threading.Thread(target=fetch_data, args=(label, q))
+    for label in ["users", "posts", "tags"]
+]
+for t in threads:
+    t.start()
+for t in threads:
+    t.join()
+
+results = [q.get() for _ in threads]
+print(results)
+```
+
+<PyOnly title="The GIL — why threads don't parallelize CPU work">
+
+The **Global Interpreter Lock (GIL)** is a mutex inside CPython that allows only one thread to execute Python bytecode at a time, even on a multi-core machine.
+
+**I/O-bound threads still benefit:** When a thread is blocked waiting for I/O (network, disk, database), it releases the GIL. Other threads can run during that time. This is why using threads for downloading files or making HTTP requests genuinely speeds things up.
+
+**CPU-bound threads do NOT benefit:** When a thread is computing (number crunching, string processing, pure Python loops), it holds the GIL. A second thread can't run on another core — it just waits its turn. Adding more threads to CPU-bound work can actually *slow things down* due to GIL contention overhead.
+
+```python
+import threading
+import time
+
+counter = 0
+
+def cpu_work(n: int) -> None:
+    global counter
+    for _ in range(n):
+        counter += 1   # GIL held the entire time — no true parallelism
+
+t1 = threading.Thread(target=cpu_work, args=(1_000_000,))
+t2 = threading.Thread(target=cpu_work, args=(1_000_000,))
+
+start = time.perf_counter()
+t1.start(); t2.start()
+t1.join(); t2.join()
+elapsed = time.perf_counter() - start
+
+print(f"Done in {elapsed:.2f}s — NOT faster than one thread")
+# Also: counter may be < 2_000_000 due to race condition!
+```
+
+**The fix for CPU-bound work:** use `multiprocessing` (next lesson). Each process gets its own GIL and its own memory.
+
+</PyOnly>
+
+## When to use threading
+
+export const whenThreadTs = `// TypeScript — you rarely think about this distinction because
+// JS is always single-threaded. Workers are for any heavy work.
+// asyncio/Promises handle all I/O natively.`;
+
+export const whenThreadPy = `# Python — choose the right tool
+# Use threading when:
+#   - Wrapping a blocking library that has no async version
+#     (e.g., an old database driver, a blocking SDK)
+#   - The task is I/O-bound (file reads, network calls, DB queries)
+#   - You need shared memory between tasks (vs multiprocessing)
+
+# Prefer asyncio when:
+#   - You control the code and can use async libraries
+#   - You need thousands of concurrent I/O tasks
+#     (threads have OS overhead; coroutines are cheap)
+
+# Use multiprocessing when:
+#   - The task is CPU-bound (math, image processing, ML inference)`;
+
+<TsGo client:visible ts={whenThreadTs} go={whenThreadPy} />
+
+## Thread safety and locks
+
+```python
+import threading
+
+counter = 0
+lock = threading.Lock()
+
+def safe_increment() -> None:
+    global counter
+    with lock:      # acquire on enter, release on exit (even if exception)
+        counter += 1
+
+threads = [threading.Thread(target=safe_increment) for _ in range(100)]
+for t in threads:
+    t.start()
+for t in threads:
+    t.join()
+
+print(counter)  # always 100 — lock prevents race condition
+```
+
+export const quizThreadingGil = [
+  {
+    q: 'What does the GIL prevent in CPython?',
+    options: [
+      'Using more than one CPU core for I/O-bound threads',
+      'Two threads from executing Python bytecode simultaneously, even on multi-core hardware',
+      'Creating more than 64 threads',
+      'Using threads for network I/O',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'For which type of workload do Python threads provide a genuine speedup?',
+    options: [
+      'CPU-bound — heavy math and number crunching',
+      'I/O-bound — waiting on network, disk, or database',
+      'Both equally',
+      'Neither — threads are only for legacy compatibility',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'How do Python threads differ from JavaScript Web Workers regarding memory?',
+    options: [
+      'Python threads use message passing (no shared memory), just like Web Workers',
+      'Python threads share the same memory space; Web Workers have separate memory',
+      'Both share memory — they are equivalent',
+      'Python threads are always isolated with separate heaps',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'What is the correct way to protect a shared variable accessed by multiple threads?',
+    options: [
+      'Use `asyncio.Lock`',
+      'Declare the variable as `global`',
+      'Use `threading.Lock` with the `with` statement',
+      'Use `multiprocessing.Value`',
+    ],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="concurrency/threading-gil" questions={quizThreadingGil} />
+
+<ProgressTracker client:visible id="concurrency/threading-gil" />

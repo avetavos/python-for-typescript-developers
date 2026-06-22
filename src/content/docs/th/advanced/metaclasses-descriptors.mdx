@@ -1,0 +1,201 @@
+---
+title: Metaclasses & Descriptors
+description: descriptor protocol (__get__/__set__/__delete__) และระบบ metaclass ของ Python — เครื่องจักร runtime ที่ทรงพลังโดยไม่มีคู่เทียบใน TypeScript
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## ไม่มีคู่เทียบใน TypeScript — และนั่นคือประเด็น
+
+Descriptors และ metaclasses เป็นสองฟีเจอร์ runtime ที่ทรงพลังที่สุดของ Python TypeScript มี decorators (stage-3, experimental) แต่มีความสามารถจำกัดกว่ามาก descriptor protocol และระบบ metaclass ของ Python ทำงานในระดับต่ำกว่า: มันควบคุมว่าการเข้าถึง attribute และการสร้างคลาสทำงานอย่างไรที่ runtime การเข้าใจสิ่งเหล่านี้จะอธิบายว่า `@property`, `@dataclass`, และ ORM อย่าง SQLAlchemy ทำงานอยู่เบื้องหลังได้อย่างไร
+
+## Descriptors: การควบคุมการเข้าถึง attribute
+
+**descriptor** คือออบเจ็กต์ใดก็ตามที่กำหนด `__get__`, `__set__`, หรือ `__delete__` เมื่อ descriptor instance ถูก assign เป็น **class attribute** Python จะเรียก methods เหล่านี้แทนการ lookup ใน dictionary ทุกครั้งที่คุณเข้าถึง attribute บน instance
+
+export const descTs = `// TypeScript — closest analogy: getter/setter
+class Temperature {
+  private _celsius: number;
+
+  constructor(celsius: number) {
+    this._celsius = celsius;
+  }
+
+  get fahrenheit(): number {
+    return this._celsius * 9/5 + 32;
+  }
+
+  set fahrenheit(value: number) {
+    this._celsius = (value - 32) * 5/9;
+  }
+}
+
+const t = new Temperature(100);
+console.log(t.fahrenheit);  // 212
+t.fahrenheit = 32;
+console.log(t.fahrenheit);  // 32`;
+
+export const descPy = `# Python — descriptor protocol (reusable across classes)
+class Validated:
+    """Descriptor: ensures field is numeric."""
+    def __set_name__(self, owner, name):
+        self._name = name  # เรียกตอน class creation
+
+    def __get__(self, obj, objtype=None):
+        if obj is None:
+            return self   # class-level access
+        return getattr(obj, f"_{self._name}", None)
+
+    def __set__(self, obj, value):
+        if not isinstance(value, (int, float)):
+            raise TypeError(
+                f"{self._name} must be numeric, "
+                f"got {type(value).__name__}"
+            )
+        setattr(obj, f"_{self._name}", value)
+
+class Product:
+    price = Validated()      # descriptor instance เป็น class attr
+    quantity = Validated()
+
+    def __init__(self, price: float, quantity: int) -> None:
+        self.price = price
+        self.quantity = quantity
+
+    def total(self) -> float:
+        return self.price * self.quantity
+
+item = Product(9.99, 3)
+print(item.total())    # 29.97
+item.price = "free"    # TypeError: price must be numeric`;
+
+<TsGo client:visible ts={descTs} go={descPy} />
+
+ข้อสังเกตสำคัญ: descriptor `Validated` สามารถ reuse กับคลาสต่างๆ และ attributes ต่างๆ ได้จำนวนมาก getter/setter ของ TypeScript เป็นแบบ per-class และ per-property — คุณไม่สามารถแชร์ definition เดียวได้
+
+## __set_name__: descriptor self-registration
+
+`__set_name__` ถูกเรียกโดย Python ตอน class creation time (เมื่อ class body ถูก execute) ทำให้ descriptor รู้ชื่อของ attribute ที่มันถูก assign ให้ นี่คือสาเหตุที่คุณไม่ต้องเขียน `price = Validated("price")` — Python inject ชื่อให้อัตโนมัติ
+
+## ลองเล่น — descriptor demo
+
+export const descriptorPlaygroundCode = `class Validated:
+    def __set_name__(self, owner, name):
+        self._name = name
+
+    def __get__(self, obj, objtype=None):
+        if obj is None:
+            return self
+        return getattr(obj, f"_{self._name}", None)
+
+    def __set__(self, obj, value):
+        if not isinstance(value, (int, float)):
+            raise TypeError(
+                f"{self._name} must be numeric, got {type(value).__name__}"
+            )
+        setattr(obj, f"_{self._name}", value)
+
+class Product:
+    price = Validated()
+    quantity = Validated()
+
+    def __init__(self, price: float, quantity: int) -> None:
+        self.price = price
+        self.quantity = quantity
+
+    def total(self) -> float:
+        return self.price * self.quantity
+
+item = Product(9.99, 3)
+print(f"Total: {item.total()}")
+
+item.price = 19.99
+print(f"Updated total: {item.total()}")
+
+try:
+    item.price = "free"
+except TypeError as e:
+    print(f"Caught: {e}")
+`;
+
+<Playground client:visible code={descriptorPlaygroundCode} />
+
+<PyOnly title="Metaclasses: คลาสที่สร้างคลาส">
+
+ใน Python **ทุกอย่างเป็น object** — รวมถึงคลาสด้วย คลาสคือ instance ของ **metaclass** ของมัน metaclass เริ่มต้นคือ `type` เมื่อ Python process `class Foo: ...` statement มันเรียก `type('Foo', bases, namespace)` เพื่อสร้าง class object
+
+คุณสามารถแทนที่ `type` ด้วย metaclass ของคุณเองโดยส่ง `metaclass=MyMeta` ซึ่งช่วยให้คุณ intercept และแก้ไขการสร้างคลาส — เพิ่มเมธอด, enforce conventions, หรือ implement patterns เช่น singleton
+
+```python
+class SingletonMeta(type):
+    """Metaclass ที่ ensure มีแค่หนึ่ง instance ต่อคลาส"""
+    _instances: dict = {}
+
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            cls._instances[cls] = super().__call__(*args, **kwargs)
+        return cls._instances[cls]
+
+class AppConfig(metaclass=SingletonMeta):
+    def __init__(self):
+        self.debug = False
+
+a = AppConfig()
+b = AppConfig()
+print(a is b)   # True — same object
+```
+
+**Metaclasses ปรากฏที่ไหนในโลกจริง?**
+
+- **ORMs:** SQLAlchemy ใช้ metaclass เพื่อประมวลผล `Column()` annotations และลงทะเบียน models
+- **Django:** `models.Model` ใช้ metaclass เพื่อสร้าง database schemas จาก class bodies
+- **`@dataclass`:** ไม่ใช่ metaclass — มันคือ class decorator แต่ inspect `__annotations__` เพื่อสร้าง `__init__` คล้ายกับที่ metaclass ทำ
+
+**กฎง่ายๆ:** ถ้าคุณต้องการแก้ไขทุกคลาสในลำดับชั้นตอน creation time นั่นคือ use case ของ metaclass สำหรับทุกอย่างอื่น class decorator หรือ descriptor เรียบง่ายกว่าและอ่านง่ายกว่า
+
+</PyOnly>
+
+export const quizMetaclassesDescriptors = [
+  {
+    q: 'อะไรทำให้ `__get__` ของ descriptor ถูกเรียก?',
+    options: [
+      'การเรียก descriptor เป็นฟังก์ชัน',
+      'การเข้าถึง attribute บน instance หรือ class',
+      'การลบ attribute',
+      'การ import module',
+    ],
+    answer: 1,
+  },
+  {
+    q: '`__set_name__` รับ arguments อะไร?',
+    options: [
+      'instance และ new value',
+      'owner class และ attribute name',
+      'module และ file path',
+      'metaclass และ base classes',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'metaclass เริ่มต้นสำหรับทุกคลาส Python คืออะไร?',
+    options: ['object', 'type', 'ABCMeta', 'classmethod'],
+    answer: 1,
+  },
+  {
+    q: 'ใน `__get__` ของ descriptor เมื่อ `obj is None` ควร return อะไร?',
+    options: [
+      'None',
+      'descriptor เอง (เพื่ออนุญาต class-level access)',
+      'ค่าที่เก็บไว้',
+      'NotImplemented',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="advanced/metaclasses-descriptors" questions={quizMetaclassesDescriptors} />
+
+<ProgressTracker client:visible id="advanced/metaclasses-descriptors" />

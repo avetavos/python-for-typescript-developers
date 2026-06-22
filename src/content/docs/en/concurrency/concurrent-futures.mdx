@@ -1,0 +1,221 @@
+---
+title: concurrent.futures
+description: The high-level concurrent.futures API — ThreadPoolExecutor and ProcessPoolExecutor provide a unified, Promise-like interface over threads and processes.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+> Playground note: `concurrent.futures` spawns OS threads/processes — browser sandboxes cannot do this. Run the code snippets locally with `python3`. The `<TsGo>`, `<Quiz>`, and `<ProgressTracker>` components still work normally.
+
+## The high-level API
+
+`concurrent.futures` is Python's answer to "I want threads or processes but I don't want to manage them manually." It provides a clean, unified API that feels much closer to JavaScript's `Promise`-based model than raw `threading` or `multiprocessing`.
+
+The two executors are drop-in replacements for each other — you switch between thread-based and process-based concurrency by changing one line.
+
+export const futuresTs = `// TypeScript — Promise.all over an array (built-in)
+const tasks = [1, 2, 3, 4, 5].map((n) =>
+  fetch(\`/api/item/\${n}\`).then((r) => r.json())
+);
+const results = await Promise.all(tasks);
+
+// No need for explicit thread pools — JS handles it`;
+
+export const futuresPy = `# Python — concurrent.futures is the closest equivalent
+from concurrent.futures import ThreadPoolExecutor
+
+def fetch_item(n: int) -> dict:
+    import time; time.sleep(0.1)  # simulate I/O
+    return {"id": n, "value": n * 2}
+
+with ThreadPoolExecutor(max_workers=5) as executor:
+    # executor.map — like Promise.all over an array
+    results = list(executor.map(fetch_item, [1, 2, 3, 4, 5]))
+
+print(results)`;
+
+<TsGo client:visible ts={futuresTs} go={futuresPy} />
+
+## ThreadPoolExecutor — I/O-bound work
+
+```python
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import time
+
+def download(url: str) -> str:
+    time.sleep(0.1)  # simulate network I/O
+    return f"Downloaded: {url}"
+
+urls = [
+    "https://api.example.com/users",
+    "https://api.example.com/posts",
+    "https://api.example.com/tags",
+]
+
+# executor.map — results in INPUT order (like Promise.all)
+with ThreadPoolExecutor(max_workers=3) as executor:
+    for result in executor.map(download, urls):
+        print(result)
+
+print("---")
+
+# executor.submit + as_completed — results in COMPLETION order
+with ThreadPoolExecutor(max_workers=3) as executor:
+    futures = {executor.submit(download, url): url for url in urls}
+    for future in as_completed(futures):
+        url = futures[future]
+        print(f"{url} → {future.result()}")
+```
+
+Run this locally — browser sandboxes can't spawn OS threads/processes.
+
+## ProcessPoolExecutor — CPU-bound work
+
+```python
+from concurrent.futures import ProcessPoolExecutor
+
+def is_prime(n: int) -> bool:
+    if n < 2:
+        return False
+    for i in range(2, int(n ** 0.5) + 1):
+        if n % i == 0:
+            return False
+    return True
+
+if __name__ == "__main__":
+    numbers = list(range(1_000_000, 1_000_100))
+
+    # ThreadPoolExecutor: limited by GIL — no speedup for CPU work
+    # ProcessPoolExecutor: each process has its own GIL → real parallelism
+    with ProcessPoolExecutor(max_workers=4) as executor:
+        primes = [n for n, p in zip(numbers, executor.map(is_prime, numbers)) if p]
+    print(primes[:5])
+```
+
+## Future objects — inspect individual results
+
+```python
+from concurrent.futures import ThreadPoolExecutor, Future
+import time
+
+def task(n: int) -> str:
+    time.sleep(n * 0.01)
+    return f"result-{n}"
+
+with ThreadPoolExecutor(max_workers=3) as executor:
+    f1: Future[str] = executor.submit(task, 1)
+    f2: Future[str] = executor.submit(task, 2)
+    f3: Future[str] = executor.submit(task, 3)
+
+    # .result() blocks until done — like await promise
+    print(f1.result())   # "result-1"
+    print(f2.result())   # "result-2"
+
+    # Check state without blocking
+    print(f3.done())     # True/False
+    print(f3.running())  # True/False
+```
+
+## Choosing between ThreadPoolExecutor and ProcessPoolExecutor
+
+export const choiceTs = `// TypeScript
+// No explicit choice needed — the event loop handles I/O,
+// Web Workers handle CPU. The runtime decides threading.`;
+
+export const choicePy = `# Python — you choose explicitly
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+
+# I/O-bound (network, disk, DB calls with blocking libraries)
+with ThreadPoolExecutor(max_workers=20) as executor:
+    results = list(executor.map(blocking_http_call, urls))
+
+# CPU-bound (math, compression, parsing, ML inference)
+with ProcessPoolExecutor(max_workers=4) as executor:
+    results = list(executor.map(cpu_intensive_fn, data))
+
+# Rule of thumb for max_workers:
+#   Threads: 5 * os.cpu_count() (I/O-bound — threads mostly sleep)
+#   Processes: os.cpu_count() (CPU-bound — one per core is enough)`;
+
+<TsGo client:visible ts={choiceTs} go={choicePy} />
+
+<PyOnly title="concurrent.futures vs asyncio — which to use?">
+
+Both `concurrent.futures` and `asyncio` handle concurrent I/O. The key question is whether your libraries support `async/await`:
+
+| Situation | Recommended |
+|---|---|
+| Using async libraries (`httpx`, `asyncpg`, `aiofiles`) | `asyncio` |
+| Wrapping blocking/sync libraries (requests, psycopg2) | `ThreadPoolExecutor` |
+| CPU-bound parallel work | `ProcessPoolExecutor` |
+| Want asyncio to call blocking code | `loop.run_in_executor()` (bridges both) |
+
+```python
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+
+def blocking_db_call(query: str) -> list:
+    import time; time.sleep(0.1)  # legacy sync driver
+    return [{"result": query}]
+
+async def main() -> None:
+    loop = asyncio.get_event_loop()
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        # run_in_executor bridges asyncio and blocking code
+        result = await loop.run_in_executor(pool, blocking_db_call, "SELECT 1")
+    print(result)
+
+asyncio.run(main())
+```
+
+</PyOnly>
+
+export const quizConcurrentFutures = [
+  {
+    q: 'What is the main advantage of `concurrent.futures` over raw `threading` or `multiprocessing`?',
+    options: [
+      'It is faster due to a more efficient GIL',
+      'It provides a unified high-level API with Future objects — no manual thread/process management',
+      'It automatically chooses between threads and processes based on the workload',
+      'It works in the browser sandbox',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'What is the difference between `executor.map()` and `as_completed()`?',
+    options: [
+      '`executor.map()` returns results in completion order; `as_completed()` returns them in input order',
+      '`executor.map()` returns results in input order; `as_completed()` yields futures in completion order',
+      'They are identical — just different syntax',
+      '`executor.map()` is for threads; `as_completed()` is for processes',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'Which executor should you use for CPU-bound work to achieve true parallelism?',
+    options: [
+      'ThreadPoolExecutor with max_workers equal to cpu_count',
+      'ProcessPoolExecutor — each process has its own GIL',
+      'Either — concurrent.futures removes the GIL for all executors',
+      'asyncio.gather — it uses all cores automatically',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'How do you run a blocking synchronous function inside an asyncio event loop without blocking the loop?',
+    options: [
+      'Just `await` the function directly',
+      'Wrap it in `asyncio.create_task()`',
+      'Use `loop.run_in_executor()` with a `ThreadPoolExecutor`',
+      'It is impossible — blocking and async cannot mix',
+    ],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="concurrency/concurrent-futures" questions={quizConcurrentFutures} />
+
+<ProgressTracker client:visible id="concurrency/concurrent-futures" />

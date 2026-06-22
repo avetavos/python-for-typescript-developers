@@ -1,0 +1,173 @@
+---
+title: Virtual Envs, pip, uv, and Poetry
+description: Virtual environments, pip + requirements.txt, uv, and Poetry/pyproject.toml — mapped to npm/package.json/lockfiles.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## npm/package.json → pip/venv/pyproject.toml
+
+Package management is where Python's tooling history is most visible. Node has one model: `npm` installs into `node_modules`, `package.json` declares dependencies, and `package-lock.json` locks exact versions. Python has three layers you need to understand: the interpreter itself, the isolation layer (venv), and then the package manager on top.
+
+## Layer 1: Virtual Environments (venv)
+
+> Run this in your terminal:
+
+```bash
+# Create a virtual environment in the .venv folder
+python3 -m venv .venv
+
+# Activate it — you must do this every new terminal session
+source .venv/bin/activate          # macOS / Linux
+# .venv\Scripts\activate.bat       # Windows CMD
+# .venv\Scripts\Activate.ps1       # Windows PowerShell
+
+# Confirm which python is active
+which python   # should point to .venv/bin/python
+
+# Deactivate
+deactivate
+```
+
+Once activated, `pip install X` installs only into `.venv`. Add `.venv/` to your `.gitignore`.
+
+<PyOnly title="Virtual environments: a Python-only concept">
+
+Node developers are often confused by virtual environments because Node has no equivalent concept — each project's `node_modules` folder is local by design.
+
+Python's default install target is the system (or user) `site-packages` directory, shared across all projects. Without a venv, installing `requests==2.28` for Project A could break Project B that needs `requests==2.31`.
+
+A venv is a self-contained directory holding: a copy (or symlink) of the Python binary, a fresh `pip`, and an isolated `site-packages`. It is cheap to create and destroy.
+
+Rule: **always activate a venv before installing packages**. Most teams check in a `.venv` creation step in their README or Makefile.
+
+</PyOnly>
+
+## Layer 2: pip + requirements.txt (classic)
+
+export const npmClassic = `# npm classic workflow
+npm install express        # adds to package.json + node_modules
+npm install -D jest        # dev dependency
+npm install                # install from package.json
+npm ci                     # clean install from lock file (CI)
+
+# package.json excerpt:
+# {
+#   "dependencies": { "express": "^4.18.2" },
+#   "devDependencies": { "jest": "^29.0.0" }
+# }`;
+
+export const pipClassic = `# pip classic workflow
+pip install requests                       # installs to active venv
+pip install pytest --upgrade               # install/upgrade dev dep
+pip freeze > requirements.txt              # snapshot all installed versions
+pip install -r requirements.txt            # reproduce from snapshot
+
+# requirements.txt excerpt:
+# requests==2.31.0
+# certifi==2024.2.2
+# charset-normalizer==3.3.2`;
+
+<TsGo client:visible ts={npmClassic} go={pipClassic} />
+
+`requirements.txt` is the oldest approach. It works, but it has no distinction between direct and transitive dependencies. The modern replacement is `pyproject.toml`.
+
+## Layer 3: uv — the fast modern tool
+
+`uv` (by Astral, the ruff team) is a Rust-powered replacement for pip and venv combined. It is 10–100× faster than pip and handles virtual environments automatically.
+
+```bash
+# Install uv (once, globally)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Create a new project (generates pyproject.toml + .venv)
+uv init my-project
+cd my-project
+
+# Add a dependency (updates pyproject.toml + uv.lock)
+uv add fastapi
+
+# Add a dev dependency
+uv add --dev pytest ruff mypy
+
+# Sync environment from pyproject.toml (like npm ci)
+uv sync
+
+# Run a command inside the venv without activating
+uv run python main.py
+uv run pytest
+```
+
+## Layer 4: Poetry — the npm-like experience
+
+Poetry was the first tool to unify project metadata, dependency resolution, and virtual environment management into one ergonomic CLI. Many existing projects use it.
+
+export const npmLike = `# npm-like workflow
+npm init                      # scaffold package.json
+npm install express           # add runtime dep
+npm install -D jest           # add dev dep
+npm run start                 # run script
+npm run test                  # run tests
+cat package-lock.json         # exact lock file`;
+
+export const poetryLike = `# Poetry — npm-like workflow for Python
+poetry new my-project         # scaffold pyproject.toml + src/
+poetry add fastapi            # add runtime dep
+poetry add --group dev pytest # add dev dep
+poetry run python main.py     # run script
+poetry run pytest             # run tests
+cat poetry.lock               # exact lock file`;
+
+<TsGo client:visible ts={npmLike} go={poetryLike} />
+
+## Comparing the options
+
+| | pip + venv | poetry | uv |
+|---|---|---|---|
+| Speed | slow | medium | very fast |
+| Lock file | requirements.txt (manual) | poetry.lock | uv.lock |
+| pyproject.toml | partial | full | full |
+| Venv auto-management | manual | yes | yes |
+| Maturity | very stable | stable | newer (2024+) |
+| Recommendation | legacy projects | existing poetry projects | new projects |
+
+> Playground note: Package managers modify the filesystem and network — they require a terminal. Run the commands above in your project directory.
+
+export const quizVenv = [
+  {
+    q: 'What is the Python equivalent of npm\'s node_modules isolation per project?',
+    options: [
+      'sys.path modification',
+      'A virtual environment (venv)',
+      'requirements.txt',
+      'pyproject.toml',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'Which command creates a virtual environment in a .venv directory?',
+    options: [
+      'python3 create-venv .venv',
+      'venv init .venv',
+      'python3 -m venv .venv',
+      'pip install venv .venv',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'What is the uv equivalent of "npm ci" — installing exactly from a lockfile?',
+    options: ['uv install --frozen', 'uv sync', 'uv pip install -r uv.lock', 'uv ci'],
+    answer: 1,
+  },
+  {
+    q: 'Which modern file replaces requirements.txt as the project\'s dependency manifest?',
+    options: ['setup.cfg', 'Pipfile', 'pyproject.toml', 'pip.lock'],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="tooling/venv-uv-poetry" questions={quizVenv} />
+
+<ProgressTracker client:visible id="tooling/venv-uv-poetry" />

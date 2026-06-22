@@ -1,0 +1,212 @@
+---
+title: Validation
+description: Automatic validation via Pydantic types and Field constraints — compared to class-validator and Zod.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## Validation is automatic
+
+In Express you choose a validation library (Joi, Zod, class-validator) and wire it in manually. In FastAPI, validation is not optional — it runs automatically for every request the moment you declare a typed parameter. If validation fails, FastAPI returns a `422 Unprocessable Entity` with a structured error body before your handler function ever runs.
+
+## Basic type constraints with Field
+
+`pydantic.Field` is the equivalent of Zod's `.min()`, `.max()`, `.regex()`, or NestJS's `@IsEmail()`, `@Min()` decorators.
+
+export const fieldTs = `// Zod
+const CreateItemSchema = z.object({
+  name: z.string().min(1).max(100),
+  price: z.number().positive().max(99999),
+  quantity: z.number().int().min(0).default(1),
+  email: z.string().email().optional(),
+  slug: z.string().regex(/^[a-z0-9-]+$/).optional(),
+});
+
+// class-validator (NestJS)
+export class CreateItemDto {
+  @IsString() @MinLength(1) @MaxLength(100) name: string;
+  @IsNumber() @IsPositive() @Max(99999) price: number;
+  @IsInt() @Min(0) @IsOptional() quantity?: number = 1;
+  @IsEmail() @IsOptional() email?: string;
+}`;
+
+export const fieldPy = `# Pydantic with Field constraints
+from pydantic import BaseModel, Field, EmailStr
+from typing import Optional
+
+class CreateItem(BaseModel):
+    name: str        = Field(min_length=1, max_length=100)
+    price: float     = Field(gt=0, le=99999)
+    quantity: int    = Field(default=1, ge=0)
+    email: Optional[EmailStr] = None          # needs: pip install pydantic[email]
+    slug: Optional[str] = Field(
+        default=None,
+        pattern=r"^[a-z0-9-]+$"
+    )`;
+
+<TsGo client:visible ts={fieldTs} go={fieldPy} />
+
+Field constraint cheat-sheet:
+
+| Pydantic `Field` kwarg | Meaning | Zod equivalent |
+|---|---|---|
+| `gt=0` | greater than | `.positive()` |
+| `ge=0` | greater than or equal | `.min(0)` |
+| `lt=100` | less than | `.max(99)` |
+| `le=100` | less than or equal | `.max(100)` |
+| `min_length=1` | string min length | `.min(1)` |
+| `max_length=100` | string max length | `.max(100)` |
+| `pattern=r"..."` | regex | `.regex(...)` |
+
+## The 422 error response
+
+When validation fails, FastAPI returns a structured JSON body automatically. There is no middleware to add and no try/catch to write.
+
+export const errorRespTs = `// Zod manual wiring
+app.post('/items', (req, res) => {
+  const result = CreateItemSchema.safeParse(req.body);
+  if (!result.success) {
+    return res.status(422).json({ errors: result.error.flatten() });
+  }
+  // ...
+});`;
+
+export const errorRespPy = `# FastAPI — automatic 422, no code needed
+from fastapi import FastAPI
+from pydantic import BaseModel, Field
+
+app = FastAPI()
+
+class CreateItem(BaseModel):
+    name: str = Field(min_length=1)
+    price: float = Field(gt=0)
+
+@app.post("/items")
+async def create_item(item: CreateItem):
+    return item   # only reached if validation passed
+
+# POST /items {} returns:
+# {
+#   "detail": [
+#     {"loc": ["body","name"], "msg":"Field required", "type":"missing"},
+#     {"loc": ["body","price"],"msg":"Field required", "type":"missing"}
+#   ]
+# }`;
+
+<TsGo client:visible ts={errorRespTs} go={errorRespPy} />
+
+<PyOnly title="@field_validator — custom validation logic">
+
+For logic beyond constraints (e.g., "price must be divisible by 0.5"), use Pydantic's `@field_validator` decorator. This is the equivalent of Zod's `.refine()`.
+
+```python
+from pydantic import BaseModel, field_validator
+
+class CreateItem(BaseModel):
+    name: str
+    price: float
+
+    @field_validator("price")
+    @classmethod
+    def price_must_be_multiple_of_half(cls, v: float) -> float:
+        if round(v * 2) != v * 2:
+            raise ValueError("price must be a multiple of 0.50")
+        return v
+```
+
+</PyOnly>
+
+## Try it — manual validation matching Pydantic's style
+
+> Run this locally with FastAPI for real validation. The snippet below demonstrates the same *logic* using only the stdlib so you can run it in the browser.
+
+export const validationCode = `from dataclasses import dataclass
+from typing import Optional
+import re
+
+@dataclass
+class ValidationError:
+    field: str
+    message: str
+
+def validate_item(data: dict) -> list:
+    errors = []
+
+    # name: required, 1-100 chars
+    name = data.get("name", "")
+    if not name:
+        errors.append(ValidationError("name", "Field required"))
+    elif len(name) > 100:
+        errors.append(ValidationError("name", "max_length=100"))
+
+    # price: required, must be > 0
+    price = data.get("price")
+    if price is None:
+        errors.append(ValidationError("price", "Field required"))
+    elif not isinstance(price, (int, float)) or price <= 0:
+        errors.append(ValidationError("price", "gt=0"))
+
+    # quantity: optional, must be >= 0 integer
+    qty = data.get("quantity", 1)
+    if not isinstance(qty, int) or qty < 0:
+        errors.append(ValidationError("quantity", "ge=0"))
+
+    # slug: optional regex
+    slug = data.get("slug")
+    if slug and not re.match(r"^[a-z0-9-]+$", slug):
+        errors.append(ValidationError("slug", "pattern mismatch"))
+
+    return errors
+
+tests = [
+    {"name": "Widget", "price": 9.99, "quantity": 2, "slug": "widget-pro"},
+    {},
+    {"name": "X", "price": -5, "quantity": -1, "slug": "BAD SLUG"},
+]
+
+for t in tests:
+    errs = validate_item(t)
+    if errs:
+        print(f"INVALID {t}")
+        for e in errs:
+            print(f"  [{e.field}] {e.message}")
+    else:
+        print(f"VALID   {t}")
+`;
+
+<Playground client:visible code={validationCode} />
+
+export const quizValidation = [
+  {
+    q: 'What HTTP status does FastAPI return automatically when Pydantic validation fails?',
+    options: ['400 Bad Request', '401 Unauthorized', '422 Unprocessable Entity', '500 Internal Server Error'],
+    answer: 2,
+  },
+  {
+    q: 'Which Pydantic Field kwarg enforces "greater than zero"?',
+    options: ['min=0', 'positive=True', 'gt=0', 'ge=1'],
+    answer: 2,
+  },
+  {
+    q: 'What is the Pydantic v2 equivalent of Zod\'s .refine() for custom field logic?',
+    options: ['@validator', '@field_validator', '@model_validator', '@custom_field'],
+    answer: 1,
+  },
+  {
+    q: 'Do you need to write a try/catch or middleware to return a 422 on invalid input in FastAPI?',
+    options: [
+      'Yes — wrap the handler in try/catch',
+      'Yes — add a validation middleware',
+      'No — FastAPI handles it automatically before the handler runs',
+      'No — but you must call item.validate() yourself',
+    ],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="api-fastapi/validation" questions={quizValidation} />
+
+<ProgressTracker client:visible id="api-fastapi/validation" />

@@ -1,0 +1,220 @@
+---
+title: Error Handling
+description: HTTPException, custom exception handlers, and how Python exceptions map to HTTP errors in FastAPI.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## HTTPException — the main error tool
+
+In Express you call `res.status(404).json(...)` or pass an error to `next(err)`. In FastAPI you **raise** an `HTTPException` — a Python exception that FastAPI catches and converts to an HTTP response. This keeps error paths looking like normal Python code.
+
+export const httpExcTs = `// Express — return an error response
+app.get('/items/:id', async (req, res) => {
+  const item = await db.findById(req.params.id);
+  if (!item) return res.status(404).json({ message: 'Item not found' });
+  res.json(item);
+});
+
+// NestJS — throw a built-in exception
+@Get(':id')
+async findOne(@Param('id') id: string) {
+  const item = await this.itemsService.findOne(+id);
+  if (!item) throw new NotFoundException('Item not found');
+  return item;
+}`;
+
+export const httpExcPy = `# FastAPI — raise HTTPException
+from fastapi import FastAPI, HTTPException
+
+app = FastAPI()
+
+@app.get("/items/{item_id}")
+async def get_item(item_id: int):
+    item = await db.find_by_id(item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return item
+
+# detail can be a dict for structured errors
+raise HTTPException(
+    status_code=422,
+    detail={"field": "price", "message": "must be positive"},
+)`;
+
+<TsGo client:visible ts={httpExcTs} go={httpExcPy} />
+
+## Custom exception handlers
+
+For application-wide error handling — the equivalent of Express's `(err, req, res, next)` error middleware — FastAPI provides `@app.exception_handler`.
+
+export const handlerTs = `// Express global error middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  if (err.name === 'ValidationError') {
+    return res.status(400).json({ error: err.message });
+  }
+  res.status(500).json({ error: 'Internal Server Error' });
+});`;
+
+export const handlerPy = `# FastAPI custom exception handler
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+
+class ItemNotFoundError(Exception):
+    def __init__(self, item_id: int):
+        self.item_id = item_id
+
+app = FastAPI()
+
+@app.exception_handler(ItemNotFoundError)
+async def item_not_found_handler(request: Request, exc: ItemNotFoundError):
+    return JSONResponse(
+        status_code=404,
+        content={"error": f"Item {exc.item_id} does not exist"},
+    )
+
+@app.get("/items/{item_id}")
+async def get_item(item_id: int):
+    raise ItemNotFoundError(item_id=item_id)  # automatically caught`;
+
+<TsGo client:visible ts={handlerTs} go={handlerPy} />
+
+## Overriding the default 422 handler
+
+FastAPI's built-in validation error handler returns Pydantic's `RequestValidationError`. You can override it to match your API's error envelope.
+
+export const override422Ts = `// Zod error shaping in Express
+app.use((err, req, res, next) => {
+  if (err instanceof ZodError) {
+    return res.status(400).json({
+      errors: err.errors.map(e => ({ path: e.path, message: e.message })),
+    });
+  }
+  next(err);
+});`;
+
+export const override422Py = `# Override FastAPI's default validation error handler
+from fastapi import FastAPI, Request, status
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+
+app = FastAPI()
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(
+    request: Request, exc: RequestValidationError
+):
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={
+            "errors": [
+                {"field": e["loc"][-1], "message": e["msg"]}
+                for e in exc.errors()
+            ]
+        },
+    )`;
+
+<TsGo client:visible ts={override422Ts} go={override422Py} />
+
+<PyOnly title="Python exceptions tie naturally into HTTP errors">
+
+Because FastAPI errors are Python `Exception` subclasses, they integrate naturally with Python's `try/except` flow. You can catch and re-raise them, log them with standard logging, or let a middleware handle them — all with normal Python syntax.
+
+```python
+@app.post("/items")
+async def create_item(item: CreateItem, db: Session = Depends(get_db)):
+    try:
+        db_item = ItemModel(**item.model_dump())
+        db.add(db_item)
+        db.commit()
+        db.refresh(db_item)
+        return db_item
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Item with this name already exists",
+        )
+```
+
+</PyOnly>
+
+## Try it — Python exception hierarchy
+
+FastAPI `HTTPException` is a Python exception like any other. Explore how `raise` and `except` work with the stdlib:
+
+export const exceptionCode = `# Python exceptions — the same mechanism FastAPI uses
+class AppError(Exception):
+    \"\"\"Base class for application errors.\"\"\"
+    def __init__(self, message: str, status_code: int = 500):
+        self.message = message
+        self.status_code = status_code
+        super().__init__(message)
+
+class NotFoundError(AppError):
+    def __init__(self, resource: str, resource_id: int):
+        super().__init__(f"{resource} {resource_id} not found", 404)
+        self.resource = resource
+        self.resource_id = resource_id
+
+class ValidationError(AppError):
+    def __init__(self, field: str, message: str):
+        super().__init__(f"[{field}] {message}", 422)
+
+def find_item(item_id: int):
+    if item_id <= 0:
+        raise ValidationError("item_id", "must be a positive integer")
+    if item_id > 100:
+        raise NotFoundError("Item", item_id)
+    return {"id": item_id, "name": "Widget"}
+
+for test_id in [0, 42, 999]:
+    try:
+        result = find_item(test_id)
+        print(f"OK  {test_id:4d} -> {result}")
+    except AppError as e:
+        print(f"ERR {test_id:4d} -> {e.status_code} {e.message}")
+`;
+
+<Playground client:visible code={exceptionCode} />
+
+export const quizErrorHandling = [
+  {
+    q: 'How do you return a 404 response in a FastAPI route handler?',
+    options: [
+      'return Response(status_code=404)',
+      'res.status(404).json({...})',
+      'raise HTTPException(status_code=404, detail="...")',
+      'return JSONResponse(status_code=404)',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'What decorator is used to register a global exception handler in FastAPI?',
+    options: [
+      '@app.error_handler()',
+      '@app.exception_handler(ExceptionClass)',
+      '@app.use_error()',
+      '@app.catch(ExceptionClass)',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'Which built-in FastAPI exception is raised when Pydantic validation fails on a request?',
+    options: [
+      'HTTPException',
+      'PydanticValidationError',
+      'RequestValidationError',
+      'ValueError',
+    ],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="api-fastapi/error-handling" questions={quizErrorHandling} />
+
+<ProgressTracker client:visible id="api-fastapi/error-handling" />

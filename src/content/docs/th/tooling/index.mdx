@@ -1,0 +1,126 @@
+---
+title: ภาพรวม Tooling ของ Python
+description: ระบบ tooling ของ Python เทียบกับ toolchain ของ Node/TypeScript — และการรวมตัวกันรอบ ruff และ uv
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## Toolchain ที่คุณรู้จักอยู่แล้ว
+
+ในฐานะนักพัฒนา TypeScript คุณพึ่งพา tools ชุดที่คาดเดาได้: `npm` จัดการ packages, `eslint` จับข้อผิดพลาด, `prettier` บังคับ formatting, `tsc` ตรวจสอบ type และ `jest` รัน tests แต่ละ tool มีหน้าที่เดียว และ compose เข้าหากันได้อย่างลงตัว
+
+Toolchain ของ Python เติบโตมาอย่างเป็นธรรมชาติกว่านั้น ในช่วงหลายปีที่ผ่านมา ทุกความต้องการ — การจัดการ package, virtual environment, formatting, linting, type-checking, testing — ต่างมีหลาย option ที่แข่งกัน ความหลากหลายนั้นคือสิ่งแรกที่ทำให้นักพัฒนาที่มาจาก Node รู้สึกงงงวย
+
+ข่าวดีคือ ecosystem กำลังรวมตัวกันอย่างรวดเร็ว ตารางด้านล่างแมป tool ใน Node/TS แต่ละตัวไปยังคู่เทียบของ Python ทั้งแบบเก่าและแบบใหม่
+
+export const tsToolchain = `// Node / TypeScript toolchain
+// Runtime          → node
+// Package manager  → npm / yarn / pnpm
+// Lockfile         → package-lock.json / yarn.lock
+// Config file      → package.json
+// Linter           → eslint
+// Formatter        → prettier
+// Type checker     → tsc (TypeScript compiler)
+// Test runner      → jest / vitest
+// Build step       → tsc / esbuild / tsup
+// Env isolation    → (none — global node_modules)`;
+
+export const pyToolchain = `# Python toolchain
+# Runtime          → python3
+# Package manager  → pip  (classic)  /  uv  (fast, modern)
+# Lockfile         → requirements.txt  /  uv.lock
+# Config file      → pyproject.toml  (PEP 517/518)
+# Linter           → flake8 (old)  /  ruff  (new, fast)
+# Formatter        → black  /  ruff format  (same tool)
+# Type checker     → mypy  /  pyright
+# Test runner      → pytest
+# Build step       → (usually none for apps — deploy source)
+# Env isolation    → venv  (mandatory — see venv-uv-poetry)`;
+
+<TsGo client:visible ts={tsToolchain} go={pyToolchain} />
+
+## ทำไม Virtual Environments จึงขาดไม่ได้
+
+ใน Node แต่ละ project จะได้รับโฟลเดอร์ `node_modules` ของตัวเองโดยอัตโนมัติ Python ติดตั้ง packages เข้าไปในไดเรกทอรี site-packages ระดับ global เพียงที่เดียวโดยค่าเริ่มต้น หากไม่มี virtual environment ทุก project บนเครื่องของคุณจะแชร์ package version เดียวกัน — การ upgrade หนึ่งครั้งอาจทำให้อีก project พัง
+
+Virtual environments (`venv`) แก้ปัญหานี้ด้วยการสร้าง Python + pip แบบ local ที่แยกออกมาต่อ project คุณจะไม่มีวันข้ามขั้นตอนนี้ในงาน Python ระดับมืออาชีพ
+
+> รันในเทอร์มินัลของคุณ:
+> ```bash
+> python3 -m venv .venv        # สร้าง env ที่แยกออกมา
+> source .venv/bin/activate    # เปิดใช้งาน (macOS/Linux)
+> # .venv\Scripts\activate     # เปิดใช้งานบน Windows
+> pip install requests         # ติดตั้งแค่ใน .venv เท่านั้น
+> ```
+
+## Stack สมัยใหม่: ruff + uv
+
+ทิศทางของชุมชนในปัจจุบันคือการใช้สอง tools ที่รวมกันครอบคลุมสิ่งที่เคยต้องการถึงห้า tools:
+
+| ความต้องการ | แบบเก่า | แบบใหม่ |
+|---|---|---|
+| Lint | flake8 + isort | `ruff check` |
+| Format | black | `ruff format` |
+| ติดตั้ง package เร็ว | pip | `uv pip install` |
+| จัดการ project + venv | poetry | `uv` |
+
+ทั้ง `ruff` และ `uv` เขียนด้วย Rust และเร็วกว่ารุ่นก่อนหน้า 10–100 เท่า ถ้าคุณเริ่ม project ใหม่วันนี้ ให้เลือกใช้พวกมันก่อน
+
+<PyOnly title="pyproject.toml คือ package.json ของ Python">
+
+`package.json` เป็น single source of truth ของ Node project: ชื่อ, version, dependencies, scripts และ tool config ทั้งหมดอยู่ที่นั่น
+
+คู่เทียบของ Python คือ `pyproject.toml` (PEP 518 / PEP 621) tools สมัยใหม่ส่วนใหญ่ — `ruff`, `mypy`, `pytest`, `uv`, `poetry` — อ่าน config จาก `[tool.ruff]`, `[tool.mypy]`, `[tool.pytest.ini_options]` ฯลฯ ทั้งหมดภายในไฟล์เดียว
+
+```toml
+[project]
+name = "my-app"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = ["fastapi>=0.110", "uvicorn[standard]"]
+
+[tool.ruff]
+line-length = 88
+
+[tool.mypy]
+strict = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+```
+
+</PyOnly>
+
+export const quizIndex = [
+  {
+    q: 'Python tool ตัวใดเทียบเท่ากับ eslint + prettier รวมกัน?',
+    options: ['flake8', 'black', 'ruff', 'mypy'],
+    answer: 2,
+  },
+  {
+    q: 'ทำไมนักพัฒนา Python จึงต้องใช้ virtual environment ในทุก project?',
+    options: [
+      'Python บังคับโดย language spec',
+      'Python ติดตั้ง package แบบ global โดยค่าเริ่มต้น ทำให้ projects อาจขัดแย้งกันในเรื่อง version',
+      'Virtual environment ทำให้ import เร็วขึ้นอย่างมีนัยสำคัญ',
+      'pip ปฏิเสธที่จะรันหากไม่มี virtual environment',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'อะไรคือคู่เทียบของ Python กับ package.json สำหรับ metadata ของ project และการตั้งค่า tool?',
+    options: ['setup.py', 'requirements.txt', 'pyproject.toml', '.pythonrc'],
+    answer: 2,
+  },
+  {
+    q: 'tool สมัยใหม่ตัวใดแทนที่ทั้ง pip (ในด้านความเร็ว) และ poetry (ในด้านการจัดการ project)?',
+    options: ['ruff', 'mypy', 'uv', 'black'],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="tooling/index" questions={quizIndex} />
+
+<ProgressTracker client:visible id="tooling/index" />

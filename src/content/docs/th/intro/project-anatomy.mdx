@@ -1,0 +1,278 @@
+---
+title: Project Anatomy — Packages, Imports และ pyproject.toml
+description: วิธีที่โปรเจกต์ Python ถูกจัดโครงสร้าง — modules, packages, pyproject.toml vs package.json, venv vs node_modules และระบบ import
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## Files, modules และ packages
+
+ใน Node.js ทุก `.js`/`.ts` file คือ module คุณ import จากมันด้วย `import` Python ทำงานแบบเดียวกัน แต่คำศัพท์แตกต่างกันเล็กน้อย:
+
+- **Module** — ไฟล์ `.py` ใดๆ `math.py` คือ module ชื่อ `math`
+- **Package** — ไดเรกทอรีที่มีไฟล์ `__init__.py` มันจัดกลุ่ม modules ที่เกี่ยวข้อง
+- **Namespace package** — ไดเรกทอรีที่ไม่มี `__init__.py` (Python 3.3+) แทบไม่จำเป็น
+
+export const moduleTs = `// Node/TypeScript module layout
+src/
+  utils/
+    string.ts     ← module
+    number.ts     ← module
+  api/
+    index.ts      ← entry point
+  index.ts        ← root entry
+
+// import from a module
+import { capitalize } from "./utils/string";`;
+
+export const modulePy = `# Python package layout
+src/
+  utils/
+    __init__.py   ← marks this as a package
+    string.py     ← module
+    number.py     ← module
+  api/
+    __init__.py
+    routes.py
+  main.py         ← entry point
+
+# import from a module
+from utils.string import capitalize`;
+
+<TsGo client:visible ts={moduleTs} go={modulePy} />
+
+## ไฟล์ `__init__.py`
+
+`__init__.py` คือ Python เทียบเท่ากับ `index.ts` ในไดเรกทอรี — มันทำเครื่องหมายไดเรกทอรีเป็น package และ re-export symbols ได้ตามต้องการ `__init__.py` ที่ว่างเปล่าถูกต้องตามหลักและเป็นสิ่งขั้นต่ำที่จำเป็น
+
+export const initTs = `// TypeScript: src/utils/index.ts
+export { capitalize } from "./string";
+export { clamp } from "./number";
+
+// Caller imports from the directory:
+import { capitalize, clamp } from "./utils";`;
+
+export const initPy = `# Python: src/utils/__init__.py
+from .string import capitalize
+from .number import clamp
+
+# Caller imports from the package:
+from utils import capitalize, clamp`;
+
+<TsGo client:visible ts={initTs} go={initPy} />
+
+## ไวยากรณ์ Import
+
+Python มีรูปแบบ import สองแบบ ทั้งคู่ใช้กันทั่วไป คุณใช้แบบไหนขึ้นอยู่กับบริบท
+
+export const importTs = `// TypeScript import styles
+import path from "path";                          // default import
+import { join, resolve } from "path";             // named imports
+import * as fs from "fs";                         // namespace import
+import type { Dirent } from "fs";                 // type-only import`;
+
+export const importPy = `# Python import styles
+import math                          # import the whole module
+from math import sqrt, pi            # import specific names
+from math import sqrt as sq          # alias
+import os.path                       # sub-module import
+from . import sibling                # relative: same package
+from ..utils import helper           # relative: parent package`;
+
+<TsGo client:visible ts={importTs} go={importPy} />
+
+## pyproject.toml — เทียบเท่ากับ package.json
+
+โปรเจกต์ Python สมัยใหม่ใช้ `pyproject.toml` เป็น project manifest เดียว มันแทนที่ `setup.py`, `setup.cfg` และส่วนหนึ่งของ `requirements.txt`
+
+export const pkgJsonTs = `// package.json (Node)
+{
+  "name": "my-api",
+  "version": "1.0.0",
+  "description": "A REST API",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "ts-node src/index.ts",
+    "build": "tsc",
+    "test": "jest"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "jest": "^29.0.0"
+  }
+}`;
+
+export const pyprojectPy = `# pyproject.toml (Python — PEP 517/518/621)
+[project]
+name = "my-api"
+version = "1.0.0"
+description = "A REST API"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.110.0",
+    "uvicorn>=0.27.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "mypy>=1.8"]
+
+[project.scripts]
+start = "my_api.main:main"    # like "main" in package.json
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"`;
+
+<TsGo client:visible ts={pkgJsonTs} go={pyprojectPy} />
+
+## requirements.txt — เทียบเท่ากับ package-lock
+
+`requirements.txt` คือ list แบบ flat ของ package versions ที่ pin ไว้ มันง่ายกว่า `package-lock.json` แต่ตอบสนองวัตถุประสงค์เดียวกัน: การติดตั้งที่ reproducible สำหรับเพื่อนร่วมทีมและ CI
+
+export const lockTs = `# Node
+npm install          # reads package.json + package-lock.json
+npm ci               # clean install, fails if lock is missing
+
+# Add a package
+npm install express  # auto-updates package.json + lock`;
+
+export const lockPy = `# Python (classic)
+pip install -r requirements.txt   # install from snapshot
+
+# Generate the snapshot
+pip freeze > requirements.txt
+
+# Add a package
+pip install fastapi
+pip freeze > requirements.txt     # update snapshot manually
+
+# Modern: use poetry or uv
+poetry add fastapi                # adds to pyproject.toml + lock`;
+
+<TsGo client:visible ts={lockTs} go={lockPy} />
+
+## Layout โปรเจกต์ทั่วไป
+
+นี่คือ layout โปรเจกต์ Python API ที่สมจริง พร้อม annotation เทียบกับ Node:
+
+export const layoutTs = `# Node/TypeScript project
+my-api/
+  src/
+    index.ts          ← entry point
+    routes/
+      users.ts
+    services/
+      user.service.ts
+  package.json        ← manifest
+  package-lock.json   ← lockfile
+  tsconfig.json       ← compiler config
+  node_modules/       ← dependencies (gitignored)
+  .env                ← secrets (gitignored)`;
+
+export const layoutPy = `# Python project
+my-api/
+  src/
+    my_api/
+      __init__.py
+      main.py         ← entry point
+      routes/
+        __init__.py
+        users.py
+      services/
+        __init__.py
+        user.py
+  pyproject.toml      ← manifest
+  requirements.txt    ← lockfile (or poetry.lock)
+  venv/               ← dependencies (gitignored)
+  .env                ← secrets (gitignored)`;
+
+<TsGo client:visible ts={layoutTs} go={layoutPy} />
+
+<PyOnly title="Editable installs — pip install -e .">
+
+เมื่อคุณจัดโครงสร้างโค้ดเป็น package (ด้วย `pyproject.toml`) คุณสามารถติดตั้งในโหมด "editable":
+
+```bash
+pip install -e .
+```
+
+นี่คือ Python เทียบเท่ากับ `npm link` — มันติดตั้ง package ของคุณลงใน venv แต่ชี้โดยตรงไปยัง source files ของคุณ การเปลี่ยนแปลง source จะสะท้อนทันทีโดยไม่ต้องติดตั้งใหม่ ใช้สิ่งนี้สำหรับการพัฒนา local เพื่อให้ `from my_api.routes import users` resolve ไปยัง source tree จริงของคุณ
+
+</PyOnly>
+
+export const projectAnatomyCode = `# Demonstrating Python imports and stdlib modules
+import math
+import os.path
+
+# Using a stdlib module (like a built-in npm package)
+radius = 5
+area = math.pi * radius ** 2
+print(f"Circle area (r={radius}): {area:.4f}")
+
+# Path manipulation — like Node's path.join
+parts = ["src", "my_api", "main.py"]
+joined = os.path.join(*parts)
+print(f"Joined path: {joined}")
+
+# __name__ guard — entry point detection
+def main() -> None:
+    print("main() called from entry point")
+
+if __name__ == "__main__":
+    main()
+`;
+
+<Playground client:visible code={projectAnatomyCode} />
+
+export const quizAnatomy = [
+  {
+    q: 'อะไรทำให้ไดเรกทอรีเป็น Python package?',
+    options: [
+      'ชื่อไดเรกทอรีต้องตรงกับชื่อโปรเจกต์ใน pyproject.toml',
+      'การมีไฟล์ `__init__.py` อยู่ข้างใน',
+      'ไดเรกทอรีต้องถูกระบุใน requirements.txt',
+      'ไฟล์ marker `.package`',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'ไฟล์ไหนคือ Python เทียบเท่าสมัยใหม่ของ `package.json`?',
+    options: [
+      'setup.py',
+      'requirements.txt',
+      'pyproject.toml',
+      'Pipfile',
+    ],
+    answer: 2,
+  },
+  {
+    q: '`from utils import capitalize` ถือว่าอะไรเกี่ยวกับไดเรกทอรี `utils`?',
+    options: [
+      '`utils` ถูกระบุใน requirements.txt',
+      '`utils/` มีไฟล์ `__init__.py`',
+      '`utils/__main__.py` มีอยู่',
+      '`utils` ถูกติดตั้งเป็น third-party package',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'คุณติดตั้งโปรเจกต์ในโหมด editable เพื่อให้การเปลี่ยนแปลง source สะท้อนทันทีได้อย่างไร?',
+    options: [
+      '`pip install --watch .`',
+      '`pip install --dev .`',
+      '`pip install -e .`',
+      '`pip link .`',
+    ],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="intro/project-anatomy" questions={quizAnatomy} />
+
+<ProgressTracker client:visible id="intro/project-anatomy" />

@@ -1,0 +1,167 @@
+---
+title: Middleware และ CORS
+description: การเขียน middleware ด้วย @app.middleware, การเพิ่ม CORS เปรียบเทียบกับ Express และ NestJS middleware patterns
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+
+## Middleware ใน FastAPI
+
+ใน Express `app.use(fn)` ลงทะเบียน middleware ที่ wrap ทุก request FastAPI มีแนวคิดเดียวกัน: `@app.middleware("http")` ตกแต่ง `async` function ที่รับ request และ callable ชื่อ `call_next` ซึ่งเรียก layer ถัดไปเหมือนการเรียก `next()` ใน Express
+
+export const middlewareTs = `// Express middleware
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const ms = Date.now() - start;
+    console.log(\`\${req.method} \${req.url} \${res.statusCode} \${ms}ms\`);
+  });
+  next();
+});`;
+
+export const middlewarePy = `# FastAPI middleware
+import time
+from fastapi import FastAPI, Request
+
+app = FastAPI()
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start = time.perf_counter()
+    response = await call_next(request)
+    ms = (time.perf_counter() - start) * 1000
+    print(f"{request.method} {request.url.path} "
+          f"{response.status_code} {ms:.1f}ms")
+    return response`;
+
+<TsGo client:visible ts={middlewareTs} go={middlewarePy} />
+
+## การเพิ่ม custom headers
+
+Use case ที่พบบ่อยของ middleware คือการ inject headers ทุก response สำหรับ request tracing, caching hints หรือ security policies
+
+export const headersTs = `// Express — เพิ่ม header ใน middleware
+app.use((req, res, next) => {
+  res.setHeader('X-Request-Id', crypto.randomUUID());
+  next();
+});`;
+
+export const headersPy = `# FastAPI — แก้ไข response ใน middleware
+import uuid
+from fastapi import FastAPI, Request
+
+app = FastAPI()
+
+@app.middleware("http")
+async def add_request_id(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Request-Id"] = str(uuid.uuid4())
+    return response`;
+
+<TsGo client:visible ts={headersTs} go={headersPy} />
+
+## CORS
+
+Cross-Origin Resource Sharing (CORS) configure ผ่าน `CORSMiddleware` เทียบเท่ากับ `cors` npm package ใน Express หรือ CORS option ของ NestJS
+
+export const corsTs = `// Express
+import cors from 'cors';
+app.use(cors({
+  origin: ['https://myapp.com', 'http://localhost:3000'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+}));
+
+// NestJS
+app.enableCors({
+  origin: ['https://myapp.com'],
+  credentials: true,
+});`;
+
+export const corsPy = `# FastAPI — CORSMiddleware
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://myapp.com", "http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)`;
+
+<TsGo client:visible ts={corsTs} go={corsPy} />
+
+## Starlette middleware (class-based)
+
+สำหรับ middleware ที่ใช้ซ้ำได้ คุณยังสามารถใช้ Starlette's class-based `BaseHTTPMiddleware` คล้ายกับ NestJS `NestMiddleware` ที่มี `use()` method
+
+export const classMiddlewareTs = `// NestJS class middleware
+@Injectable()
+export class LoggerMiddleware implements NestMiddleware {
+  use(req: Request, res: Response, next: NextFunction) {
+    console.log('Request...', req.method, req.url);
+    next();
+  }
+}`;
+
+export const classMiddlewarePy = `# FastAPI — Starlette BaseHTTPMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from fastapi import FastAPI
+
+class LoggerMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        print(f"Request: {request.method} {request.url.path}")
+        response = await call_next(request)
+        print(f"Response: {response.status_code}")
+        return response
+
+app = FastAPI()
+app.add_middleware(LoggerMiddleware)`;
+
+<TsGo client:visible ts={classMiddlewareTs} go={classMiddlewarePy} />
+
+> **รันที่เครื่องตัวเอง — ต้องการ FastAPI + server**
+> Playground ข้ามในบทเรียนนี้: middleware ต้องการ ASGI request lifecycle และไม่สามารถ demonstrate ด้วย plain Python script
+
+export const quizMiddleware = [
+  {
+    q: 'FastAPI equivalent ของ Express\'s next() function ภายใน middleware คืออะไร?',
+    options: [
+      'await request.next()',
+      'await call_next(request)',
+      'return middleware.continue()',
+      'next(request)',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'FastAPI middleware class ใดที่ใช้เปิดใช้งาน CORS?',
+    options: [
+      'fastapi.middleware.CORSHandler',
+      'starlette.middleware.cors.CORSMiddleware',
+      'fastapi.middleware.cors.CORSMiddleware',
+      'ทั้ง B และ C ถูกต้อง — เป็น class เดียวกัน',
+    ],
+    answer: 3,
+  },
+  {
+    q: 'จะลงทะเบียน middleware ใน FastAPI ได้อย่างไร?',
+    options: [
+      'decorator @app.middleware("http") หรือ app.add_middleware()',
+      'app.use() แบบ Express',
+      'ผ่าน app.add_middleware() เท่านั้น — decorator ไม่มี',
+      'ลงทะเบียนใน module แบบ NestJS',
+    ],
+    answer: 0,
+  },
+];
+
+<Quiz client:visible id="api-fastapi/middleware" questions={quizMiddleware} />
+
+<ProgressTracker client:visible id="api-fastapi/middleware" />

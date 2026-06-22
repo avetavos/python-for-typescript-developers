@@ -1,0 +1,286 @@
+---
+title: Typing & Protocols
+description: ระบบ structural typing ของ Python — Protocol, TypeVar, Generic, TypedDict, Optional/Union — เปรียบเทียบกับ interfaces และ generics ของ TypeScript โดยตรง
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## TypeScript interfaces → Python Protocols
+
+ใน TypeScript interface กำหนด contract ออบเจ็กต์ใดก็ตามที่มี shape ที่ถูกต้องก็ตรงตาม interface นั้น — นี่เรียกว่า **structural typing** `Protocol` ของ Python (จากโมดูล `typing`) เป็นแนวคิดเดียวกันทุกประการ: คลาสหนึ่งตรงตาม Protocol ถ้ามีเมธอดและ attributes ที่ถูกต้อง โดยไม่สนว่า inherit มาจากอะไร
+
+export const protoTs = `// TypeScript structural interface
+interface Drawable {
+  draw(): string;
+}
+
+function render(shape: Drawable): string {
+  return shape.draw();
+}
+
+class Circle {
+  draw() { return "Drawing Circle"; }
+}
+
+class Square {
+  draw() { return "Drawing Square"; }
+}
+
+console.log(render(new Circle()));  // "Drawing Circle"
+console.log(render(new Square()));  // "Drawing Square"`;
+
+export const protoPy = `from typing import Protocol
+
+class Drawable(Protocol):
+    def draw(self) -> str: ...
+
+def render(shape: Drawable) -> str:
+    return shape.draw()
+
+class Circle:
+    def draw(self) -> str:
+        return "Drawing Circle"
+
+class Square:
+    def draw(self) -> str:
+        return "Drawing Square"
+
+print(render(Circle()))  # Drawing Circle
+print(render(Square()))  # Drawing Square`;
+
+<TsGo client:visible ts={protoTs} go={protoPy} />
+
+สังเกตว่า `Circle` และ `Square` **ไม่ได้ inherit จาก `Drawable`** พวกมันแค่มีเมธอด `draw()` ที่มี signature ถูกต้อง — แค่นั้นก็พอ เครื่องมือ static analysis เช่น `mypy` และ `pyright` จะจับข้อผิดพลาดได้
+
+## Generics: TypeVar และ Generic
+
+TypeScript generics แมปโดยตรงกับ `TypeVar` + `Generic` ของ Python
+
+export const genericTs = `// TypeScript generic class
+class Stack<T> {
+  private items: T[] = [];
+  push(item: T): void { this.items.push(item); }
+  pop(): T { return this.items.pop()!; }
+  peek(): T { return this.items[this.items.length - 1]; }
+}
+
+const stack = new Stack<number>();
+stack.push(1);
+stack.push(2);
+console.log(stack.pop()); // 2`;
+
+export const genericPy = `from typing import TypeVar, Generic
+
+T = TypeVar('T')
+
+class Stack(Generic[T]):
+    def __init__(self) -> None:
+        self._items: list[T] = []
+
+    def push(self, item: T) -> None:
+        self._items.append(item)
+
+    def pop(self) -> T:
+        return self._items.pop()
+
+    def peek(self) -> T:
+        return self._items[-1]
+
+stack: Stack[int] = Stack()
+stack.push(1)
+stack.push(2)
+print(stack.pop())   # 2`;
+
+<TsGo client:visible ts={genericTs} go={genericPy} />
+
+ตั้งแต่ Python 3.9+ คุณสามารถเขียน `list[T]` ได้โดยตรงในคลาสโดยไม่ต้อง import `List` จาก `typing` และตั้งแต่ 3.12 มี syntax `type T = ...` เพิ่มเข้ามา แต่ `TypeVar` ยังเป็นรูปแบบที่ compatible กว้างที่สุด
+
+## TypedDict: typed dictionaries
+
+`TypedDict` เป็น interface ของ TypeScript ที่อธิบาย plain object (ไม่มีเมธอด) เหมาะมากสำหรับข้อมูลแบบ JSON
+
+export const tdictTs = `// TypeScript interface for a plain object
+interface UserRecord {
+  name: string;
+  age: number;
+  email?: string;  // optional key
+}
+
+const user: UserRecord = { name: "Alice", age: 30 };
+console.log(user.name);`;
+
+export const tdictPy = `from typing import TypedDict, NotRequired
+
+class UserRecord(TypedDict):
+    name: str
+    age: int
+    email: NotRequired[str]   # optional key
+
+user: UserRecord = {"name": "Alice", "age": 30}
+print(user["name"])   # Alice
+
+# mypy/pyright จะจับ key ที่ขาดหาย:
+# bad: UserRecord = {"name": "Alice"}  # age missing`;
+
+<TsGo client:visible ts={tdictTs} go={tdictPy} />
+
+## Optional และ Union
+
+TypeScript ใช้ `string | null | undefined` สำหรับ nullable types Python ใช้ `Optional[T]` (ซึ่งคือ `T | None`) หรือ union syntax สมัยใหม่ `T | None` (Python 3.10+)
+
+export const optTs = `// TypeScript
+function greet(name: string | null): string {
+  if (name === null) return "Hello, stranger!";
+  return \`Hello, \${name}!\`;
+}
+
+// Modern TS nullable shorthand
+function greet2(name?: string): string {
+  return name ? \`Hello, \${name}!\` : "Hello, stranger!";
+}`;
+
+export const optPy = `from typing import Optional
+
+# Optional[str] คือ str | None
+def greet(name: Optional[str] = None) -> str:
+    if name is None:
+        return "Hello, stranger!"
+    return f"Hello, {name}!"
+
+# Python 3.10+ union syntax
+def greet_modern(name: str | None = None) -> str:
+    return f"Hello, {name}!" if name else "Hello, stranger!"
+
+print(greet())           # Hello, stranger!
+print(greet("Alice"))    # Hello, Alice!`;
+
+<TsGo client:visible ts={optTs} go={optPy} />
+
+## ลองเล่น
+
+export const typingPlaygroundCode = `from typing import Protocol, TypeVar, Generic, TypedDict, Optional
+
+# Protocol — structural typing
+class Serializable(Protocol):
+    def to_json(self) -> str: ...
+
+class User:
+    def __init__(self, name: str, age: int) -> None:
+        self.name = name
+        self.age = age
+    def to_json(self) -> str:
+        return f'{{"name": "{self.name}", "age": {self.age}}}'
+
+class Product:
+    def __init__(self, title: str) -> None:
+        self.title = title
+    def to_json(self) -> str:
+        return f'{{"title": "{self.title}"}}'
+
+def export_data(item: Serializable) -> str:
+    return item.to_json()
+
+print(export_data(User("Alice", 30)))
+print(export_data(Product("Widget")))
+
+# Generic Stack
+T = TypeVar('T')
+
+class Stack(Generic[T]):
+    def __init__(self) -> None:
+        self._items: list[T] = []
+    def push(self, item: T) -> None:
+        self._items.append(item)
+    def pop(self) -> T:
+        return self._items.pop()
+
+s: Stack[str] = Stack()
+s.push("hello")
+s.push("world")
+print(s.pop())
+
+# TypedDict
+class Config(TypedDict):
+    host: str
+    port: int
+
+cfg: Config = {"host": "localhost", "port": 8080}
+print(f"Connecting to {cfg['host']}:{cfg['port']}")
+
+# Optional
+def find_user(user_id: int) -> Optional[str]:
+    db = {1: "Alice", 2: "Bob"}
+    return db.get(user_id)
+
+print(find_user(1))   # Alice
+print(find_user(99))  # None
+`;
+
+<Playground client:visible code={typingPlaygroundCode} />
+
+<PyOnly title="การตรวจสอบ type ที่ runtime ด้วย isinstance และ Protocol">
+
+Type guards ของ TypeScript (`x is string`) เป็นแนวคิดที่ compile-time `isinstance()` ของ Python คือการตรวจสอบที่ **runtime** ตั้งแต่ Python 3.12 คุณสามารถใช้ `isinstance(obj, SomeProtocol)` ได้ถ้า Protocol มี decorator `@runtime_checkable`:
+
+```python
+from typing import Protocol, runtime_checkable
+
+@runtime_checkable
+class Drawable(Protocol):
+    def draw(self) -> str: ...
+
+class Circle:
+    def draw(self) -> str:
+        return "circle"
+
+print(isinstance(Circle(), Drawable))  # True
+```
+
+ถ้าไม่มี `@runtime_checkable` การใช้ `isinstance` กับ Protocol จะ raise `TypeError` นี่คือ escape hatch สำหรับ type-narrowing ที่ runtime — ใกล้เคียงกับ type guard ของ TS มากที่สุด
+
+</PyOnly>
+
+export const quizTypingProtocols = [
+  {
+    q: 'คลาส Python ใดที่ทำหน้าที่เทียบเท่ากับ TypeScript structural interface โดยตรง?',
+    options: ['ABC (Abstract Base Class)', 'Protocol', 'TypedDict', 'Generic'],
+    answer: 1,
+  },
+  {
+    q: '`Optional[str]` ในโมดูล typing ของ Python หมายความว่าอะไร?',
+    options: [
+      'string ที่อาจว่างได้',
+      'string ที่มี default value',
+      'ค่าที่เป็น `str` หรือ `None`',
+      'string ที่ evaluate แบบ lazy',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'เพื่อให้ Protocol ของ Python ทำงานกับ `isinstance()` ที่ runtime ต้องใช้ decorator ใด?',
+    options: [
+      '@staticmethod',
+      '@runtime_checkable',
+      '@abstractmethod',
+      '@dataclass',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'คลาสจำเป็นต้อง inherit จาก `Protocol` อย่างชัดเจนเพื่อตรงตามมันหรือไม่?',
+    options: [
+      'ใช่ — ต้อง inherit อย่างชัดเจน',
+      'ไม่ — แค่ implement เมธอดที่จำเป็น (structural typing)',
+      'ต้องเฉพาะเมื่อ Protocol มีมากกว่าหนึ่งเมธอด',
+      'เฉพาะใน Python 3.10+',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="advanced/typing-protocols" questions={quizTypingProtocols} />
+
+<ProgressTracker client:visible id="advanced/typing-protocols" />

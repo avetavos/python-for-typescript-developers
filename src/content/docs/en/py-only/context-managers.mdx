@@ -1,0 +1,240 @@
+---
+title: "Context Managers & with"
+description: Python's with statement, __enter__/__exit__ protocol, and contextlib vs TypeScript's try/finally pattern.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## TypeScript has no with — Python does
+
+TypeScript has no `with` keyword. When you need to acquire a resource and guarantee it is released — a file handle, a database connection, a lock — you write `try/finally`. You set up the resource before the `try`, and you clean it up in the `finally` block. This works, but it requires you to remember the pattern and write it correctly every time.
+
+Python's `with` statement encapsulates the setup and teardown inside the object itself. The object defines what happens on entry and what happens on exit, and Python guarantees the exit runs — even if an exception is raised inside the block. The cleanup logic lives in the resource, not scattered across every call site.
+
+## Class-based context managers
+
+A class becomes a context manager by implementing two dunder methods: `__enter__` and `__exit__`. Python calls `__enter__` when execution enters the `with` block and `__exit__` when it leaves — for any reason.
+
+export const tsCm = `// TypeScript: try/finally for guaranteed cleanup
+class ManagedResource {
+  constructor(private name: string) {}
+
+  acquire(): this {
+    console.log(\`Acquiring \${this.name}\`);
+    return this;
+  }
+
+  release(): void {
+    console.log(\`Releasing \${this.name}\`);
+  }
+
+  use(): void {
+    console.log(\`Using \${this.name}\`);
+  }
+}
+
+const resource = new ManagedResource("database connection");
+resource.acquire();
+try {
+  resource.use();
+} finally {
+  resource.release(); // must remember to call this
+}`;
+
+export const pyCm = `# Python: with statement handles acquire and release automatically
+class ManagedResource:
+    def __init__(self, name):
+        self.name = name
+
+    def __enter__(self):
+        print(f"Acquiring \${self.name}")
+        return self  # bound to the 'as' variable
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        print(f"Releasing \${self.name}")
+        return False  # do not suppress exceptions
+
+with ManagedResource("database connection") as resource:
+    print(f"Using \${resource.name}")
+# release is guaranteed even if an exception occurs`;
+
+<TsGo client:visible ts={tsCm} go={pyCm} />
+
+The value returned by `__enter__` is bound to the variable after `as`. The `as` clause is optional — you can write `with ManagedResource("x"):` if you do not need a reference to the resource inside the block.
+
+## contextlib: generators as context managers
+
+Writing a full class for a simple context manager is often overkill. The `contextlib` module provides a `@contextmanager` decorator that lets you write a context manager as a generator function. Everything before `yield` is the setup; everything after `yield` is the teardown.
+
+export const tsCmContextlib = `// TypeScript: a utility wrapper function with try/finally
+function withTimer<T>(label: string, fn: () => T): T {
+  console.log(\`[\${label}] starting\`);
+  try {
+    return fn();
+  } finally {
+    console.log(\`[\${label}] done\`);
+  }
+}
+
+const result = withTimer("my block", () => {
+  let total = 0;
+  for (let i = 0; i < 1000; i++) total += i;
+  console.log(\`sum = \${total}\`);
+  return total;
+});`;
+
+export const pyCmContextlib = `from contextlib import contextmanager
+
+@contextmanager
+def timer(label):
+    print(f"[\${label}] starting")
+    yield          # execution of the with block happens here
+    print(f"[\${label}] done")
+
+with timer("my block"):
+    total = sum(range(1000))
+    print(f"sum = \${total}")`;
+
+<TsGo client:visible ts={tsCmContextlib} go={pyCmContextlib} />
+
+export const tsCmGen = tsCmContextlib;
+export const pyCmGen = pyCmContextlib;
+
+## Try it
+
+export const playgroundCm = `from contextlib import contextmanager
+
+class ManagedResource:
+    def __init__(self, name):
+        self.name = name
+
+    def __enter__(self):
+        print(f"Acquiring \${self.name}")
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        print(f"Releasing \${self.name}")
+        return False
+
+with ManagedResource("database connection") as resource:
+    print(f"Using \${resource.name}")
+
+@contextmanager
+def timer(label):
+    print(f"[\${label}] starting")
+    yield
+    print(f"[\${label}] done")
+
+with timer("my block"):
+    total = sum(range(1000))
+    print(f"sum = \${total}")
+`;
+
+<Playground client:visible code={playgroundCm} />
+
+<PyOnly title="Exception suppression: the __exit__ contract">
+
+`__exit__` receives three arguments describing any exception that occurred inside the `with` block:
+
+- `exc_type` — the exception class (e.g. `ValueError`), or `None` if no exception occurred
+- `exc_val` — the exception instance, or `None`
+- `exc_tb` — the traceback object, or `None`
+
+The return value of `__exit__` controls what happens next:
+
+- Returning `False` (or `None`, or any falsy value) means "do not suppress the exception." Python re-raises it after `__exit__` returns.
+- Returning `True` suppresses the exception. Execution continues after the `with` block as if nothing happened.
+
+Suppression is occasionally useful — for example, a context manager that catches and logs specific errors — but should be used sparingly. Silently swallowing exceptions is a common source of hard-to-debug bugs.
+
+```python
+class SuppressValueError:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type is ValueError:
+            print(f"Suppressed: {exc_val}")
+            return True  # swallow the ValueError
+        return False  # re-raise anything else
+
+with SuppressValueError():
+    raise ValueError("bad input")  # caught and suppressed
+
+print("execution continues here")
+```
+
+`contextlib.suppress(*exceptions)` does exactly this for you in one line:
+
+```python
+from contextlib import suppress
+
+with suppress(FileNotFoundError):
+    open("nonexistent.txt")
+```
+
+When using `@contextmanager`, handle exceptions by wrapping `yield` in a `try/except`:
+
+```python
+@contextmanager
+def managed():
+    print("setup")
+    try:
+        yield
+    except ValueError as e:
+        print(f"handled: {e}")
+    finally:
+        print("teardown")  # always runs
+```
+
+</PyOnly>
+
+export const quizCm = [
+  {
+    q: 'What two dunder methods must a class implement to work as a context manager?',
+    options: [
+      '__open__ and __close__',
+      '__enter__ and __exit__',
+      '__start__ and __finish__',
+      '__acquire__ and __release__',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'What value is bound to the variable after "as" in a with statement?',
+    options: [
+      'The context manager object itself',
+      'The return value of __exit__',
+      'The return value of __enter__',
+      'True if no exception occurred',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'In a @contextmanager function, where does the body of the with block execute?',
+    options: [
+      'Before the yield statement',
+      'At the yield statement',
+      'After the yield statement',
+      'In a separate thread',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'How does __exit__ suppress an exception that occurred inside the with block?',
+    options: [
+      'By calling exc_val.suppress()',
+      'By returning True',
+      'By raising a different exception',
+      'By returning None',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="py-only/context-managers" questions={quizCm} />
+
+<ProgressTracker client:visible id="py-only/context-managers" />

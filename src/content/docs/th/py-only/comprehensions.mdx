@@ -1,0 +1,153 @@
+---
+title: "Comprehensions และ Generator Expressions"
+description: List/dict/set comprehension และ lazy generator expression ของ Python vs map/filter ของ TypeScript
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## จาก `.map()` และ `.filter()` สู่ syntax ที่ built-in
+
+ใน TypeScript คุณแปลงและกรอง array โดยเชื่อมต่อ method เช่น `.map()`, `.filter()`, และ `.reduce()` วิธีนี้ใช้งานได้ดีแต่ต้องผ่าน array intermediate ทุกขั้นตอน Python มีแนวทางอีกแบบที่ฝังอยู่ในภาษาโดยตรง: **comprehensions** ซึ่งเป็น syntax สั้นกระชับสำหรับสร้าง list, dict, หรือ set ใหม่จาก iterable ที่มีอยู่ ด้วยการกรองแบบ optional ในบรรทัดเดียว
+
+## List comprehension
+
+รูปแบบพื้นฐานคือ `[expression for item in iterable]` และเพิ่ม `if condition` เพื่อกรองได้
+
+export const tsComprehensions = `// TypeScript: chained .map() and .filter()
+const squares = [1, 2, 3, 4, 5].map(x => x ** 2);
+console.log(squares); // [1, 4, 9, 16, 25]
+
+const evens = Array.from({ length: 10 }, (_, i) => i).filter(x => x % 2 === 0);
+console.log(evens); // [0, 2, 4, 6, 8]
+
+// dict equivalent: Object.fromEntries + .map()
+const words = ["hello", "world", "python"];
+const wordLengths = Object.fromEntries(words.map(w => [w, w.length]));
+console.log(wordLengths); // { hello: 5, world: 5, python: 6 }`;
+
+export const pyComprehensions = `# Python: comprehension syntax — concise and readable
+squares = [x ** 2 for x in range(1, 6)]
+print(squares)  # [1, 4, 9, 16, 25]
+
+evens = [x for x in range(10) if x % 2 == 0]
+print(evens)  # [0, 2, 4, 6, 8]
+
+# dict comprehension
+words = ["hello", "world", "python"]
+word_lengths = {word: len(word) for word in words}
+print(word_lengths)  # {'hello': 5, 'world': 5, 'python': 6}`;
+
+<TsGo client:visible ts={tsComprehensions} go={pyComprehensions} />
+
+## Dict และ set comprehension
+
+นอกจาก list แล้ว Python ยังรองรับ comprehension สำหรับ dict (ใช้ `{}` พร้อม `key: value`) และ set (ใช้ `{}` โดยไม่มี `:`) ด้วย
+
+```python
+# set comprehension — ได้ unique values โดยอัตโนมัติ
+unique_lengths = {len(word) for word in ["hi", "hello", "hey", "world"]}
+print(sorted(unique_lengths))  # [2, 5]
+```
+
+ใน TypeScript การได้ผลลัพธ์แบบเดียวกันต้องผ่าน `new Set(array.map(...))` แล้ว spread กลับ ซึ่งยุ่งยากกว่ามาก
+
+## Generator expressions: ความ lazy ที่ไม่ใช้หน่วยความจำเกิน
+
+Comprehension สร้าง collection ทั้งหมดในหน่วยความจำทันที Generator expression ใช้ `()` แทน `[]` และสร้างค่าทีละค่าตามที่ถูกขอ ทำให้เหมาะกับ sequence ขนาดใหญ่หรือ infinite sequence
+
+```python
+# generator expression: ไม่สร้าง list จนกว่าจะวนซ้ำ
+gen = (x ** 2 for x in range(5))
+print(list(gen))  # [0, 1, 4, 9, 16]
+```
+
+เมื่อคุณส่ง generator expression เป็น argument ตัวเดียวให้ function คุณสามารถละวงเล็บชั้นนอกได้: `sum(x ** 2 for x in range(100))`
+
+## ลองทดสอบ
+
+export const playgroundComprehensions = `squares = [x ** 2 for x in range(1, 6)]
+print(squares)
+
+evens = [x for x in range(10) if x % 2 == 0]
+print(evens)
+
+word_lengths = {word: len(word) for word in ["hello", "world", "python"]}
+print(word_lengths)
+
+unique_lengths = {len(word) for word in ["hi", "hello", "hey", "world"]}
+print(sorted(unique_lengths))
+
+gen = (x ** 2 for x in range(5))
+print(list(gen))
+`;
+
+<Playground client:visible code={playgroundComprehensions} />
+
+<PyOnly title="เมื่อควรใช้ comprehension และเมื่อไม่ควรใช้">
+
+Comprehension ทำให้โค้ดอ่านง่ายขึ้นในกรณีส่วนใหญ่ แต่มีแนวทางปฏิบัติที่ดีบางประการที่ควรรู้:
+
+**ใช้เมื่อ:**
+- การแปลงหรือกรองนั้นสั้นและอ่านในบรรทัดเดียวได้ง่าย
+- คุณต้องการ list, dict, หรือ set ใหม่จาก iterable ที่มีอยู่
+- คุณต้องการประสิทธิภาพที่ดีกว่า loop ธรรมดาที่เรียก `.append()` ซ้ำ
+
+**หลีกเลี่ยงเมื่อ:**
+- Logic ซับซ้อนจนต้องซ้อน comprehension หลายชั้น (comprehension ซ้อนสองชั้นมักอ่านยาก)
+- คุณต้องการ side effect เช่น logging — ใช้ loop ธรรมดาแทน
+- Collection มีขนาดใหญ่และคุณต้องการเพียงครั้งเดียว — ใช้ generator expression แทน
+
+**Comprehension ซ้อน** อ่านจากซ้ายไปขวาตามลำดับ loop:
+
+```python
+# [row[i] for row in matrix for i in range(len(row))]
+# เทียบเท่ากับ:
+# for row in matrix:
+#     for i in range(len(row)):
+#         yield row[i]
+matrix = [[1, 2], [3, 4], [5, 6]]
+flat = [n for row in matrix for n in row]
+print(flat)  # [1, 2, 3, 4, 5, 6]
+```
+
+</PyOnly>
+
+export const quizComprehensions = [
+  {
+    q: 'ผลลัพธ์ของ `[x * 2 for x in range(4)]` คืออะไร?',
+    options: [
+      '[1, 2, 3, 4]',
+      '[0, 2, 4, 6]',
+      '[2, 4, 6, 8]',
+      '[0, 1, 2, 3]',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'อะไรคือความแตกต่างหลักระหว่าง list comprehension และ generator expression?',
+    options: [
+      'Generator expression ใช้ `[]` และ list comprehension ใช้ `()`',
+      'List comprehension สร้างทุกค่าในหน่วยความจำทันที; generator expression สร้างค่าทีละค่าตามที่ถูกขอ',
+      'Generator expressions ไม่รองรับเงื่อนไข `if`',
+      'List comprehensions ทำงานช้ากว่า generator expressions เสมอ',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'syntax ใดที่ถูกต้องสำหรับ dict comprehension?',
+    options: [
+      '[k: v for k, v in items]',
+      '{k, v for k, v in items}',
+      '{k: v for k, v in items}',
+      '(k: v for k, v in items)',
+    ],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="py-only/comprehensions" questions={quizComprehensions} />
+
+<ProgressTracker client:visible id="py-only/comprehensions" />

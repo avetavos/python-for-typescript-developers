@@ -1,0 +1,185 @@
+---
+title: "GIL — Global Interpreter Lock"
+description: GIL ของ Python คืออะไร, ส่งผลต่อ concurrency อย่างไร และ preview ของ module concurrency vs single-thread ของ JavaScript
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## JavaScript ใช้ single thread, Python มี thread แต่มี GIL
+
+JavaScript ทำงานใน event loop single-threaded โดยการออกแบบ ความสามารถด้าน concurrency ทั้งหมดมาจาก asynchrony (`async`/`await`, Promise, callback) ไม่ใช่การประมวลผลพร้อมกันแบบขนาน ถ้าคุณต้องการใช้ CPU หลายตัวจริง ๆ คุณต้องใช้ `worker_threads`
+
+Python มี thread แต่ CPython (implementation หลัก) มี lock ชื่อว่า **Global Interpreter Lock (GIL)** ที่อนุญาตให้ Python bytecode ทำงานได้ครั้งละหนึ่ง thread เท่านั้น ซึ่งหมายความว่า thread ของ Python ใน CPython ไม่สามารถรัน CPU-bound code แบบขนานได้จริง ๆ แม้บนเครื่องที่มีหลาย CPU
+
+## GIL ไม่ได้หมายความว่า threading ไร้ประโยชน์
+
+GIL จะถูก release ในระหว่าง I/O operations, `time.sleep()` และงาน C extension บางอย่าง (เช่น NumPy) ดังนั้นสำหรับ **I/O-bound concurrency** (network calls, file reads, database queries) thread ของ Python ทำงานได้ดีมาก
+
+export const tsGil = `// TypeScript: worker_threads for CPU-bound parallelism
+import { Worker, isMainThread, parentPort } from "worker_threads";
+
+if (isMainThread) {
+  const worker = new Worker(__filename);
+  worker.on("message", (result) => {
+    console.log("result from worker:", result);
+  });
+  worker.postMessage("start");
+} else {
+  parentPort?.on("message", () => {
+    // CPU-bound work runs in a real OS thread
+    let total = 0;
+    for (let i = 0; i < 1_000_000; i++) total += i;
+    parentPort?.postMessage(total);
+  });
+}`;
+
+export const pyGil = `# Python: threading is effective for I/O-bound work
+# but the GIL limits CPU-bound parallelism in CPython
+import threading
+
+results = {}
+
+def fetch_data(key, value):
+    # Simulate I/O work (GIL is released during real I/O)
+    import time
+    time.sleep(0.1)
+    results[key] = value * 2
+
+threads = [
+    threading.Thread(target=fetch_data, args=(i, i))
+    for i in range(5)
+]
+for t in threads:
+    t.start()
+for t in threads:
+    t.join()
+
+print(results)  # {0: 0, 1: 2, 2: 4, 3: 6, 4: 8}`;
+
+<TsGo client:visible ts={tsGil} go={pyGil} />
+
+## เมื่อต้องการ parallelism จริง ๆ ใช้ multiprocessing
+
+สำหรับงาน CPU-bound ที่ต้องการใช้ CPU หลายตัวจริง ๆ Python มี module `multiprocessing` ซึ่งแต่ละ worker จะเป็น OS process แยกต่างหากพร้อม Python interpreter ของตัวเอง ทำให้แต่ละ process มี GIL ของตัวเองด้วย
+
+export const tsMp = `// TypeScript: CPU parallelism via worker_threads pool
+import { Worker } from "worker_threads";
+import * as os from "os";
+
+function runWorker(data: number): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const w = new Worker(\`
+      const { parentPort, workerData } = require("worker_threads");
+      let total = 0;
+      for (let i = 0; i < workerData; i++) total += i;
+      parentPort.postMessage(total);
+    \`, { eval: true, workerData: data });
+    w.on("message", resolve);
+    w.on("error", reject);
+  });
+}
+
+const cpus = os.cpus().length;
+Promise.all(Array.from({ length: cpus }, (_, i) =>
+  runWorker(1_000_000 / cpus)
+)).then(results => console.log(results.reduce((a, b) => a + b, 0)));`;
+
+export const pyMp = `# Python: multiprocessing bypasses the GIL entirely
+from multiprocessing import Pool
+import os
+
+def cpu_work(n):
+    return sum(range(n))
+
+if __name__ == "__main__":
+    cpus = os.cpu_count()
+    chunk = 1_000_000 // cpus
+    with Pool(cpus) as pool:
+        results = pool.map(cpu_work, [chunk] * cpus)
+    print(sum(results))`;
+
+<TsGo client:visible ts={tsMp} go={pyMp} />
+
+หมายเหตุ: Playground ไม่พร้อมใช้งานสำหรับบทเรียนนี้ เนื่องจากตัวอย่าง multiprocessing ต้องการ `if __name__ == "__main__"` guard และรันได้ถูกต้องเฉพาะในสภาพแวดล้อม process แบบ fork เท่านั้น
+
+<PyOnly title="อนาคตของ GIL: Python 3.13 และ free-threaded mode">
+
+**PEP 703 — Making the Global Interpreter Lock Optional**
+
+Python 3.13 นำเสนอ **free-threaded CPython** เป็น experimental build (`python3.13t`) GIL จะถูกปิดการใช้งาน ทำให้ thread สามารถรัน Python bytecode แบบขนานได้จริงบน CPU หลายตัว
+
+ในระหว่างนี้ ecosystem ของ Python จัดการกับข้อจำกัดของ GIL ด้วยสามวิธีหลัก:
+
+1. **`asyncio`** — I/O-bound concurrency บน single thread ด้วย event loop (คล้ายกับ Node.js มาก)
+2. **`threading`** — ดีสำหรับ I/O-bound workload, GIL จะถูก release ระหว่างรอ I/O
+3. **`multiprocessing` / `ProcessPoolExecutor`** — CPU-bound parallelism ที่แท้จริงโดยใช้หลาย process
+
+สำหรับโค้ด data science, NumPy และ pandas ปล่อย GIL ระหว่าง C-level operation ดังนั้น thread ของ Python จึงทำให้ได้ parallelism จริงสำหรับการดำเนินการ array และ DataFrame
+
+**`concurrent.futures` — abstraction layer ระดับสูง**
+
+```python
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+
+# I/O-bound: ใช้ thread
+with ThreadPoolExecutor(max_workers=10) as executor:
+    futures = [executor.submit(fetch_url, url) for url in urls]
+    results = [f.result() for f in futures]
+
+# CPU-bound: ใช้ process
+with ProcessPoolExecutor() as executor:
+    results = list(executor.map(cpu_intensive, data_chunks))
+```
+
+`concurrent.futures` มี API เดียวกันสำหรับทั้ง thread และ process ทำให้ง่ายต่อการสลับระหว่างกันตามลักษณะของ workload
+
+</PyOnly>
+
+export const quizGil = [
+  {
+    q: 'GIL ใน CPython ทำอะไร?',
+    options: [
+      'ป้องกันไม่ให้ Python สร้าง thread ได้',
+      'อนุญาตให้ Python bytecode ทำงานได้ครั้งละหนึ่ง thread เท่านั้น',
+      'Lock file system ระหว่าง I/O operations',
+      'ทำให้ Python ทำงานเร็วขึ้นบน CPU เดี่ยว',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'threading ของ Python ให้ประโยชน์จริงสำหรับ workload ประเภทใด?',
+    options: [
+      'การคำนวณตัวเลขบน CPU-intensive',
+      'การ compress ข้อมูลขนาดใหญ่',
+      'I/O-bound tasks เช่น network requests และ file reads',
+      'Machine learning training',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'วิธีใดที่ Python แนะนำสำหรับ CPU-bound parallelism จริง ๆ?',
+    options: [
+      'threading.Thread',
+      'asyncio.gather',
+      'multiprocessing.Pool',
+      'concurrent.futures.ThreadPoolExecutor',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'Python version ใดที่แนะนำ free-threaded mode (GIL optional) เป็น experimental?',
+    options: [
+      'Python 3.10',
+      'Python 3.11',
+      'Python 3.12',
+      'Python 3.13',
+    ],
+    answer: 3,
+  },
+];
+
+<Quiz client:visible id="py-only/gil-preview" questions={quizGil} />
+
+<ProgressTracker client:visible id="py-only/gil-preview" />

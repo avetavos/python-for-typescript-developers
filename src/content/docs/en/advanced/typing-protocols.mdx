@@ -1,0 +1,286 @@
+---
+title: Typing & Protocols
+description: Python's structural typing system — Protocol, TypeVar, Generic, TypedDict, Optional/Union — compared directly to TypeScript interfaces and generics.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## TypeScript interfaces → Python Protocols
+
+In TypeScript, an interface defines a contract. Any object that has the required shape satisfies it — this is called **structural typing**. Python's `Protocol` (from the `typing` module) is exactly the same idea: a class satisfies a Protocol if it has the right methods and attributes, regardless of what it inherits from.
+
+export const protoTs = `// TypeScript structural interface
+interface Drawable {
+  draw(): string;
+}
+
+function render(shape: Drawable): string {
+  return shape.draw();
+}
+
+class Circle {
+  draw() { return "Drawing Circle"; }
+}
+
+class Square {
+  draw() { return "Drawing Square"; }
+}
+
+console.log(render(new Circle()));  // "Drawing Circle"
+console.log(render(new Square()));  // "Drawing Square"`;
+
+export const protoPy = `from typing import Protocol
+
+class Drawable(Protocol):
+    def draw(self) -> str: ...
+
+def render(shape: Drawable) -> str:
+    return shape.draw()
+
+class Circle:
+    def draw(self) -> str:
+        return "Drawing Circle"
+
+class Square:
+    def draw(self) -> str:
+        return "Drawing Square"
+
+print(render(Circle()))  # Drawing Circle
+print(render(Square()))  # Drawing Square`;
+
+<TsGo client:visible ts={protoTs} go={protoPy} />
+
+Notice `Circle` and `Square` do **not** inherit from `Drawable`. They just happen to have a `draw()` method with the right signature — that is enough. Static analysis tools like `mypy` and `pyright` will catch violations.
+
+## Generics: TypeVar and Generic
+
+TypeScript generics map directly to Python's `TypeVar` + `Generic`.
+
+export const genericTs = `// TypeScript generic class
+class Stack<T> {
+  private items: T[] = [];
+  push(item: T): void { this.items.push(item); }
+  pop(): T { return this.items.pop()!; }
+  peek(): T { return this.items[this.items.length - 1]; }
+}
+
+const stack = new Stack<number>();
+stack.push(1);
+stack.push(2);
+console.log(stack.pop()); // 2`;
+
+export const genericPy = `from typing import TypeVar, Generic
+
+T = TypeVar('T')
+
+class Stack(Generic[T]):
+    def __init__(self) -> None:
+        self._items: list[T] = []
+
+    def push(self, item: T) -> None:
+        self._items.append(item)
+
+    def pop(self) -> T:
+        return self._items.pop()
+
+    def peek(self) -> T:
+        return self._items[-1]
+
+stack: Stack[int] = Stack()
+stack.push(1)
+stack.push(2)
+print(stack.pop())   # 2`;
+
+<TsGo client:visible ts={genericTs} go={genericPy} />
+
+From Python 3.9+ you can also write `list[T]` directly in class bodies without importing `List` from `typing`. From 3.12, `type T = ...` syntax was added as a shorthand — but `TypeVar` remains the most compatible form.
+
+## TypedDict: typed dictionaries
+
+`TypedDict` is Python's equivalent of a TypeScript interface that describes a plain object (no methods). It is perfect for JSON-shaped data.
+
+export const tdictTs = `// TypeScript interface for a plain object
+interface UserRecord {
+  name: string;
+  age: number;
+  email?: string;  // optional key
+}
+
+const user: UserRecord = { name: "Alice", age: 30 };
+console.log(user.name);`;
+
+export const tdictPy = `from typing import TypedDict, NotRequired
+
+class UserRecord(TypedDict):
+    name: str
+    age: int
+    email: NotRequired[str]   # optional key
+
+user: UserRecord = {"name": "Alice", "age": 30}
+print(user["name"])   # Alice
+
+# mypy/pyright will catch missing required keys:
+# bad: UserRecord = {"name": "Alice"}  # age missing`;
+
+<TsGo client:visible ts={tdictTs} go={tdictPy} />
+
+## Optional and Union
+
+TypeScript uses `string | null | undefined` for nullable types. Python uses `Optional[T]` (which is `T | None`) or the modern union syntax `T | None` (Python 3.10+).
+
+export const optTs = `// TypeScript
+function greet(name: string | null): string {
+  if (name === null) return "Hello, stranger!";
+  return \`Hello, \${name}!\`;
+}
+
+// Modern TS nullable shorthand
+function greet2(name?: string): string {
+  return name ? \`Hello, \${name}!\` : "Hello, stranger!";
+}`;
+
+export const optPy = `from typing import Optional
+
+# Optional[str] is exactly str | None
+def greet(name: Optional[str] = None) -> str:
+    if name is None:
+        return "Hello, stranger!"
+    return f"Hello, {name}!"
+
+# Python 3.10+ union syntax
+def greet_modern(name: str | None = None) -> str:
+    return f"Hello, {name}!" if name else "Hello, stranger!"
+
+print(greet())           # Hello, stranger!
+print(greet("Alice"))    # Hello, Alice!`;
+
+<TsGo client:visible ts={optTs} go={optPy} />
+
+## Try it
+
+export const typingPlaygroundCode = `from typing import Protocol, TypeVar, Generic, TypedDict, Optional
+
+# Protocol — structural typing
+class Serializable(Protocol):
+    def to_json(self) -> str: ...
+
+class User:
+    def __init__(self, name: str, age: int) -> None:
+        self.name = name
+        self.age = age
+    def to_json(self) -> str:
+        return f'{{"name": "{self.name}", "age": {self.age}}}'
+
+class Product:
+    def __init__(self, title: str) -> None:
+        self.title = title
+    def to_json(self) -> str:
+        return f'{{"title": "{self.title}"}}'
+
+def export_data(item: Serializable) -> str:
+    return item.to_json()
+
+print(export_data(User("Alice", 30)))
+print(export_data(Product("Widget")))
+
+# Generic Stack
+T = TypeVar('T')
+
+class Stack(Generic[T]):
+    def __init__(self) -> None:
+        self._items: list[T] = []
+    def push(self, item: T) -> None:
+        self._items.append(item)
+    def pop(self) -> T:
+        return self._items.pop()
+
+s: Stack[str] = Stack()
+s.push("hello")
+s.push("world")
+print(s.pop())
+
+# TypedDict
+class Config(TypedDict):
+    host: str
+    port: int
+
+cfg: Config = {"host": "localhost", "port": 8080}
+print(f"Connecting to {cfg['host']}:{cfg['port']}")
+
+# Optional
+def find_user(user_id: int) -> Optional[str]:
+    db = {1: "Alice", 2: "Bob"}
+    return db.get(user_id)
+
+print(find_user(1))   # Alice
+print(find_user(99))  # None
+`;
+
+<Playground client:visible code={typingPlaygroundCode} />
+
+<PyOnly title="Runtime type checking with isinstance and Protocol">
+
+TypeScript's type guards (`x is string`) are a compile-time concept. Python's `isinstance()` is a **runtime** check. From Python 3.12, you can use `isinstance(obj, SomeProtocol)` if the Protocol is decorated with `@runtime_checkable`:
+
+```python
+from typing import Protocol, runtime_checkable
+
+@runtime_checkable
+class Drawable(Protocol):
+    def draw(self) -> str: ...
+
+class Circle:
+    def draw(self) -> str:
+        return "circle"
+
+print(isinstance(Circle(), Drawable))  # True
+```
+
+Without `@runtime_checkable`, `isinstance` with a Protocol raises `TypeError`. This is the runtime type-narrowing escape hatch — the closest thing Python has to a TS type guard.
+
+</PyOnly>
+
+export const quizTypingProtocols = [
+  {
+    q: 'Which Python class serves as the direct equivalent to a TypeScript structural interface?',
+    options: ['ABC (Abstract Base Class)', 'Protocol', 'TypedDict', 'Generic'],
+    answer: 1,
+  },
+  {
+    q: 'What does `Optional[str]` mean in Python\'s typing module?',
+    options: [
+      'A string that may be empty',
+      'A string with a default value',
+      'Either `str` or `None`',
+      'A string that is lazily evaluated',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'For Python\'s Protocols to work with `isinstance()` at runtime, what decorator is required?',
+    options: [
+      '@staticmethod',
+      '@runtime_checkable',
+      '@abstractmethod',
+      '@dataclass',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'Does a class need to explicitly inherit from a `Protocol` to satisfy it?',
+    options: [
+      'Yes — explicit inheritance is required',
+      'No — it only needs to implement the required methods (structural typing)',
+      'Only if the Protocol has more than one method',
+      'Only in Python 3.10+',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="advanced/typing-protocols" questions={quizTypingProtocols} />
+
+<ProgressTracker client:visible id="advanced/typing-protocols" />

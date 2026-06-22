@@ -1,0 +1,173 @@
+---
+title: Async & Concurrency — ภาพรวม
+description: โมเดล concurrency ของ Python เทียบกับ event loop single-threaded ของ JavaScript, concurrency vs parallelism และการแนะนำ GIL
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## มาจากโลก JavaScript ที่เป็น single-thread
+
+JavaScript ทำงานบน thread เดียว มี call stack เดียว event loop เดียว และไม่มีการแชร์ memory ระหว่าง concurrent units of work เมื่อคุณเขียน `async/await` ใน Node.js คุณกำลัง schedule microtasks บน thread เดียวนั้น — ไม่มีการทำสองสิ่งพร้อมกันจริงๆ ภายใน process เดียว
+
+Python ให้คุณ **เครื่องมือ concurrency สามอย่าง** และคุณต้องเลือกให้เหมาะกับงาน:
+
+| เครื่องมือ | คืออะไร | เหมาะกับ |
+|---|---|---|
+| `asyncio` | Cooperative concurrency แบบ single-threaded | โค้ด I/O-bound async (HTTP, DB, ไฟล์) |
+| `threading` | OS threads ที่แชร์ interpreter เดียวกัน | โค้ด I/O-bound, library แบบ blocking เก่า |
+| `multiprocessing` | Separate OS processes | งาน CPU-bound ที่ต้องการ parallelism จริงๆ |
+
+## Concurrency vs Parallelism
+
+คำสองคำนี้มักถูกนำมาใช้แทนกัน แต่ความหมายต่างกัน:
+
+- **Concurrency** — หลาย task *อยู่ระหว่างดำเนินการ* ในเวลาเดียวกัน แต่ไม่จำเป็นต้อง execute พร้อมกันทุกนาที event loop สลับระหว่าง task เมื่อ task หนึ่งกำลังรอ นี่คือวิธีที่ Node.js ทำงาน และวิธีที่ `asyncio` ของ Python ทำงาน
+- **Parallelism** — หลาย task *execute* พร้อมกันทุกขณะบน CPU core ต่างกัน สิ่งนี้ต้องการหลาย OS process ใน Python (หรือหลาย thread ในภาษาอื่นๆ ส่วนใหญ่)
+
+export const concurrencyTs = `// JavaScript/Node.js
+// Concurrency via the event loop — single thread, never truly parallel
+async function fetchUser(id: number): Promise<User> {
+  // While this awaits, other promises can run
+  return await db.query("SELECT * FROM users WHERE id = $1", [id]);
+}
+
+// Promise.all is concurrent, not parallel — still one thread
+const [user, posts] = await Promise.all([
+  fetchUser(1),
+  fetchPosts(1),
+]);`;
+
+export const concurrencyPy = `# Python
+# asyncio — same single-threaded cooperative model as JS
+import asyncio
+
+async def fetch_user(user_id: int) -> dict:
+    # While this awaits, other coroutines can run
+    await asyncio.sleep(0)  # yield to event loop
+    return {"id": user_id}
+
+# asyncio.gather — same idea as Promise.all
+async def main() -> None:
+    user, posts = await asyncio.gather(
+        fetch_user(1),
+        fetch_posts(1),
+    )`;
+
+<TsGo client:visible ts={concurrencyTs} go={concurrencyPy} />
+
+## ภาพรวมทั้งสามชั้น
+
+export const layersTs = `// JavaScript has one model: event loop + Web Workers for threads
+// One thread for JS logic, workers for CPU work (separate memory)
+
+// Main thread
+const worker = new Worker("worker.js");
+worker.postMessage({ data: bigArray });
+worker.onmessage = (e) => console.log(e.data);`;
+
+export const layersPy = `# Python has three models
+import asyncio          # like Node's event loop
+import threading        # OS threads (limited by GIL — see below)
+import multiprocessing  # true parallelism, separate memory
+
+# Pick based on your bottleneck:
+# waiting on network/disk → asyncio or threading
+# heavy CPU math         → multiprocessing`;
+
+<TsGo client:visible ts={layersTs} go={layersPy} />
+
+<PyOnly title="GIL — ข้อจำกัด concurrency ที่สำคัญที่สุดของ Python">
+
+**Global Interpreter Lock (GIL)** คือ mutex ภายใน CPython (Python interpreter มาตรฐาน) ที่รับประกันว่า thread เดียวเท่านั้นที่สามารถ execute Python bytecode ได้ในเวลาใดเวลาหนึ่ง
+
+ผลกระทบหลักต่อ threading:
+
+- **Thread แบบ I/O-bound ทำงานได้ดี** ขณะที่ thread หนึ่งรอการตอบสนองจากเครือข่าย GIL จะถูก release และ thread อื่นสามารถทำงานได้
+- **Thread แบบ CPU-bound ไม่ได้เร็วขึ้น** สอง thread ที่คำนวณตัวเลขจะไม่ใช้สอง core — GIL บังคับให้ผลัดกันทำงาน
+
+หากมาจาก JavaScript คุณใช้ชีวิตกับข้อจำกัดนี้อยู่แล้ว (thread เดียว) แต่อาจแปลกใจเมื่อคาดหวังว่า Python thread จะ parallelize งาน CPU เหมือน Java หรือ Go
+
+ทางออกสำหรับงาน CPU-bound คือ `multiprocessing`: แต่ละ process มี GIL ของตัวเอง (และ memory ของตัวเอง) ดังนั้นงาน CPU-bound จึงสามารถ run บนทุก core ที่มีได้
+
+```python
+# GIL is released during I/O → threads CAN overlap here
+import threading, urllib.request
+
+def download(url: str) -> None:
+    urllib.request.urlopen(url)  # GIL released while waiting
+
+# GIL is NOT released during pure Python computation
+def compute(n: int) -> int:
+    return sum(range(n))  # threads here won't run in parallel
+```
+
+Python 3.13 เปิดตัว **experimental no-GIL build** (PEP 703) ยังไม่เป็นค่า default แต่ทิศทางนั้นชัดเจนแล้ว
+
+</PyOnly>
+
+## ควรเลือกเครื่องมือไหน?
+
+```
+bottleneck คือการรอ I/O (network, disk, DB) ใช่ไหม?
+    └─ ใช่ → ใช้ asyncio (แนะนำ) หรือ threading
+           asyncio ถ้าคุณควบคุมโค้ดและใช้ async library ได้
+           threading ถ้าต้องการ wrap library แบบ blocking/legacy
+
+bottleneck คือการคำนวณ CPU (math, image processing, ML)?
+    └─ ใช่ → ใช้ multiprocessing (ข้าม GIL)
+
+ต้องการ API ระดับสูงที่ง่ายๆ?
+    └─ ใช่ → ใช้ concurrent.futures (ครอบทั้ง threading และ multiprocessing)
+```
+
+บทเรียนที่เหลือในโมดูลนี้จะครอบคลุมแต่ละเครื่องมืออย่างละเอียด
+
+export const quizIndex = [
+  {
+    q: 'ความแตกต่างหลักระหว่าง concurrency และ parallelism คืออะไร?',
+    options: [
+      'เป็นคำพ้องความหมาย — ทั้งคู่หมายถึงการทำงานพร้อมกัน',
+      'Concurrency หมายถึง task ซ้อนทับกันในการดำเนินการ; parallelism หมายถึง execute พร้อมกันบน core ต่างกัน',
+      'Parallelism เป็นไปได้เฉพาะกับ asyncio',
+      'Concurrency ต้องการ CPU หลาย core',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'ควรเลือกเครื่องมือ Python ใดสำหรับงาน CPU-bound ที่ต้องการ parallelism จริงๆ?',
+    options: [
+      'asyncio',
+      'threading',
+      'multiprocessing',
+      'concurrent.futures กับ ThreadPoolExecutor',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'ทำไม Python thread จึงไม่ได้ parallelism สำหรับงาน CPU-bound?',
+    options: [
+      'Python thread เริ่มต้นช้าเกินไป',
+      'GIL รับประกันว่า thread เดียวเท่านั้นที่ run Python bytecode ได้ในเวลาหนึ่ง',
+      'Python ไม่มี OS-level thread support',
+      'งาน CPU-bound ต้องการ asyncio เสมอ',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'concept ของ JavaScript ใดที่เปรียบเทียบได้ใกล้เคียงที่สุดกับ asyncio ของ Python?',
+    options: [
+      'Web Workers (SharedArrayBuffer)',
+      'Single-threaded event loop กับ Promises / async-await',
+      'Node.js child_process.fork()',
+      'Synchronous XMLHttpRequest',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="concurrency/index" questions={quizIndex} />
+
+<ProgressTracker client:visible id="concurrency/index" />

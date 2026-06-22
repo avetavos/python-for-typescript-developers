@@ -1,0 +1,206 @@
+---
+title: Dependency Injection
+description: FastAPI's Depends() system for reusable dependencies — compared to NestJS DI and Express middleware.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## What problem does DI solve?
+
+In every API you have shared concerns: getting a DB session, reading the current user from a token, or validating common query parameters. In Express you solve this with middleware. In NestJS you use its IoC container with `@Injectable()` providers. FastAPI uses `Depends()` — a lightweight, composable DI system declared entirely via type hints.
+
+## Depends() vs Express middleware vs NestJS providers
+
+export const diTs = `// Express middleware (global side-effect style)
+function authMiddleware(req, res, next) {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+  req.user = verifyToken(token);   // attach to req
+  next();
+}
+app.use(authMiddleware);
+
+// NestJS — @Injectable() provider
+@Injectable()
+export class AuthService {
+  getCurrentUser(token: string): User { ... }
+}
+// inject via constructor
+constructor(private authService: AuthService) {}`;
+
+export const diPy = `# FastAPI — Depends()
+from fastapi import FastAPI, Depends, HTTPException, Header
+from typing import Optional
+
+app = FastAPI()
+
+# A dependency is just a callable
+def get_current_user(authorization: Optional[str] = Header(None)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    token = authorization.removeprefix("Bearer ")
+    return {"user_id": 1, "token": token}   # return the value you need
+
+# Inject with Depends() — runs before the handler
+@app.get("/profile")
+async def get_profile(current_user: dict = Depends(get_current_user)):
+    return {"user": current_user}`;
+
+<TsGo client:visible ts={diTs} go={diPy} />
+
+## Reusable query parameters
+
+A very common pattern is a shared "pagination" dependency that multiple routes share — the equivalent of a custom Express middleware or a NestJS `PaginationDto`.
+
+export const paginationTs = `// NestJS — shared DTO
+export class PaginationDto {
+  @IsOptional() @Type(() => Number) @IsInt() @Min(0)
+  skip?: number = 0;
+
+  @IsOptional() @Type(() => Number) @IsInt() @Max(100)
+  limit?: number = 10;
+}
+
+@Get()
+findAll(@Query() pagination: PaginationDto) { ... }`;
+
+export const paginationPy = `# FastAPI — pagination as a Depends
+from fastapi import FastAPI, Depends
+
+app = FastAPI()
+
+class PaginationParams:
+    def __init__(self, skip: int = 0, limit: int = 10):
+        if skip < 0:
+            raise HTTPException(status_code=400, detail="skip must be >= 0")
+        if limit > 100:
+            raise HTTPException(status_code=400, detail="limit must be <= 100")
+        self.skip = skip
+        self.limit = limit
+
+@app.get("/items")
+async def list_items(pagination: PaginationParams = Depends()):
+    return {"skip": pagination.skip, "limit": pagination.limit}
+
+@app.get("/users")
+async def list_users(pagination: PaginationParams = Depends()):
+    return {"skip": pagination.skip, "limit": pagination.limit}`;
+
+<TsGo client:visible ts={paginationTs} go={paginationPy} />
+
+## DB session dependency
+
+The most important dependency in a real app is the database session. FastAPI's `Depends()` handles the lifecycle — open, yield to the handler, close on completion. This mirrors the "unit of work" pattern NestJS handles via `@InjectRepository()`.
+
+export const dbDepTs = `// NestJS — TypeORM via constructor injection
+@Injectable()
+export class ItemsService {
+  constructor(
+    @InjectRepository(Item)
+    private readonly itemRepo: Repository<Item>,
+  ) {}
+  async findAll() { return this.itemRepo.find(); }
+}`;
+
+export const dbDepPy = `# FastAPI — SQLAlchemy session via Depends
+from fastapi import FastAPI, Depends
+from sqlalchemy.orm import Session
+from app.database import SessionLocal
+
+app = FastAPI()
+
+# Generator dependency — yields session, cleans up after
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db        # ← handler receives this value
+    finally:
+        db.close()      # ← always runs, even on exception
+
+@app.get("/items/{item_id}")
+async def get_item(item_id: int, db: Session = Depends(get_db)):
+    item = db.get(Item, item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return item`;
+
+<TsGo client:visible ts={dbDepTs} go={dbDepPy} />
+
+## Composing dependencies
+
+Dependencies can depend on other dependencies — forming a chain. This is how you layer auth → permissions → resource fetching.
+
+export const chainTs = `// NestJS guard chain
+@UseGuards(AuthGuard, RolesGuard)
+@Roles('admin')
+@Get(':id')
+findOne(@Param('id') id: string) { ... }`;
+
+export const chainPy = `# FastAPI — dependencies compose naturally
+from fastapi import FastAPI, Depends
+
+app = FastAPI()
+
+def get_current_user(token: str = Depends(get_token)):
+    return decode_token(token)
+
+def require_admin(user: dict = Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    return user
+
+@app.delete("/items/{item_id}")
+async def delete_item(item_id: int, _: dict = Depends(require_admin)):
+    return {"deleted": item_id}`;
+
+<TsGo client:visible ts={chainTs} go={chainPy} />
+
+<PyOnly title="Depends() uses Python's type-hint introspection">
+
+FastAPI's DI works by inspecting the function signature at startup using Python's `inspect` module. It reads each parameter's type hint, finds any `Depends()` default values, and builds a dependency graph automatically — similar to how Angular or NestJS reads `@Injectable()` metadata, but without decorators or a separate IoC container.
+
+This means dependencies are just plain Python functions or classes. There is no `@Injectable()`, no module registration, and no global container to configure. You compose them by passing one `Depends()` inside another.
+
+</PyOnly>
+
+> **Run this locally — needs FastAPI + a server.**
+> Playground is skipped for this lesson because `Depends()` requires the FastAPI request lifecycle to execute.
+
+export const quizDI = [
+  {
+    q: 'What is the FastAPI equivalent of NestJS\'s @Injectable() service for a shared DB session?',
+    options: [
+      'A class decorated with @service',
+      'A generator function that yields the session, used with Depends()',
+      'A global variable initialized at startup',
+      'A singleton registered with app.provide()',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'In FastAPI, what does `yield` inside a dependency function enable?',
+    options: [
+      'Returning multiple values from the dependency',
+      'Cleanup code (like closing a DB session) that runs after the handler completes',
+      'Streaming responses to the client',
+      'Caching the dependency result across requests',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'How does FastAPI know a route parameter should be resolved via DI rather than from the URL or request body?',
+    options: [
+      'You annotate it with @Inject()',
+      'Its default value is Depends(some_callable)',
+      'Its type hint is a subclass of Dependency',
+      'You register it in app.dependency_overrides',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="api-fastapi/dependency-injection" questions={quizDI} />
+
+<ProgressTracker client:visible id="api-fastapi/dependency-injection" />

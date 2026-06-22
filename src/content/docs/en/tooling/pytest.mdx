@@ -1,0 +1,215 @@
+---
+title: Testing with pytest
+description: pytest basics, test discovery, and assertions — mapped to jest for TypeScript developers.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## jest → pytest
+
+If you know `jest`, `pytest` will feel familiar in structure but delightfully simpler in syntax. No `.toBe()`, no `expect()` wrappers — pytest uses plain Python `assert` statements and its magic rewrites them to show helpful diffs on failure.
+
+## Installing pytest
+
+> Run this in your terminal:
+
+```bash
+pip install pytest
+# or:
+uv add --dev pytest
+
+# Run all tests
+pytest
+
+# Run with verbose output
+pytest -v
+
+# Run a specific file
+pytest tests/test_math.py
+
+# Run a specific test by name
+pytest tests/test_math.py::test_add
+```
+
+## Writing your first test
+
+export const jestTest = `// jest — TypeScript
+import { add, greet } from './math';
+
+describe('math utils', () => {
+  test('adds two numbers', () => {
+    expect(add(2, 3)).toBe(5);
+  });
+
+  test('greet returns a string', () => {
+    expect(greet('Alice')).toBe('Hello, Alice!');
+  });
+
+  test('throws on negative input', () => {
+    expect(() => add(-1, 0)).toThrow('negative');
+  });
+});`;
+
+export const pytestTest = `# pytest — Python
+# File must start with test_ or end with _test.py
+# Functions must start with test_
+
+from math_utils import add, greet
+import pytest
+
+def test_adds_two_numbers():
+    assert add(2, 3) == 5
+
+def test_greet_returns_string():
+    assert greet("Alice") == "Hello, Alice!"
+
+def test_raises_on_negative_input():
+    with pytest.raises(ValueError, match="negative"):
+        add(-1, 0)`;
+
+<TsGo client:visible ts={jestTest} go={pytestTest} />
+
+## Test discovery rules
+
+pytest finds tests automatically — no test runner config needed to get started:
+
+| Rule | pytest | jest |
+|---|---|---|
+| File pattern | `test_*.py` or `*_test.py` | `*.test.ts` or `*.spec.ts` |
+| Function pattern | `test_*` | `test(...)` or `it(...)` |
+| Class pattern | `Test*` (no `__init__`) | `describe(...)` |
+| Setup | `setup_method` / fixtures | `beforeEach` |
+| Teardown | `teardown_method` / fixtures | `afterEach` |
+
+## Fixtures — pytest's beforeEach
+
+In jest you use `beforeEach` / `afterEach`. pytest uses **fixtures**: dependency-injected functions that set up and optionally tear down resources. They are more powerful than beforeEach because they compose and have controlled scopes.
+
+export const jestFixture = `// jest beforeEach
+let db: MockDatabase;
+
+beforeEach(() => {
+  db = new MockDatabase();
+  db.seed([{ id: 1, name: 'Alice' }]);
+});
+
+afterEach(() => {
+  db.close();
+});
+
+test('finds a user', () => {
+  expect(db.find(1)).toEqual({ id: 1, name: 'Alice' });
+});`;
+
+export const pytestFixture = `# pytest fixture — equivalent to beforeEach/afterEach
+import pytest
+
+@pytest.fixture
+def db():
+    database = MockDatabase()
+    database.seed([{"id": 1, "name": "Alice"}])
+    yield database       # test runs here
+    database.close()     # teardown after yield
+
+def test_finds_a_user(db):   # pytest injects the fixture
+    assert db.find(1) == {"id": 1, "name": "Alice"}`;
+
+<TsGo client:visible ts={jestFixture} go={pytestFixture} />
+
+## Parametrize — data-driven tests
+
+export const jestParametrize = `// jest — test.each for data-driven tests
+test.each([
+  [1, 2, 3],
+  [0, 0, 0],
+  [-1, 1, 0],
+])('add(%i, %i) = %i', (a, b, expected) => {
+  expect(add(a, b)).toBe(expected);
+});`;
+
+export const pytestParametrize = `# pytest — @pytest.mark.parametrize
+import pytest
+
+@pytest.mark.parametrize("a, b, expected", [
+    (1, 2, 3),
+    (0, 0, 0),
+    (-1, 1, 0),
+])
+def test_add(a, b, expected):
+    assert add(a, b) == expected`;
+
+<TsGo client:visible ts={jestParametrize} go={pytestParametrize} />
+
+## Try it — assertions in action
+
+export const assertDemo = `# pytest-style assertions work in plain Python too
+def add(a: int, b: int) -> int:
+    return a + b
+
+def test_basic():
+    assert add(2, 3) == 5
+    assert add(0, 0) == 0
+
+def test_string():
+    message = "Hello, World!"
+    assert "World" in message
+    assert message.startswith("Hello")
+    assert len(message) == 13
+
+# Run the tests manually
+test_basic()
+test_string()
+print("All assertions passed!")
+`;
+
+<Playground client:visible code={assertDemo} />
+
+> Playground note: The snippet above shows Python's plain `assert` statements. The full pytest runner (test discovery, fixtures, parametrize, `--cov`) requires a terminal with `pytest` installed. Run `pytest -v` in your project to see the real experience.
+
+<PyOnly title="pytest vs unittest — ignore unittest for new projects">
+
+Python ships with a built-in `unittest` module that mirrors Java's JUnit. You may encounter it in legacy codebases: it requires classes inheriting from `unittest.TestCase` and verbose assertion methods like `self.assertEqual(a, b)`.
+
+For new projects, use `pytest`. It is simpler, more expressive, requires no boilerplate classes, and is the industry standard. pytest can also run `unittest`-style tests, so migration is gradual.
+
+</PyOnly>
+
+export const quizPytest = [
+  {
+    q: 'By default, pytest discovers test functions in files that match which pattern?',
+    options: ['*.spec.py', '*.test.py', 'test_*.py or *_test.py', 'tests/**/*.py'],
+    answer: 2,
+  },
+  {
+    q: 'What is the pytest equivalent of jest\'s beforeEach / afterEach pattern?',
+    options: ['@pytest.setup decorator', 'pytest fixtures with yield', 'conftest.py class methods', 'setUp/tearDown methods'],
+    answer: 1,
+  },
+  {
+    q: 'How do you write an assertion in pytest?',
+    options: [
+      'expect(result).toBe(5)',
+      'assert result == 5',
+      'assertEqual(result, 5)',
+      'pytest.assert(result, 5)',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'Which decorator enables data-driven (parametrized) tests in pytest?',
+    options: [
+      '@pytest.mark.data',
+      '@pytest.test_each',
+      '@pytest.mark.parametrize',
+      '@parametrize',
+    ],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="tooling/pytest" questions={quizPytest} />
+
+<ProgressTracker client:visible id="tooling/pytest" />

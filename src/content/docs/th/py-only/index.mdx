@@ -1,0 +1,142 @@
+---
+title: Python ที่ TypeScript ไม่มี
+description: ภาพรวมของ concept ใน Python ที่ไม่มีคู่เทียบตรงๆ ใน TypeScript
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## ดินแดนที่มีแค่ Python
+
+TypeScript คือ superset ของ JavaScript — มันเพิ่ม type เข้ามา แต่ runtime ยังคงเป็น JS เหมือนเดิม Python ต่างออกไป มันถูกออกแบบมาตั้งแต่ต้นด้วย philosophy ที่ต่างกัน นั่นคือ code ควรอ่านได้เหมือน pseudocode ที่รันได้จริง ผลลัพธ์คือภาษาที่มี concept หลายอย่างซึ่งหาคู่เทียบใน TypeScript หรือ JavaScript ไม่ได้เลย
+
+โมดูลนี้จะพาไปดูสิบ concept เหล่านั้น:
+
+1. **Significant whitespace** — การย่อหน้าคือ syntax ไม่ใช่แค่ลวดลาย
+2. **Duck typing และ EAFP** — รองรับ behavior โดยไม่ต้องประกาศ interface พร้อมกับรูปแบบการจัดการ error แบบลองก่อนแล้วค่อยแก้
+3. **Dunder methods** — การ overload operator ผ่าน `__add__`, `__str__` และเพื่อนๆ
+4. **Decorators** — function wrapper ชั้นหนึ่ง ถูกใช้อย่างหนักในเฟรมเวิร์กอย่าง FastAPI
+5. **Comprehensions** — สร้าง list, dict และ set แบบกระชับในบรรทัดเดียว
+6. **Generators และ `yield`** — sequence แบบ lazy ที่ผลิตค่าตามต้องการ
+7. **Unpacking, `*args`, `**kwargs`** — signature ของฟังก์ชันที่ยืดหยุ่น และการ destructure iterable
+8. **Context managers** — บล็อก `with` ที่รับประกันการจัดการ resource อย่างถูกต้อง
+9. **Slicing** — syntax สำหรับตัด subsequence จาก list, string และอื่นๆ
+10. **GIL** — Global Interpreter Lock และผลกระทบต่อ concurrency
+
+## ความรู้สึก: braces กับ whitespace
+
+ความแตกต่างที่เห็นได้ชัดที่สุดระหว่าง TypeScript กับ Python คือ syntax TypeScript สืบทอดสไตล์ C ของ JavaScript ด้วย braces และ semicolons ส่วน Python ไม่มีทั้งสองอย่าง
+
+export const tsFeelIndex = `// TypeScript: braces and semicolons everywhere
+function greet(name: string): string {
+  if (name) {
+    return \`Hello, \${name}!\`;
+  } else {
+    return "Hello, stranger!";
+  }
+}
+
+const items: number[] = [1, 2, 3];
+for (const item of items) {
+  console.log(item);
+}`;
+
+export const pyFeelIndex = `# Python: indentation defines blocks
+def greet(name: str) -> str:
+    if name:
+        return f"Hello, \${name}!"
+    else:
+        return "Hello, stranger!"
+
+items: list[int] = [1, 2, 3]
+for item in items:
+    print(item)`;
+
+<TsGo client:visible ts={tsFeelIndex} go={pyFeelIndex} />
+
+## ลองด้วยตัวเอง
+
+export const playgroundIndex = `# A taste of Python's feel
+def describe(value):
+    if isinstance(value, int):
+        print(f"\${value} is an integer")
+    elif isinstance(value, str):
+        print(f'"\${value}" is a string')
+    elif isinstance(value, list):
+        print(f"\${value} is a list with \${len(value)} items")
+    else:
+        print(f"\${value} is something else")
+
+describe(42)
+describe("hello")
+describe([1, 2, 3])
+describe(3.14)
+
+# Python reads like prose
+numbers = [1, 2, 3, 4, 5]
+evens = [n for n in numbers if n % 2 == 0]
+print(f"Even numbers: \${evens}")
+`;
+
+<Playground client:visible code={playgroundIndex} />
+
+<PyOnly title="มาครบ: philosophy การออกแบบของ Python">
+
+TypeScript สืบทอดโมเดล ecosystem ของ JavaScript มาด้วย นั่นคือ core ของภาษาเล็กมาก และแทบทุกอย่างต้องไปหยิบจาก npm Python ถูกออกแบบด้วย philosophy ตรงข้าม standard library มาพร้อม HTTP, JSON, CSV, ZIP, database, email, HTML parsing, cryptography และอีกมาก แนวคิดนี้เรียกว่า "batteries included"
+
+เสาหลักที่สองคือความอ่านง่าย Guido van Rossum ผู้สร้าง Python ได้เขียน Zen of Python เอาไว้ (อ่านได้โดยรัน `import this` ใน Python interpreter ใดก็ได้) บรรทัดแรกและถูกอ้างถึงมากที่สุดคือ:
+
+> Beautiful is better than ugly. Explicit is better than implicit. Simple is better than complex.
+
+ผลลัพธ์ที่ใช้งานได้จริงสำหรับนักพัฒนา TypeScript คือ คุณจะพบว่าตัวเองหยิบ module จาก standard library แทนที่จะติดตั้ง package บ่อยครั้ง ลองเช็ค `import os`, `import pathlib`, `import json`, `import csv`, `import http.client` และ `import dataclasses` ก่อนไปค้นหาใน PyPI
+
+</PyOnly>
+
+export const quizIndex = [
+  {
+    q: 'Python ใช้ concept อะไรแทน curly braces สำหรับกำหนด code block?',
+    options: [
+      'วงเล็บ (Parentheses)',
+      'Significant whitespace (การย่อหน้า)',
+      'คำสั่ง BEGIN/END',
+      'วงเล็บก้ามปู (Square brackets)',
+    ],
+    answer: 1,
+  },
+  {
+    q: '"batteries included" ในบริบทของ Python หมายความว่าอย่างไร?',
+    options: [
+      'Python มาพร้อม code editor ในตัว',
+      'Python ไม่ต้องใช้ hardware ใดๆ',
+      'Python standard library มีเครื่องมือสำหรับงานทั่วไปส่วนใหญ่โดยไม่ต้องติดตั้ง package เพิ่ม',
+      'Python ติดตั้ง dependency ให้อัตโนมัติ',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'ข้อใดต่อไปนี้เป็น concept เฉพาะของ Python ที่ไม่มีคู่เทียบตรงๆ ใน TypeScript?',
+    options: [
+      'Arrow functions',
+      'Generics',
+      'Context managers (บล็อก `with`)',
+      'Template literals',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'อ่าน Zen of Python ได้ที่ไหน?',
+    options: [
+      'รัน `python --zen`',
+      'รัน `import this` ใน Python interpreter',
+      'ใน Python README บน GitHub',
+      'รัน `help(zen)` ใน Python interpreter',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="py-only/index" questions={quizIndex} />
+
+<ProgressTracker client:visible id="py-only/index" />

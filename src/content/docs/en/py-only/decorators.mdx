@@ -1,0 +1,196 @@
+---
+title: "Decorators"
+description: Python decorators with @syntax, functions as first-class objects, wrapping behavior vs TypeScript decorators.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## Decorators: wrapping behavior without modifying code
+
+TypeScript has decorators too, but they are an experimental feature, tied to classes, and their behavior has shifted across TypeScript and ECMAScript proposals. Python's decorators are stable, simpler, and work on any function — not just class methods. They are used so pervasively in Python frameworks (Flask routes, FastAPI endpoints, Celery tasks, `dataclasses.dataclass`) that you will encounter them in almost every Python codebase.
+
+A decorator is just a function that takes a function and returns a new function. The `@name` syntax is shorthand for `func = name(func)`.
+
+## Wrapping a function
+
+The canonical pattern is wrapping an existing function to add behavior before and after the call. On the TypeScript side, achieving the same effect on a plain function requires either a higher-order function called manually or a class decorator that only works on methods.
+
+export const tsDecorators = `// TypeScript: class method decorator (experimental, stage 3)
+// Works on class methods, not plain functions
+function log(target: any, key: string, descriptor: PropertyDescriptor) {
+  const original = descriptor.value;
+  descriptor.value = function (...args: any[]) {
+    console.log(\`Calling \${key}...\`);
+    const result = original.apply(this, args);
+    console.log(\`\${key} finished.\`);
+    return result;
+  };
+  return descriptor;
+}
+
+class Greeter {
+  @log
+  greet(name: string) {
+    console.log(\`Hello, \${name}!\`);
+  }
+}
+
+// For a plain function you must wrap it manually:
+function withLog<T extends (...args: any[]) => any>(fn: T): T {
+  return ((...args: any[]) => {
+    console.log(\`Calling \${fn.name}...\`);
+    const result = fn(...args);
+    console.log(\`\${fn.name} finished.\`);
+    return result;
+  }) as T;
+}
+
+const greet = withLog((name: string) => console.log(\`Hello, \${name}!\`));
+greet("Alice");`;
+
+export const pyDecorators = `# Python: decorators work on any function, syntax is @name
+import functools
+
+def timer_decorator(func):
+    @functools.wraps(func)        # preserves __name__, __doc__, etc.
+    def wrapper(*args, **kwargs):
+        print(f"Calling \${func.__name__}...")
+        result = func(*args, **kwargs)
+        print(f"\${func.__name__} finished.")
+        return result
+    return wrapper
+
+@timer_decorator               # equivalent to: greet = timer_decorator(greet)
+def greet(name):
+    print(f"Hello, \${name}!")
+
+greet("Alice")
+# Output:
+# Calling greet...
+# Hello, Alice!
+# greet finished.`;
+
+<TsGo client:visible ts={tsDecorators} go={pyDecorators} />
+
+## Decorators with arguments: decorator factories
+
+When you need to pass configuration to a decorator, you add an outer function that accepts the arguments and returns the actual decorator. This is called a decorator factory.
+
+```python
+def repeat(n):
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            for _ in range(n):
+                func(*args, **kwargs)
+        return wrapper
+    return decorator
+
+@repeat(3)          # repeat(3) returns decorator; decorator(say_hi) returns wrapper
+def say_hi():
+    print("Hi!")
+
+say_hi()   # prints "Hi!" three times
+```
+
+The three-level nesting (factory -> decorator -> wrapper) is the standard pattern whenever a decorator needs parameters.
+
+## Try it
+
+export const playgroundDecorators = `import functools
+
+def timer_decorator(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        print(f"Calling \${func.__name__}...")
+        result = func(*args, **kwargs)
+        print(f"\${func.__name__} finished.")
+        return result
+    return wrapper
+
+@timer_decorator
+def greet(name):
+    print(f"Hello, \${name}!")
+
+greet("Alice")
+
+def repeat(n):
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            for _ in range(n):
+                func(*args, **kwargs)
+        return wrapper
+    return decorator
+
+@repeat(3)
+def say_hi():
+    print("Hi!")
+
+say_hi()
+`;
+
+<Playground client:visible code={playgroundDecorators} />
+
+<PyOnly title="Decorators run at definition time, not call time">
+
+This is the most important subtlety for TypeScript developers to internalize: **a Python decorator runs once when the module is imported (or the function is defined), not each time the decorated function is called.**
+
+When Python processes:
+
+```python
+@timer_decorator
+def greet(name):
+    print(f"Hello, {name}!")
+```
+
+it immediately executes `greet = timer_decorator(greet)`. By the time any code calls `greet("Alice")`, the decoration is already done — `greet` is already the wrapper function.
+
+Practical consequences:
+
+- **Startup cost** — if your decorator does expensive work at decoration time (registering a route, connecting to a service), that cost is paid at import time, not per call. Flask and FastAPI exploit this: `@app.route("/")` registers the route into the app's routing table immediately.
+- **Stacking order** — when you stack multiple decorators, they apply bottom-up but execute top-down. Given `@A` over `@B` over `def f`, Python runs `f = A(B(f))`. When `f()` is called, A's wrapper runs first, then B's.
+- **`functools.wraps` is not optional in production code** — without it, `greet.__name__` returns `"wrapper"` instead of `"greet"`, and `greet.__doc__` is lost. This breaks introspection, logging, and some testing tools.
+- **Class-based decorators** — a class can also serve as a decorator if it implements `__call__`. Instances of the class become the wrapped function. This is useful when a decorator needs to maintain state across calls.
+
+</PyOnly>
+
+export const quizDecorators = [
+  {
+    q: 'When does a Python decorator run?',
+    options: [
+      'Each time the decorated function is called',
+      'Once, when the function is defined (at import time)',
+      'Only when the module is explicitly reloaded',
+      'When the decorated function is garbage-collected',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'What does `@functools.wraps(func)` do inside a decorator?',
+    options: [
+      'It makes the wrapper function run faster',
+      'It copies the original function\'s __name__, __doc__, and other metadata onto the wrapper',
+      'It prevents the wrapper from being decorated again',
+      'It automatically calls the original function',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'What is the equivalent plain Python of `@my_decorator` applied to `def foo(): ...`?',
+    options: [
+      'foo = foo(my_decorator)',
+      'foo = my_decorator(foo)',
+      'my_decorator.apply(foo)',
+      'foo.__wrap__(my_decorator)',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="py-only/decorators" questions={quizDecorators} />
+
+<ProgressTracker client:visible id="py-only/decorators" />

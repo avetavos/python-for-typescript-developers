@@ -1,0 +1,199 @@
+---
+title: Responses และ Status Codes
+description: response_model, status codes และ JSONResponse ใน FastAPI เปรียบเทียบกับ res.json() และ res.status() ใน Express
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+
+## การส่งคืน JSON
+
+ใน Express คุณเรียก `res.json(data)` ใน FastAPI คุณแค่ return Python dict, list หรือ Pydantic model จาก handler function — FastAPI serialize เป็น JSON อัตโนมัติ
+
+export const returnTs = `// Express
+app.get('/items/:id', (req, res) => {
+  res.json({ id: Number(req.params.id), name: 'Widget' });
+});
+
+// พร้อม status code
+app.post('/items', (req, res) => {
+  res.status(201).json({ id: 42, ...req.body });
+});`;
+
+export const returnPy = `# FastAPI
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.get("/items/{item_id}")
+async def get_item(item_id: int):
+    return {"id": item_id, "name": "Widget"}   # auto-serialize
+
+@app.post("/items", status_code=201)           # status เริ่มต้นผ่าน decorator
+async def create_item(item: dict):
+    return {"id": 42, **item}`;
+
+<TsGo client:visible ts={returnTs} go={returnPy} />
+
+## response_model — กรองและกำหนดรูปร่าง output
+
+`response_model` เป็น decorator argument ที่บอก FastAPI ว่าจะใช้ Pydantic model ใดในการ serialize response มันจะกรอง field ที่ไม่อยู่ใน model ออก (มีประโยชน์สำหรับซ่อน password หรือ field ภายใน) และ validate ข้อมูลขาออก
+
+export const respModelTs = `// TypeScript — เลือก fields เอง
+interface ItemPublic { id: number; name: string; price: number; }
+
+app.get('/items/:id', (req, res) => {
+  const dbRow = getFromDB(req.params.id);
+  const { id, name, price } = dbRow;   // strip secret fields เอง
+  res.json({ id, name, price } as ItemPublic);
+});`;
+
+export const respModelPy = `# FastAPI response_model strip fields อัตโนมัติ
+from fastapi import FastAPI
+from pydantic import BaseModel
+
+class ItemInDB(BaseModel):     # full model พร้อม internal fields
+    id: int
+    name: str
+    price: float
+    hashed_password: str       # ไม่ควรส่งกลับ
+
+class ItemPublic(BaseModel):   # model ที่ปลอดภัยสำหรับ public
+    id: int
+    name: str
+    price: float
+
+app = FastAPI()
+
+@app.get("/items/{item_id}", response_model=ItemPublic)
+async def get_item(item_id: int):
+    # hashed_password จะถูก strip อัตโนมัติ
+    return ItemInDB(id=item_id, name="Widget",
+                    price=9.99, hashed_password="secret")`;
+
+<TsGo client:visible ts={respModelTs} go={respModelPy} />
+
+## Status codes
+
+FastAPI expose `status` module จาก Starlette สำหรับ named constants เทียบเท่ากับ `http-status` package ของ Node
+
+export const statusTs = `// Express พร้อม http-status
+import status from 'http-status';
+res.status(status.CREATED).json(data);      // 201
+res.status(status.NO_CONTENT).send();       // 204
+res.status(status.NOT_FOUND).json({...});   // 404`;
+
+export const statusPy = `# FastAPI status constants
+from fastapi import FastAPI
+from fastapi import status
+
+app = FastAPI()
+
+@app.post("/items", status_code=status.HTTP_201_CREATED)
+async def create_item(item: dict):
+    return item
+
+@app.delete("/items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_item(item_id: int):
+    return None   # 204 — ไม่มี body`;
+
+<TsGo client:visible ts={statusTs} go={statusPy} />
+
+## JSONResponse — ควบคุมโดยตรง
+
+เมื่อต้องการตั้ง custom headers หรือ override status code แบบ dynamic ใช้ `JSONResponse` โดยตรง เทียบเท่ากับการสร้าง `res` object เอง ใน Express
+
+export const jsonRespTs = `// Express — set headers เอง
+app.get('/download', (req, res) => {
+  res.set('X-Custom-Header', 'value');
+  res.status(200).json({ url: 'https://...' });
+});`;
+
+export const jsonRespPy = `# FastAPI JSONResponse
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse
+
+app = FastAPI()
+
+@app.get("/download")
+async def download():
+    return JSONResponse(
+        content={"url": "https://example.com/file.zip"},
+        status_code=200,
+        headers={"X-Custom-Header": "value"},
+    )`;
+
+<TsGo client:visible ts={jsonRespTs} go={jsonRespPy} />
+
+## ลองเล่น — JSON serialization ด้วย stdlib
+
+> รันที่เครื่องตัวเองสำหรับ FastAPI response จริง snippet ด้านล่างแสดง `json` module ของ Python ซึ่ง FastAPI ใช้ภายใต้ hood
+
+export const jsonCode = `import json
+from datetime import datetime
+
+# จำลอง output ของ Pydantic model's .model_dump()
+item = {
+    "id": 1,
+    "name": "Widget",
+    "price": 9.99,
+    "in_stock": True,
+    "tags": ["sale", "new"],
+    "created_at": datetime.utcnow().isoformat() + "Z",
+}
+
+# Serialize — สิ่งที่ FastAPI ส่งผ่าน wire
+encoded = json.dumps(item, indent=2)
+print("Response body:")
+print(encoded)
+
+# Deserialize — สิ่งที่ client ได้รับ
+decoded = json.loads(encoded)
+print(f"\\nDecoded type: {type(decoded)}")
+print(f"name={decoded['name']}, price={decoded['price']}")
+
+# response_model filtering equivalent
+public_fields = {"id", "name", "price"}
+filtered = {k: v for k, v in decoded.items() if k in public_fields}
+print(f"\\nFiltered (response_model): {filtered}")
+`;
+
+<Playground client:visible code={jsonCode} />
+
+export const quizResponses = [
+  {
+    q: 'argument `response_model` ใน FastAPI route decorator ทำอะไร?',
+    options: [
+      'ตรวจสอบ request body ขาเข้า',
+      'กรองและตรวจสอบ response ขาออกโดยใช้ Pydantic model',
+      'ตั้ง Content-Type header',
+      'กำหนด HTTP methods ที่ route ยอมรับ',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'จะส่งคืน 204 No Content response ใน FastAPI ได้อย่างไร?',
+    options: [
+      'return Response(status_code=204)',
+      'raise HTTPException(status_code=204)',
+      'ตั้ง status_code=204 ใน decorator และ return None',
+      'return JSONResponse(content=None)',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'FastAPI equivalent ของ Express\'s res.json() คืออะไร?',
+    options: [
+      'ต้องใช้ JSONResponse() เสมอ',
+      'แค่ return dict หรือ Pydantic model จาก handler',
+      'ใช้ return json.dumps(data)',
+      'เรียก app.json(data) บน app instance',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="api-fastapi/responses" questions={quizResponses} />
+
+<ProgressTracker client:visible id="api-fastapi/responses" />

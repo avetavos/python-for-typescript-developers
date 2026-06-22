@@ -1,0 +1,164 @@
+---
+title: Modules & Packages
+description: import, from...import, packages และ pip ของ Python เทียบกับ ESM และ npm
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+
+## Modules: แนวคิดที่คุ้นเคย แต่ syntax เรียบง่ายกว่า
+
+ระบบโมดูลของ Python มีแนวคิดเหมือนกับ ESM ทุกประการ: ทุกไฟล์ `.py` คือหนึ่งโมดูล คุณ import จากไฟล์อื่นหรือจาก package ที่ติดตั้งไว้ และตัวจัดการ package (`pip`) ดูแล dependency จากภายนอก syntax นั้นสะอาดกว่า — ไม่มีคีย์เวิร์ด `export` ไม่มีการแยกแยะระหว่าง `default` กับ named export
+
+## การ import โมดูล
+
+export const importTs = `// TypeScript (ESM)
+import * as fs from "fs";
+import { join, dirname } from "path";
+import axios from "axios";  // default export from npm
+
+// Named import with alias
+import { readFileSync as readFile } from "fs";
+
+console.log(join("src", "main.ts"));`;
+
+export const importPy = `# Python
+import os                          # import whole module
+from os.path import join, dirname  # import specific names
+import math as m                   # import with alias
+from math import sqrt, pi          # import names directly
+
+print(join("src", "main.py"))
+print(m.floor(3.7))
+print(sqrt(16))`;
+
+<TsGo client:visible ts={importTs} go={importPy} />
+
+## Packages เทียบกับ modules
+
+ใน Python:
+- **module** คือไฟล์ `.py` ไฟล์เดียว
+- **package** คือไดเรกทอรีที่มีไฟล์ `__init__.py` (Python 3.3+ ยังรองรับ "namespace packages" ที่ไม่มีไฟล์นี้ด้วย)
+
+export const pkgTs = `// TypeScript project structure
+// src/
+//   utils/
+//     index.ts      ← barrel export
+//     string.ts
+//     number.ts
+//   main.ts
+
+// main.ts
+import { formatDate } from "./utils";
+import { capitalize } from "./utils/string";`;
+
+export const pkgPy = `# Python package structure
+# src/
+#   utils/
+#     __init__.py   ← marks it as a package
+#     string_utils.py
+#     number_utils.py
+#   main.py
+
+# main.py
+from utils import format_date        # from __init__.py
+from utils.string_utils import capitalize`;
+
+<TsGo client:visible ts={pkgTs} go={pkgPy} />
+
+## pip — npm ของ Python
+
+`pip` คือตัวติดตั้ง package มาตรฐาน สิ่งที่เทียบเท่า `package.json` ในระบบนิเวศ Python คือ `requirements.txt` (แบบง่าย) หรือ `pyproject.toml` (แบบสมัยใหม่)
+
+export const pipTs = `# npm / Node.js workflow
+# package.json declares dependencies
+
+npm install           # install all deps
+npm install express   # add a package
+npm install -D jest   # add dev dependency
+
+# import in code
+import express from "express";`;
+
+export const pipPy = `# pip / Python workflow
+# requirements.txt declares dependencies
+
+pip install -r requirements.txt  # install all
+pip install fastapi               # add a package
+pip install pytest --dev          # dev dependency
+
+# requirements.txt
+# fastapi==0.110.0
+# uvicorn==0.27.0
+# pytest==7.4.0
+
+# Modern: use pyproject.toml + pip install -e .`;
+
+<TsGo client:visible ts={pipTs} go={pipPy} tsTitle="npm (Node.js)" goTitle="pip (Python)" />
+
+## Standard library — มาพร้อมทุกอย่างในตัว
+
+Python มาพร้อม standard library ที่อุดมสมบูรณ์ หลายอย่างที่คุณต้องพึ่ง npm นั้น Python มีให้ในตัวอยู่แล้ว:
+
+| Python stdlib | สิ่งที่เทียบเท่าใน npm |
+|---|---|
+| `json` | `JSON.parse` / `JSON.stringify` |
+| `os`, `pathlib` | `path`, `fs` |
+| `datetime` | `date-fns`, `dayjs` |
+| `re` | รูปแบบ `regexp` |
+| `collections` | โครงสร้างข้อมูลของ lodash |
+| `itertools` | ตัวช่วยวนซ้ำของ lodash |
+| `http.server` | express (พื้นฐานมาก) |
+| `unittest` | jest (พื้นฐาน) |
+
+## ลองเล่นดู
+
+export const modulesCode = `import os
+import math
+from collections import Counter
+
+# os — path manipulation
+path = os.path.join("src", "utils", "main.py")
+print(f"Path: {path}")
+
+# math — built-in math functions
+print(f"sqrt(144) = {math.sqrt(144)}")
+print(f"pi = {math.pi:.4f}")
+print(f"ceil(2.3) = {math.ceil(2.3)}")
+
+# collections.Counter — frequency counting
+words = ["apple", "banana", "apple", "cherry", "banana", "apple"]
+freq = Counter(words)
+print(f"Word counts: {dict(freq)}")
+print(f"Most common: {freq.most_common(2)}")
+`;
+
+<Playground client:visible code={modulesCode} />
+
+export const quizModules = [
+  {
+    q: 'อะไรคือสิ่งที่เทียบเท่า npm ใน Python?',
+    options: ['cargo', 'gem', 'pip', 'brew'],
+    answer: 2,
+  },
+  {
+    q: 'ใน Python ไฟล์ใดทำให้ไดเรกทอรีกลายเป็น package?',
+    options: ['package.py', '__init__.py', 'index.py', 'mod.py'],
+    answer: 1,
+  },
+  {
+    q: 'รูปแบบ import ใดนำเฉพาะ `sqrt` เข้ามาใน namespace ปัจจุบัน?',
+    options: [
+      'import math',
+      'import math.sqrt',
+      'from math import sqrt',
+      'from math import *',
+    ],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="python-101/modules" questions={quizModules} />
+
+<ProgressTracker client:visible id="python-101/modules" />

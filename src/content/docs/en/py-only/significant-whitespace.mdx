@@ -1,0 +1,180 @@
+---
+title: Significant Whitespace
+description: Python uses indentation to define code blocks — no curly braces, no semicolons.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## Indentation is syntax, not style
+
+In TypeScript, indentation is cosmetic. A linter enforces it for readability, but the compiler ignores it entirely — your code runs the same with zero indentation or inconsistent spacing. In Python, indentation is part of the grammar. The interpreter uses it to determine where a block begins and ends. There are no curly braces and no `end` keywords.
+
+This is not a quirk — it is a deliberate design decision that forces readable code by construction.
+
+## if, for, and function blocks
+
+export const tsWhitespace = `// TypeScript: braces delimit every block
+function classify(n: number): string {
+  if (n > 0) {
+    return "positive";
+  } else if (n < 0) {
+    return "negative";
+  } else {
+    return "zero";
+  }
+}
+
+for (let i = 0; i < 3; i++) {
+  if (i % 2 === 0) {
+    console.log(\`\${i} is even\`);
+  }
+}`;
+
+export const pyWhitespace = `# Python: indentation delimits every block
+def classify(n: int) -> str:
+    if n > 0:
+        return "positive"
+    elif n < 0:
+        return "negative"
+    else:
+        return "zero"
+
+for i in range(3):
+    if i % 2 == 0:
+        print(f"\${i} is even")`;
+
+<TsGo client:visible ts={tsWhitespace} go={pyWhitespace} />
+
+Key syntax differences to notice:
+- The `function` keyword becomes `def`, followed by the function name and a colon.
+- `else if` in TypeScript is `elif` in Python (no separate `else if`).
+- Every block-opening line ends with a colon (`:`).
+- The conventional indent is **4 spaces**. Tabs work but mixing tabs and spaces raises a `TabError`.
+
+## IndentationError: Python's most beginner-visible error
+
+If you get the indentation wrong, Python raises an `IndentationError` before the code even runs. This is the Python equivalent of a TypeScript "unexpected token" compile error.
+
+export const tsIndentTs = `// TypeScript: this still runs (just ugly style)
+function add(a: number, b: number) {
+return a + b; // no indent — TS doesn't care
+}`;
+
+export const pyIndentPy = `# Python: this raises IndentationError
+def add(a: int, b: int) -> int:
+return a + b  # missing indent — SyntaxError at parse time
+
+# Correct version:
+def add(a: int, b: int) -> int:
+    return a + b  # 4 spaces`;
+
+<TsGo client:visible ts={tsIndentTs} go={pyIndentPy} />
+
+## Nested blocks
+
+Nesting works by adding another level of indentation for each block. Python's parser tracks the indentation level, so there is no limit to nesting depth — though the Zen of Python advises keeping it flat.
+
+export const tsNestedWhitespace = `// TypeScript nested blocks
+function processMatrix(matrix: number[][]): void {
+  for (const row of matrix) {
+    for (const cell of row) {
+      if (cell > 0) {
+        console.log(\`positive: \${cell}\`);
+      }
+    }
+  }
+}`;
+
+export const pyNestedWhitespace = `# Python nested blocks
+def process_matrix(matrix: list[list[int]]) -> None:
+    for row in matrix:
+        for cell in row:
+            if cell > 0:
+                print(f"positive: \${cell}")`;
+
+<TsGo client:visible ts={tsNestedWhitespace} go={pyNestedWhitespace} />
+
+## Try it
+
+export const playgroundWhitespace = `# Python uses indentation — no curly braces needed
+def greet(name):
+    if name:
+        print(f"Hello, \${name}!")
+    else:
+        print("Hello, stranger!")
+
+greet("Alice")
+greet("")
+
+for i in range(3):
+    if i % 2 == 0:
+        print(f"\${i} is even")
+    else:
+        print(f"\${i} is odd")
+`;
+
+<Playground client:visible code={playgroundWhitespace} />
+
+<PyOnly title="The Zen of Python: readability counts">
+
+The choice to make whitespace significant was not accidental. Guido van Rossum made it a core part of Python's identity, and it is summarised in the second line of the Zen of Python:
+
+> Readability counts.
+
+In most C-style languages, a team must agree on a brace style (Allman, K&R, 1TBS) and enforce it via linters. In Python, there is nothing to argue about. Every Python file uses the same block delimiters: a colon and four spaces. Code written by different developers on different teams in different companies looks structurally identical.
+
+For TypeScript developers, the biggest mental shift is trusting that the lack of braces is not a limitation — it is a feature. You will find that Python code is often faster to scan because your eyes do not have to filter out `{` and `}` on their own lines.
+
+Run `import this` in any Python interpreter to read the full Zen of Python. The line "There should be one — and preferably only one — obvious way to do it" explains why Python made indentation the only option rather than one of many.
+
+</PyOnly>
+
+export const quizWhitespace = [
+  {
+    q: 'What does Python use instead of curly braces to delimit code blocks?',
+    options: [
+      'Parentheses and semicolons',
+      'BEGIN and END keywords',
+      'Indentation (significant whitespace)',
+      'Square brackets',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'What error does Python raise when indentation is incorrect?',
+    options: [
+      'TypeError',
+      'IndentationError',
+      'BlockError',
+      'ValueError',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'In Python, what is the TypeScript `else if` equivalent?',
+    options: [
+      'else if',
+      'elseif',
+      'elif',
+      'or if',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'What character must appear at the end of every block-opening line in Python?',
+    options: [
+      'A semicolon (;)',
+      'A colon (:)',
+      'An opening brace ({)',
+      'A pipe (|)',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="py-only/significant-whitespace" questions={quizWhitespace} />
+
+<ProgressTracker client:visible id="py-only/significant-whitespace" />

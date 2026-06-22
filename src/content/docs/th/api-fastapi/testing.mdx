@@ -1,0 +1,212 @@
+---
+title: Testing ด้วย TestClient และ pytest
+description: การเขียน API tests ใน FastAPI โดยใช้ TestClient และ pytest เปรียบเทียบกับ supertest และ Jest ใน Node
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## supertest / Jest → TestClient + pytest
+
+ใน Node คุณใช้ **supertest** ทำ HTTP requests กับ Express หรือ NestJS app ใน process และ **Jest** เป็น test runner ใน FastAPI คุณใช้ **`TestClient`** (จาก Starlette, bundled กับ FastAPI) สำหรับ in-process HTTP requests และ **pytest** เป็น test runner
+
+export const testSetupTs = `// Jest + supertest — app.test.ts
+import request from 'supertest';
+import { app } from '../src/app';
+
+describe('GET /items/:id', () => {
+  it('returns an item', async () => {
+    const res = await request(app).get('/items/1');
+    expect(res.status).toBe(200);
+    expect(res.body.id).toBe(1);
+  });
+
+  it('returns 404 for unknown id', async () => {
+    const res = await request(app).get('/items/9999');
+    expect(res.status).toBe(404);
+  });
+});`;
+
+export const testSetupPy = `# pytest + TestClient — test_items.py
+from fastapi.testclient import TestClient
+from app.main import app
+
+client = TestClient(app)
+
+def test_get_item():
+    response = client.get("/items/1")
+    assert response.status_code == 200
+    assert response.json()["id"] == 1
+
+def test_get_item_not_found():
+    response = client.get("/items/9999")
+    assert response.status_code == 404`;
+
+<TsGo client:visible ts={testSetupTs} go={testSetupPy} />
+
+## Testing POST พร้อม request body
+
+export const testPostTs = `// supertest POST
+it('creates an item', async () => {
+  const res = await request(app)
+    .post('/items')
+    .send({ name: 'Widget', price: 9.99 })
+    .set('Content-Type', 'application/json');
+
+  expect(res.status).toBe(201);
+  expect(res.body.name).toBe('Widget');
+});
+
+it('rejects invalid input', async () => {
+  const res = await request(app)
+    .post('/items')
+    .send({ name: '', price: -1 });
+  expect(res.status).toBe(422);
+});`;
+
+export const testPostPy = `# TestClient POST
+def test_create_item():
+    response = client.post(
+        "/items",
+        json={"name": "Widget", "price": 9.99},
+    )
+    assert response.status_code == 201
+    assert response.json()["name"] == "Widget"
+
+def test_create_item_invalid():
+    response = client.post(
+        "/items",
+        json={"name": "", "price": -1},
+    )
+    assert response.status_code == 422`;
+
+<TsGo client:visible ts={testPostTs} go={testPostPy} />
+
+## Override dependencies ใน tests
+
+pattern การ testing ที่สำคัญใน FastAPI คือ `app.dependency_overrides` ซึ่งแทนที่ dependencies จริง (เช่น database session) ด้วย test doubles เทียบเท่ากับ `jest.mock()` หรือ `overrideProvider()` ของ NestJS
+
+export const overrideTs = `// NestJS — override provider ใน tests
+const moduleRef = await Test.createTestingModule({
+  providers: [ItemsService],
+})
+.overrideProvider(DatabaseService)
+.useValue({ findById: jest.fn().mockResolvedValue({ id: 1 }) })
+.compile();`;
+
+export const overridePy = `# FastAPI — dependency_overrides
+from fastapi.testclient import TestClient
+from app.main import app
+from app.database import get_db
+
+# Fake DB session สำหรับ tests
+def override_get_db():
+    yield FakeDBSession()
+
+app.dependency_overrides[get_db] = override_get_db
+
+client = TestClient(app)
+
+def test_get_item_with_fake_db():
+    response = client.get("/items/1")
+    assert response.status_code == 200
+
+# Restore หลัง tests (หรือใช้ pytest fixture)
+app.dependency_overrides.clear()`;
+
+<TsGo client:visible ts={overrideTs} go={overridePy} />
+
+## pytest fixtures สำหรับ setup/teardown
+
+`@pytest.fixture` ของ pytest เทียบเท่ากับ `beforeEach` / `afterEach` ของ Jest ไฟล์ `conftest.py` แชร์ fixtures ข้าม test files เหมือน Jest global setup file
+
+export const fixtureTs = `// Jest beforeEach / afterEach
+let client: TestClient;
+
+beforeAll(async () => {
+  const app = await NestFactory.create(AppModule);
+  await app.init();
+  client = app.getHttpServer();
+});
+
+afterAll(async () => { await app.close(); });`;
+
+export const fixturePy = `# pytest — conftest.py fixtures
+import pytest
+from fastapi.testclient import TestClient
+from app.main import app
+from app.database import Base, engine, get_db
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+TEST_DB_URL = "sqlite:///./test.db"
+test_engine = create_engine(TEST_DB_URL, connect_args={"check_same_thread": False})
+TestSession = sessionmaker(bind=test_engine)
+
+@pytest.fixture(scope="module")
+def client():
+    Base.metadata.create_all(bind=test_engine)
+    def override_db():
+        db = TestSession()
+        try:
+            yield db
+        finally:
+            db.close()
+    app.dependency_overrides[get_db] = override_db
+    with TestClient(app) as c:
+        yield c
+    Base.metadata.drop_all(bind=test_engine)`;
+
+<TsGo client:visible ts={fixtureTs} go={fixturePy} />
+
+<PyOnly title="pytest discovery และ naming conventions">
+
+pytest ค้นหา test files อัตโนมัติถ้าคุณทำตาม naming convention:
+
+- ชื่อไฟล์ต้องขึ้นต้นด้วย `test_` หรือลงท้ายด้วย `_test.py`
+- ชื่อ function ภายในต้องขึ้นต้นด้วย `test_`
+- ไม่ต้อง import pytest ในไฟล์ test (ยกเว้น `pytest.fixture`)
+
+ต่างจาก Jest ที่เรียก `describe()` และ `it()` pytest ใช้ plain functions คุณจัดกลุ่ม tests ด้วย class ที่ขึ้นต้นด้วย `Test` (ไม่มี `__init__`)
+
+```bash
+# รัน tests ทั้งหมด
+pytest
+
+# รัน พร้อม output และ coverage
+pytest -v --cov=app --cov-report=term-missing
+```
+
+</PyOnly>
+
+> **รันที่เครื่องตัวเอง — ต้องการ FastAPI + httpx + pytest**
+> ติดตั้ง: `pip install httpx pytest pytest-cov`
+> Playground ข้ามในบทเรียนนี้: TestClient ต้องการ FastAPI app จริงและ HTTP lifecycle
+
+export const quizTesting = [
+  {
+    q: 'FastAPI equivalent ของ supertest npm package สำหรับ in-process HTTP testing คืออะไร?',
+    options: ['requests', 'httpx', 'TestClient จาก fastapi.testclient', 'aiohttp'],
+    answer: 2,
+  },
+  {
+    q: 'จะแทนที่ real database session ด้วย fake ใน FastAPI tests ได้อย่างไร?',
+    options: [
+      'ใช้ unittest.mock.patch บน route',
+      'ตั้ง app.dependency_overrides[get_db] = fake_db_function',
+      'Monkeypatch SessionLocal class',
+      'ส่ง test= flag ให้ FastAPI constructor',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'ไฟล์ใดที่แชร์ pytest fixtures ข้าม test files ทั้งหมดในไดเรกทอรี?',
+    options: ['pytest.ini', 'setup.py', 'conftest.py', 'test_helpers.py'],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="api-fastapi/testing" questions={quizTesting} />
+
+<ProgressTracker client:visible id="api-fastapi/testing" />

@@ -1,0 +1,173 @@
+---
+title: Virtual Envs, pip, uv และ Poetry
+description: Virtual environments, pip + requirements.txt, uv และ Poetry/pyproject.toml — เทียบกับ npm/package.json/lockfiles
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## npm/package.json → pip/venv/pyproject.toml
+
+การจัดการ package คือจุดที่ประวัติศาสตร์ tooling ของ Python ปรากฏชัดเจนที่สุด Node มี model เดียว: `npm` ติดตั้งลงใน `node_modules`, `package.json` ประกาศ dependencies และ `package-lock.json` lock versions ที่แน่นอน Python มีสามชั้นที่คุณต้องเข้าใจ: ตัว interpreter เอง, ชั้น isolation (venv) และจากนั้น package manager ด้านบน
+
+## ชั้นที่ 1: Virtual Environments (venv)
+
+> รันในเทอร์มินัลของคุณ:
+
+```bash
+# สร้าง virtual environment ในโฟลเดอร์ .venv
+python3 -m venv .venv
+
+# เปิดใช้งาน — ต้องทำทุกครั้งที่เปิด terminal ใหม่
+source .venv/bin/activate          # macOS / Linux
+# .venv\Scripts\activate.bat       # Windows CMD
+# .venv\Scripts\Activate.ps1       # Windows PowerShell
+
+# ยืนยัน python ไหนที่ active อยู่
+which python   # ควรชี้ไปที่ .venv/bin/python
+
+# ปิดใช้งาน
+deactivate
+```
+
+เมื่อ activate แล้ว `pip install X` จะติดตั้งลงใน `.venv` เท่านั้น เพิ่ม `.venv/` ลงใน `.gitignore` ของคุณ
+
+<PyOnly title="Virtual environments: concept เฉพาะ Python">
+
+นักพัฒนา Node มักสับสนกับ virtual environments เพราะ Node ไม่มี concept ที่เทียบเท่า — โฟลเดอร์ `node_modules` ของแต่ละ project เป็น local โดยการออกแบบ
+
+target การติดตั้งค่าเริ่มต้นของ Python คือ system (หรือ user) `site-packages` directory ที่แชร์กันระหว่าง projects ทั้งหมด หากไม่มี venv การติดตั้ง `requests==2.28` สำหรับ Project A อาจทำให้ Project B ที่ต้องการ `requests==2.31` พัง
+
+venv คือ directory ที่มีทุกอย่างในตัวเองซึ่งมี: copy (หรือ symlink) ของ Python binary, `pip` ใหม่ และ `site-packages` ที่แยกออกมา สร้างและลบได้ง่าย
+
+กฎ: **activate venv ก่อนติดตั้ง packages เสมอ** ทีมส่วนใหญ่ตรวจสอบขั้นตอนการสร้าง `.venv` ใน README หรือ Makefile ของตน
+
+</PyOnly>
+
+## ชั้นที่ 2: pip + requirements.txt (แบบเก่า)
+
+export const npmClassic = `# npm classic workflow
+npm install express        # เพิ่มใน package.json + node_modules
+npm install -D jest        # dev dependency
+npm install                # ติดตั้งจาก package.json
+npm ci                     # clean install จาก lock file (CI)
+
+# package.json excerpt:
+# {
+#   "dependencies": { "express": "^4.18.2" },
+#   "devDependencies": { "jest": "^29.0.0" }
+# }`;
+
+export const pipClassic = `# pip classic workflow
+pip install requests                       # ติดตั้งลงใน active venv
+pip install pytest --upgrade               # ติดตั้ง/upgrade dev dep
+pip freeze > requirements.txt              # snapshot versions ทั้งหมดที่ติดตั้ง
+pip install -r requirements.txt            # reproduce จาก snapshot
+
+# requirements.txt excerpt:
+# requests==2.31.0
+# certifi==2024.2.2
+# charset-normalizer==3.3.2`;
+
+<TsGo client:visible ts={npmClassic} go={pipClassic} />
+
+`requirements.txt` เป็นวิธีที่เก่าแก่ที่สุด ใช้งานได้ แต่ไม่มีการแยกแยะระหว่าง direct และ transitive dependencies การแทนที่สมัยใหม่คือ `pyproject.toml`
+
+## ชั้นที่ 3: uv — tool สมัยใหม่ที่รวดเร็ว
+
+`uv` (โดย Astral ทีมเดียวกับ ruff) คือ replacement ที่เขียนด้วย Rust สำหรับ pip และ venv รวมกัน เร็วกว่า pip 10–100 เท่าและจัดการ virtual environments อัตโนมัติ
+
+```bash
+# ติดตั้ง uv (ครั้งเดียว แบบ global)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# สร้าง project ใหม่ (สร้าง pyproject.toml + .venv)
+uv init my-project
+cd my-project
+
+# เพิ่ม dependency (อัพเดต pyproject.toml + uv.lock)
+uv add fastapi
+
+# เพิ่ม dev dependency
+uv add --dev pytest ruff mypy
+
+# Sync environment จาก pyproject.toml (เหมือน npm ci)
+uv sync
+
+# รัน command ภายใน venv โดยไม่ต้อง activate
+uv run python main.py
+uv run pytest
+```
+
+## ชั้นที่ 4: Poetry — ประสบการณ์แบบ npm
+
+Poetry เป็น tool แรกที่รวม project metadata, dependency resolution และการจัดการ virtual environment ไว้ใน CLI เดียวที่ ergonomic หลาย projects ที่มีอยู่ใช้มัน
+
+export const npmLike = `# npm-like workflow
+npm init                      # scaffold package.json
+npm install express           # เพิ่ม runtime dep
+npm install -D jest           # เพิ่ม dev dep
+npm run start                 # รัน script
+npm run test                  # รัน tests
+cat package-lock.json         # lock file ที่แน่นอน`;
+
+export const poetryLike = `# Poetry — npm-like workflow สำหรับ Python
+poetry new my-project         # scaffold pyproject.toml + src/
+poetry add fastapi            # เพิ่ม runtime dep
+poetry add --group dev pytest # เพิ่ม dev dep
+poetry run python main.py     # รัน script
+poetry run pytest             # รัน tests
+cat poetry.lock               # lock file ที่แน่นอน`;
+
+<TsGo client:visible ts={npmLike} go={poetryLike} />
+
+## เปรียบเทียบ options ต่างๆ
+
+| | pip + venv | poetry | uv |
+|---|---|---|---|
+| ความเร็ว | ช้า | กลาง | เร็วมาก |
+| Lock file | requirements.txt (manual) | poetry.lock | uv.lock |
+| pyproject.toml | บางส่วน | เต็มรูปแบบ | เต็มรูปแบบ |
+| Auto-manage venv | manual | ใช่ | ใช่ |
+| ความสมบูรณ์ | เสถียรมาก | เสถียร | ใหม่กว่า (2024+) |
+| คำแนะนำ | legacy projects | projects ที่ใช้ poetry อยู่แล้ว | projects ใหม่ |
+
+> Playground note: Package managers แก้ไข filesystem และ network — ต้องใช้ terminal รันคำสั่งข้างต้นในไดเรกทอรี project ของคุณ
+
+export const quizVenv = [
+  {
+    q: 'อะไรคือคู่เทียบ Python ของการ isolate node_modules ต่อ project ของ npm?',
+    options: [
+      'การแก้ไข sys.path',
+      'Virtual environment (venv)',
+      'requirements.txt',
+      'pyproject.toml',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'คำสั่งใดสร้าง virtual environment ในไดเรกทอรี .venv?',
+    options: [
+      'python3 create-venv .venv',
+      'venv init .venv',
+      'python3 -m venv .venv',
+      'pip install venv .venv',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'อะไรคือคู่เทียบ uv ของ "npm ci" — ติดตั้งจาก lockfile อย่างแม่นยำ?',
+    options: ['uv install --frozen', 'uv sync', 'uv pip install -r uv.lock', 'uv ci'],
+    answer: 1,
+  },
+  {
+    q: 'ไฟล์สมัยใหม่ตัวใดแทนที่ requirements.txt เป็น dependency manifest ของ project?',
+    options: ['setup.cfg', 'Pipfile', 'pyproject.toml', 'pip.lock'],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="tooling/venv-uv-poetry" questions={quizVenv} />
+
+<ProgressTracker client:visible id="tooling/venv-uv-poetry" />
