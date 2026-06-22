@@ -9,7 +9,7 @@ function CopyBtn({ text }: { text: string }) {
   );
 }
 
-export default function TsGo({ ts, go, tsTitle = 'TypeScript', goTitle = 'Go' }: { ts: string; go: string; tsTitle?: string; goTitle?: string }) {
+export default function TsGo({ ts, go, tsTitle = 'TypeScript', goTitle = 'Python' }: { ts: string; go: string; tsTitle?: string; goTitle?: string }) {
   return (
     <div class="tsgo">
       <div class="tsgo__col">
