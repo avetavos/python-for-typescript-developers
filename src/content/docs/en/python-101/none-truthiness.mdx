@@ -1,0 +1,207 @@
+---
+title: None & Truthiness
+description: Python's None, is None, and truthiness of containers vs JavaScript's null/undefined and falsy values.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## None: Python's single "nothing" value
+
+TypeScript has two "absence" values — `null` and `undefined` — and a whole linting rule (`strictNullChecks`) to manage them. Python has one: `None`. It is both the "no value" sentinel AND what functions return implicitly when they do not return anything explicitly.
+
+You compare against `None` with `is` (not `==`) — more on that below.
+
+## None vs null / undefined
+
+export const noneTs = `// TypeScript
+let user: string | null = null;
+let config: string | undefined = undefined;
+
+// Nullish coalescing
+const name = user ?? "Guest";
+
+// Optional chaining
+const len = user?.length ?? 0;
+
+// Type narrowing
+if (user !== null && user !== undefined) {
+  console.log(user.toUpperCase());
+}`;
+
+export const nonePy = `# Python
+user: str | None = None   # str | None = Optional[str]
+
+# Fallback with "or"
+name = user or "Guest"
+
+# Conditional expression (ternary)
+length = len(user) if user is not None else 0
+
+# Type narrowing
+if user is not None:
+    print(user.upper())`;
+
+<TsGo client:visible ts={noneTs} go={nonePy} />
+
+## Truthiness: Python's falsy values
+
+Python's falsy rules are similar to JavaScript's but stricter and more consistent. Any **empty container** is falsy; any **non-zero number** is truthy.
+
+| Value | Falsy in Python? | Falsy in JS/TS? |
+|---|---|---|
+| `None` | Yes | `null` / `undefined` — Yes |
+| `0` | Yes | Yes |
+| `0.0` | Yes | Yes |
+| `""` (empty string) | Yes | Yes |
+| `[]` (empty list) | Yes | No — `[]` is truthy in JS |
+| `{}` (empty dict) | Yes | No — `{}` is truthy in JS |
+| `set()` (empty set) | Yes | N/A |
+| `()` (empty tuple) | Yes | N/A |
+
+Notice: **empty arrays and objects are truthy in JavaScript but falsy in Python**. This catches a lot of TS developers off guard.
+
+export const truthyTs = `// TypeScript
+console.log(Boolean([]));   // true  — empty array is truthy!
+console.log(Boolean({}));   // true  — empty object is truthy!
+console.log(Boolean(0));    // false
+console.log(Boolean(""));   // false
+console.log(Boolean(null)); // false
+
+if ([]) console.log("truthy");  // prints!`;
+
+export const truthyPy = `# Python
+print(bool([]))    # False — empty list is FALSY
+print(bool({}))    # False — empty dict is FALSY
+print(bool(0))     # False
+print(bool(""))    # False
+print(bool(None))  # False
+
+if []:
+    print("truthy")   # does NOT print
+else:
+    print("falsy")    # prints
+
+# Idiomatic: guard against empty containers
+items = []
+if not items:
+    print("No items found")`;
+
+<TsGo client:visible ts={truthyTs} go={truthyPy} />
+
+## Checking for None: use `is`, not `==`
+
+In Python, `is` checks **identity** (same object in memory). `==` checks **equality** (same value). For `None`, always use `is` — there is only one `None` object in the Python process, so identity is the correct check.
+
+export const isNoneTs = `// TypeScript — use strict equality
+function process(data: string | null | undefined): void {
+  if (data === null || data === undefined) {
+    console.log("No data");
+    return;
+  }
+  console.log(data.toUpperCase());
+}`;
+
+export const isNonePy = `# Python — use "is None" / "is not None"
+def process(data: str | None) -> None:
+    if data is None:
+        print("No data")
+        return
+    print(data.upper())
+
+# Common pattern: default if None
+def greet(name: str | None = None) -> str:
+    name = name or "World"   # replaces None (or falsy) with default
+    return f"Hello, {name}!"
+
+print(greet())          # Hello, World!
+print(greet("Alice"))   # Hello, Alice!`;
+
+<TsGo client:visible ts={isNoneTs} go={isNonePy} />
+
+## Try it
+
+export const noneCode = `# None checks
+x = None
+print(x is None)       # True
+print(x is not None)   # False
+
+# Truthiness
+print(bool([]))        # False  — empty list
+print(bool([1]))       # True   — non-empty list
+print(bool({}))        # False  — empty dict
+print(bool({"a": 1}))  # True
+print(bool(""))        # False  — empty string
+print(bool("hi"))      # True
+print(bool(0))         # False
+print(bool(1))         # True
+
+# None in function return
+def get_user(user_id: int):
+    if user_id == 1:
+        return {"name": "Alice"}
+    return None   # implicit in Python, but explicit is fine
+
+user = get_user(99)
+if user is None:
+    print("User not found")
+
+user2 = get_user(1)
+if user2 is not None:
+    print(f"Found: {user2['name']}")
+`;
+
+<Playground client:visible code={noneCode} />
+
+<PyOnly title="Single None, is-identity, and implicit return None">
+
+Python has exactly one `None` object — it is a singleton. That is why `is None` is the correct idiom: you are asking "is this the one-and-only None?", not "does this equal None?".
+
+TypeScript has two separate concepts (`null` and `undefined`) for "no value" and "not yet assigned". Python collapses these into `None`. Functions that do not return a value return `None` automatically — you never get `undefined`.
+
+```python
+def no_return() -> None:
+    print("I do nothing")
+
+result = no_return()
+print(result)         # None
+print(result is None) # True
+```
+
+The `is` operator also matters when you define custom classes with `__eq__`. A class could define `__eq__` to return `True` when compared to `None` (don't do this, but it is possible). `is None` bypasses `__eq__` entirely — it is a raw identity check.
+
+</PyOnly>
+
+export const quizNone = [
+  {
+    q: 'Which Python value is equivalent to both `null` AND `undefined` in TypeScript?',
+    options: ['null', 'undefined', 'None', 'NaN'],
+    answer: 2,
+  },
+  {
+    q: 'What does `bool([])` return in Python?',
+    options: ['True', 'False', 'None', 'TypeError'],
+    answer: 1,
+  },
+  {
+    q: 'Why should you use `x is None` instead of `x == None` in Python?',
+    options: [
+      '`==` is slower',
+      '`is` checks identity — it works correctly even if a class overrides `__eq__`',
+      '`==` raises a TypeError for None',
+      'They are interchangeable — it is just style',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'What does an empty dict `{}` evaluate to in Python truthiness context?',
+    options: ['True', 'False', 'None', 'Raises KeyError'],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="python-101/none-truthiness" questions={quizNone} />
+
+<ProgressTracker client:visible id="python-101/none-truthiness" />

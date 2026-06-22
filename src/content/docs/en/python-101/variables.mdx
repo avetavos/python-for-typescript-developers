@@ -1,0 +1,184 @@
+---
+title: Variables & Types
+description: Dynamic typing, type hints, and constants-by-convention in Python vs TypeScript's let/const and static types.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## Variables: familiar concept, different rules
+
+In TypeScript you declare a variable with `let` or `const` and optionally annotate its type. The TypeScript compiler enforces that type throughout the variable's life. In Python you just write the name and assign — no keyword, no compiler. The variable simply exists from that line forward, and its type is whatever you assigned.
+
+The key difference: TypeScript's type system lives at compile time (and disappears at runtime). Python's optional type hints are just annotations — the interpreter does not enforce them, and third-party tools like `mypy` do the checking separately.
+
+## Declaring variables
+
+export const declareTs = `// TypeScript
+let age: number = 30;
+let name: string = "Alice";
+const PI: number = 3.14159;
+let isActive: boolean = true;
+
+// Inferred type — TS figures it out
+let score = 100;  // inferred as number`;
+
+export const declarePy = `# Python
+age: int = 30
+name: str = "Alice"
+PI: float = 3.14159
+is_active: bool = True
+
+# No annotation needed — works the same
+score = 100  # Python infers nothing; it is just an int`;
+
+<TsGo client:visible ts={declareTs} go={declarePy} />
+
+Notice the style differences:
+- No `let` or `const` keyword — the assignment IS the declaration.
+- `snake_case` for variable names (not `camelCase`).
+- `True` / `False` are capitalized (not lowercase like JS/TS).
+
+## Constants by convention: UPPER_CASE
+
+Python has no `const` keyword. The community convention is to name constants in `UPPER_SNAKE_CASE`. Nothing stops you from reassigning them — it is purely a signal to other developers.
+
+export const constTs = `// TypeScript — enforced at compile time
+const MAX_RETRIES: number = 3;
+const API_BASE = "https://api.example.com";
+
+// MAX_RETRIES = 5;  // TS error: cannot assign to const`;
+
+export const constPy = `# Python — convention only, NOT enforced
+MAX_RETRIES: int = 3
+API_BASE: str = "https://api.example.com"
+
+# Technically legal (but don't do this):
+# MAX_RETRIES = 5  # no error, just bad style`;
+
+<TsGo client:visible ts={constTs} go={constPy} />
+
+## Dynamic typing in action
+
+Python variables are not locked to their initial type. A variable is just a name pointing to an object — you can rebind it to any type at any time. TypeScript will refuse this at compile time; Python will not.
+
+export const dynamicTs = `// TypeScript
+let value: string | number = "hello";
+value = 42;   // OK — union type
+// value = true; // Error — not in the union`;
+
+export const dynamicPy = `# Python
+value = "hello"
+print(type(value))   # <class 'str'>
+
+value = 42
+print(type(value))   # <class 'int'>
+
+value = [1, 2, 3]
+print(type(value))   # <class 'list'>`;
+
+<TsGo client:visible ts={dynamicTs} go={dynamicPy} />
+
+## Multiple assignment
+
+Python lets you unpack multiple values in a single line — a pattern TypeScript developers recognise from array destructuring.
+
+export const multiTs = `// TypeScript destructuring
+const [x, y, z] = [1, 2, 3];
+const { name, age } = { name: "Alice", age: 30 };`;
+
+export const multiPy = `# Python tuple unpacking
+x, y, z = 1, 2, 3
+print(x, y, z)  # 1 2 3
+
+# Works with any iterable
+first, *rest = [10, 20, 30, 40]
+print(first, rest)  # 10 [20, 30, 40]`;
+
+<TsGo client:visible ts={multiTs} go={multiPy} />
+
+## Try it
+
+export const variablesCode = `# Experiment with Python variables
+age: int = 30
+name: str = "Alice"
+PI: float = 3.14159
+is_active: bool = True
+
+print(f"name={name}, age={age}, PI={PI}, is_active={is_active}")
+
+# Dynamic reassignment — Python allows this
+age = "thirty"
+print(f"age is now: {age} (type: {type(age).__name__})")
+
+# Multiple assignment
+x, y, z = 1, 2, 3
+print(f"x={x}, y={y}, z={z}")
+
+# Star unpacking
+first, *rest = [10, 20, 30, 40]
+print(f"first={first}, rest={rest}")
+`;
+
+<Playground client:visible code={variablesCode} />
+
+<PyOnly title="Type hints are optional and not enforced at runtime">
+
+In TypeScript, types are a compile-time guarantee — the compiler rejects type mismatches before your code ever runs.
+
+In Python, type hints like `name: str = "Alice"` are **documentation for humans and tools** — the Python interpreter itself ignores them completely at runtime. You can pass an `int` to a function annotated as `str` and Python will not complain.
+
+For static analysis (the equivalent of TypeScript's compiler), run `mypy` or `pyright` separately:
+
+```bash
+pip install mypy
+mypy your_script.py
+```
+
+Modern editors (VS Code with Pylance, PyCharm) run this analysis automatically as you type.
+
+</PyOnly>
+
+export const quizVariables = [
+  {
+    q: 'Which statement correctly declares a constant in Python by convention?',
+    options: [
+      'const MAX_SIZE = 100',
+      'final MAX_SIZE: int = 100',
+      'MAX_SIZE: int = 100',
+      'let MAX_SIZE = 100',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'What does Python use instead of the `let` keyword to declare a variable?',
+    options: [
+      'The `var` keyword',
+      'The `def` keyword',
+      'Nothing — assignment creates the variable',
+      'The `new` keyword',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'What is the Python naming convention for regular variables?',
+    options: ['camelCase', 'PascalCase', 'UPPER_SNAKE_CASE', 'snake_case'],
+    answer: 3,
+  },
+  {
+    q: 'After `x: int = 5`, you write `x = "hello"`. What happens at runtime?',
+    options: [
+      'Python raises a TypeError',
+      'Python silently reassigns x to the string',
+      'Python raises a SyntaxError',
+      'The type hint prevents the reassignment',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="python-101/variables" questions={quizVariables} />
+
+<ProgressTracker client:visible id="python-101/variables" />

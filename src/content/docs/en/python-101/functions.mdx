@@ -1,0 +1,226 @@
+---
+title: Functions
+description: def, default args, keyword args, *args/**kwargs, and returning multiple values vs TypeScript functions.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## Functions: `def` instead of `function`
+
+You already know functions well from TypeScript. Python's `def` keyword maps almost directly onto TS's `function` declaration — same ideas, slightly different syntax. Where Python diverges is in its **keyword arguments** system and the ability to return multiple values cleanly via tuple unpacking.
+
+## Basic function definition
+
+export const basicFnTs = `// TypeScript
+function greet(name: string, greeting: string = "Hello"): string {
+  return \`\${greeting}, \${name}!\`;
+}
+
+const add = (a: number, b: number): number => a + b;
+
+console.log(greet("Alice"));          // Hello, Alice!
+console.log(greet("Bob", "Hi"));      // Hi, Bob!
+console.log(add(3, 4));               // 7`;
+
+export const basicFnPy = `# Python
+def greet(name: str, greeting: str = "Hello") -> str:
+    return f"{greeting}, {name}!"
+
+def add(a: int, b: int) -> int:
+    return a + b
+
+print(greet("Alice"))           # Hello, Alice!
+print(greet("Bob", "Hi"))       # Hi, Bob!
+print(add(3, 4))                # 7`;
+
+<TsGo client:visible ts={basicFnTs} go={basicFnPy} />
+
+Key differences to notice:
+- `def` keyword instead of `function`.
+- Return type annotation after `->` instead of `: ReturnType`.
+- No curly braces — the function body is indented.
+- No semicolons.
+
+## Keyword arguments
+
+Python lets callers name any argument at the call site, regardless of position. This is not the same as TypeScript's object-destructuring pattern — in Python, every parameter is inherently callable by name.
+
+export const kwargTs = `// TypeScript — must use object destructuring to name args
+function createUser({
+  name,
+  role = "viewer",
+  active = true,
+}: {
+  name: string;
+  role?: string;
+  active?: boolean;
+}) {
+  console.log(\`\${name} (\${role}), active=\${active}\`);
+}
+
+createUser({ name: "Alice", role: "admin" });`;
+
+export const kwargPy = `# Python — every parameter is callable by name
+def create_user(name: str, role: str = "viewer", active: bool = True) -> None:
+    print(f"{name} ({role}), active={active}")
+
+# Positional call
+create_user("Alice", "admin")
+
+# Keyword call — order does not matter
+create_user(role="admin", name="Alice")
+
+# Mix positional and keyword
+create_user("Bob", active=False)`;
+
+<TsGo client:visible ts={kwargTs} go={kwargPy} />
+
+## *args and **kwargs: variadic arguments
+
+Python's `*args` collects extra positional arguments into a tuple. `**kwargs` collects extra keyword arguments into a dict. Together they let you write flexible APIs.
+
+export const variadicTs = `// TypeScript
+function sum(...numbers: number[]): number {
+  return numbers.reduce((a, b) => a + b, 0);
+}
+
+// No clean native equivalent for named variadic args
+function logFields(fields: Record<string, string>): void {
+  for (const [k, v] of Object.entries(fields)) {
+    console.log(\`\${k}: \${v}\`);
+  }
+}
+
+console.log(sum(1, 2, 3, 4));  // 10
+logFields({ lang: "Python", tier: "backend" });`;
+
+export const variadicPy = `# Python *args and **kwargs
+def total(*numbers: float) -> float:
+    return sum(numbers)
+
+def log_fields(**fields: str) -> None:
+    for key, value in fields.items():
+        print(f"{key}: {value}")
+
+print(total(1, 2, 3, 4))               # 10.0
+log_fields(lang="Python", tier="backend")`;
+
+<TsGo client:visible ts={variadicTs} go={variadicPy} />
+
+## Returning multiple values
+
+TypeScript uses destructuring on arrays or objects. Python uses **tuple unpacking** — the function returns a tuple and you unpack it directly. This feels like a first-class language feature rather than a workaround.
+
+export const multiReturnTs = `// TypeScript — return an object or array
+function minMax(nums: number[]): { min: number; max: number } {
+  return { min: Math.min(...nums), max: Math.max(...nums) };
+}
+
+const { min, max } = minMax([3, 1, 4, 1, 5, 9]);
+console.log(min, max);  // 1 9`;
+
+export const multiReturnPy = `# Python — return a tuple, unpack at the call site
+def min_max(nums: list[float]) -> tuple[float, float]:
+    return min(nums), max(nums)
+
+low, high = min_max([3, 1, 4, 1, 5, 9])
+print(low, high)  # 1 9
+
+# Or keep it as a tuple
+result = min_max([3, 1, 4, 1, 5, 9])
+print(result)     # (1, 9)`;
+
+<TsGo client:visible ts={multiReturnTs} go={multiReturnPy} />
+
+## Try it
+
+export const functionsCode = `def greet(name: str, greeting: str = "Hello") -> str:
+    return f"{greeting}, {name}!"
+
+def stats(*numbers: float) -> tuple[float, float]:
+    return min(numbers), max(numbers)
+
+def describe(**info: str) -> None:
+    for key, value in info.items():
+        print(f"  {key}: {value}")
+
+print(greet("Alice"))
+print(greet("Bob", greeting="Hi"))
+print(greet(name="Carol", greeting="Hey"))
+
+low, high = stats(3, 1, 4, 1, 5, 9, 2, 6)
+print(f"min={low}, max={high}")
+
+print("User info:")
+describe(language="Python", version="3.12", tier="backend")
+`;
+
+<Playground client:visible code={functionsCode} />
+
+<PyOnly title="Keyword arguments and **kwargs">
+
+TypeScript has no direct equivalent of Python's keyword argument system. In TypeScript, to pass named parameters you must use an options object (`{ name, role }`). In Python, **every** positional parameter can also be passed by name at the call site — no extra object wrapping needed.
+
+`**kwargs` captures any keyword argument the caller passes that is not an explicitly declared parameter. This pattern is widely used in Python libraries for flexible configuration:
+
+```python
+def make_request(url: str, **options: str) -> None:
+    # options might contain timeout, headers, method...
+    print(url, options)
+
+make_request("https://api.example.com", timeout="30", method="POST")
+```
+
+You can also **spread** a dict into keyword arguments with `**`:
+
+```python
+defaults = {"timeout": "30", "retries": "3"}
+make_request("https://api.example.com", **defaults)
+```
+
+</PyOnly>
+
+export const quizFunctions = [
+  {
+    q: 'What keyword does Python use to define a function?',
+    options: ['func', 'fn', 'def', 'function'],
+    answer: 2,
+  },
+  {
+    q: 'In Python, calling `greet(name="Alice", greeting="Hey")` despite declaring `def greet(greeting, name)` is valid because of:',
+    options: [
+      'Default arguments',
+      'Keyword arguments',
+      '*args',
+      'Tuple unpacking',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'What does `**kwargs` collect inside a Python function?',
+    options: [
+      'Extra positional arguments as a list',
+      'Extra positional arguments as a tuple',
+      'Extra keyword arguments as a dict',
+      'Extra keyword arguments as a set',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'What does `def divmod_custom(a, b): return a // b, a % b` return?',
+    options: [
+      'A list with two elements',
+      'A tuple with two elements',
+      'Two separate values that cannot be captured together',
+      'A dict with two keys',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="python-101/functions" questions={quizFunctions} />
+
+<ProgressTracker client:visible id="python-101/functions" />

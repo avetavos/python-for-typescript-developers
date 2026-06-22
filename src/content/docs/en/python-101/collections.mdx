@@ -1,0 +1,236 @@
+---
+title: Collections
+description: Python list, tuple, dict, and set compared to TypeScript Array, object, Map, and Set — plus slicing.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## Collections: the Python data structures you will use every day
+
+Python ships four built-in collection types: `list`, `tuple`, `dict`, and `set`. As a TypeScript developer you already have mental models for all of them — the mapping is close, but each Python type has a distinct flavour.
+
+| Python | TypeScript | Key difference |
+|---|---|---|
+| `list` | `Array` | Mutable, ordered |
+| `tuple` | Readonly array / `[T, U]` | Immutable, fixed-length |
+| `dict` | `Record<K,V>` / `object` / `Map` | Mutable key-value |
+| `set` | `Set` | Unique unordered values |
+
+## list — Python's Array
+
+export const listTs = `// TypeScript Array
+const nums: number[] = [1, 2, 3, 4, 5];
+
+nums.push(6);
+nums.splice(0, 1);         // remove first element
+
+console.log(nums[0]);      // 2
+console.log(nums.length);  // 5
+
+const doubled = nums.map((n) => n * 2);
+const evens = nums.filter((n) => n % 2 === 0);`;
+
+export const listPy = `# Python list
+nums: list[int] = [1, 2, 3, 4, 5]
+
+nums.append(6)       # push
+nums.pop(0)          # remove first element
+
+print(nums[0])       # 2
+print(len(nums))     # 5
+
+doubled = [n * 2 for n in nums]     # list comprehension
+evens = [n for n in nums if n % 2 == 0]`;
+
+<TsGo client:visible ts={listTs} go={listPy} />
+
+List comprehensions (`[expr for x in iterable if condition]`) are idiomatic Python — prefer them over `map`/`filter` for simple transformations.
+
+## dict — Python's Record / Map
+
+export const dictTs = `// TypeScript object / Record
+const user: Record<string, unknown> = {
+  name: "Alice",
+  age: 30,
+};
+
+user["role"] = "admin";               // add key
+delete user["age"];                   // remove key
+
+console.log(user["name"]);            // Alice
+console.log(user["missing"] ?? "n/a"); // n/a (nullish coalescing)
+
+for (const [k, v] of Object.entries(user)) {
+  console.log(k, v);
+}`;
+
+export const dictPy = `# Python dict
+user: dict[str, object] = {
+    "name": "Alice",
+    "age": 30,
+}
+
+user["role"] = "admin"    # add key
+del user["age"]           # remove key
+
+print(user["name"])                      # Alice
+print(user.get("missing", "n/a"))        # n/a (safe lookup)
+
+for key, value in user.items():
+    print(key, value)`;
+
+<TsGo client:visible ts={dictTs} go={dictPy} />
+
+Use `.get(key, default)` instead of `dict[key]` when the key might be absent — it returns the default instead of raising a `KeyError`.
+
+## set — unique values
+
+export const setTs = `// TypeScript Set
+const tags = new Set<string>(["python", "web", "python"]);
+tags.add("api");
+
+console.log(tags.has("python"));    // true
+console.log(tags.size);             // 3
+tags.delete("web");`;
+
+export const setPy = `# Python set — literal syntax with {}
+tags: set[str] = {"python", "web", "python"}  # duplicate removed
+tags.add("api")
+
+print("python" in tags)   # True
+print(len(tags))           # 3
+tags.discard("web")        # remove without error if absent`;
+
+<TsGo client:visible ts={setTs} go={setPy} />
+
+## Slicing — Python's killer feature for sequences
+
+Python slicing lets you extract sub-sequences with `[start:stop:step]`. There is no direct TypeScript equivalent — `.slice()` exists on arrays but lacks the step parameter and negative indexing is not supported natively.
+
+export const sliceTs = `// TypeScript
+const nums = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+console.log(nums.slice(2, 5));       // [2, 3, 4]
+console.log(nums.slice(-3));         // [7, 8, 9]
+// No step parameter in .slice()`;
+
+export const slicePy = `# Python slicing — works on list, tuple, and str
+nums = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+print(nums[2:5])      # [2, 3, 4]   — indices 2,3,4
+print(nums[-3:])      # [7, 8, 9]   — last 3
+print(nums[::-1])     # reversed    — step of -1
+print(nums[::2])      # [0,2,4,6,8] — every other
+print(nums[1:8:2])    # [1,3,5,7]   — start:stop:step
+
+# Strings too!
+s = "Hello, World!"
+print(s[:5])          # Hello
+print(s[-6:])         # World!`;
+
+<TsGo client:visible ts={sliceTs} go={slicePy} />
+
+## Try it
+
+export const collectionsCode = `# list
+nums = [1, 2, 3, 4, 5]
+print(nums[1:4])       # [2, 3, 4]
+print(nums[::-1])      # reversed
+nums.append(6)
+print(nums)
+
+# list comprehension
+doubled = [n * 2 for n in nums]
+print(doubled)
+
+# tuple (immutable)
+point = (10, 20)
+x, y = point
+print(f"x={x}, y={y}")
+
+# dict
+user = {"name": "Alice", "age": 30}
+user["role"] = "admin"
+print(user.get("name"))
+print(user.get("missing", "default"))
+for k, v in user.items():
+    print(f"  {k}: {v}")
+
+# set
+tags = {"python", "web", "python"}
+tags.add("api")
+print(tags)
+print("python" in tags)
+`;
+
+<Playground client:visible code={collectionsCode} />
+
+<PyOnly title="Tuples: immutable sequences with unpacking">
+
+Python tuples look like fixed-size arrays but carry a different semantic: they are **immutable** — you cannot append, remove, or reassign elements. TypeScript has `readonly` arrays and `[T, U]` tuple types, but they are a compiler concept. Python tuples are a runtime type with identity.
+
+```python
+point = (10, 20)
+# point[0] = 99  # TypeError: tuple object does not support item assignment
+
+# Tuples are great for multi-value returns and dictionary keys
+location = (37.7749, -122.4194)
+city_map = {location: "San Francisco"}
+```
+
+Tuples are also the mechanism behind **multiple return values** and **unpacking**:
+
+```python
+def divmod_custom(a: int, b: int) -> tuple[int, int]:
+    return a // b, a % b   # returns a tuple
+
+quotient, remainder = divmod_custom(17, 5)
+print(quotient, remainder)  # 3 2
+```
+
+</PyOnly>
+
+export const quizCollections = [
+  {
+    q: 'What Python collection type maps most closely to TypeScript\'s `Map<string, number>`?',
+    options: ['list', 'tuple', 'dict', 'set'],
+    answer: 2,
+  },
+  {
+    q: 'What does `nums[::2]` return for `nums = [0,1,2,3,4,5,6]`?',
+    options: [
+      '[0, 2, 4, 6]',
+      '[1, 3, 5]',
+      '[0, 1, 2]',
+      '[6, 4, 2, 0]',
+    ],
+    answer: 0,
+  },
+  {
+    q: 'Which method safely retrieves a value from a dict without raising KeyError?',
+    options: [
+      'dict.fetch(key)',
+      'dict.get(key, default)',
+      'dict.find(key)',
+      'dict[key] ?? default',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'You write `t = (1, 2, 3); t[0] = 99`. What happens?',
+    options: [
+      'The value is updated to 99',
+      'Python raises a TypeError at runtime',
+      'Python raises a SyntaxError',
+      'The tuple is converted to a list',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="python-101/collections" questions={quizCollections} />
+
+<ProgressTracker client:visible id="python-101/collections" />

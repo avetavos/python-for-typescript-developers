@@ -1,5 +1,88 @@
 ---
-title: Python 101
-description: Python fundamentals for TypeScript developers.
+title: Python 101 — Fundamentals
+description: A module overview and a quick TypeScript↔Python taster for working JS/TS developers.
 ---
-Coming soon.
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+
+## Welcome to Python 101
+
+If you have shipped TypeScript, you already know more Python than you think. Both languages are dynamically typed at their core (TypeScript adds a compile-time type layer; Python 3 adds optional hints), both are garbage-collected, and both lean on expressive syntax over ceremony. The biggest mental shift is cosmetic: indentation replaces curly braces, and a lot of JavaScript's syntactic sugar has a cleaner Python equivalent.
+
+This module walks you through nine lessons, each anchored in code you already know. You will leave with enough Python to read real projects, write scripts, and build REST APIs with FastAPI.
+
+## A quick taste: the same program in both languages
+
+Here is a tiny program — a list of names filtered and greeted — written first in TypeScript, then in Python. Same logic, same output, different syntax.
+
+export const tasterTs = `const names: string[] = ["Alice", "Bob", "Carol", "Dave"];
+
+const short = names.filter((n) => n.length <= 4);
+
+for (const name of short) {
+  console.log(\`Hello, \${name}!\`);
+}
+
+// Hello, Bob!
+// Hello, Dave!`;
+
+export const tasterPy = `names: list[str] = ["Alice", "Bob", "Carol", "Dave"]
+
+short = [n for n in names if len(n) <= 4]
+
+for name in short:
+    print(f"Hello, {name}!")
+
+# Hello, Bob!
+# Hello, Dave!`;
+
+<TsGo client:visible ts={tasterTs} go={tasterPy} />
+
+## Try it
+
+export const tasterCode = `names: list[str] = ["Alice", "Bob", "Carol", "Dave"]
+
+short = [n for n in names if len(n) <= 4]
+
+for name in short:
+    print(f"Hello, {name}!")
+`;
+
+<Playground client:visible code={tasterCode} />
+
+## What you will learn
+
+| Lesson | You already know (TS) | You will learn (Python) |
+|---|---|---|
+| Variables | `let` / `const` + static types | Dynamic typing, type hints, UPPER_CASE constants |
+| Functions | Arrow & `function` | `def`, default args, keyword args, `*args`/`**kwargs` |
+| Control Flow | `if`/`else`, `for`, `switch` | `if`/`elif`, `for...in`, `match`/`case` |
+| Collections | `Array`, `object`, `Map`, `Set` | `list`, `tuple`, `dict`, `set`, slicing |
+| Classes | `class`, constructor, `this` | `class`, `__init__`, `self`, dunders |
+| Modules | ESM `import`/`export`, npm | `import`, `from ... import`, pip |
+| Errors | `try`/`catch`/`finally` | `try`/`except`/`else`/`finally`, `raise` |
+| None & Truthiness | `null`, `undefined`, falsy values | `None`, `is None`, Python truthiness |
+
+export const quizIndex = [
+  {
+    q: 'What replaces curly braces to define code blocks in Python?',
+    options: ['Parentheses', 'Indentation', 'Brackets', 'BEGIN/END keywords'],
+    answer: 1,
+  },
+  {
+    q: 'Python type hints (e.g. `name: str`) are enforced at:',
+    options: ['Compile time', 'Import time', 'Runtime by the interpreter', 'They are not enforced by the interpreter'],
+    answer: 3,
+  },
+  {
+    q: 'Which Python construct is the closest equivalent of a TypeScript `Array.filter()` one-liner?',
+    options: ['A generator expression', 'A list comprehension', 'A `map()` call', 'A `filter()` call with `list()`'],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="python-101/index" questions={quizIndex} />
+
+<ProgressTracker client:visible id="python-101/index" />

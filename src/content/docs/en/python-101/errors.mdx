@@ -1,0 +1,230 @@
+---
+title: Error Handling
+description: try/except/else/finally, raise, and exception classes in Python vs TypeScript try/catch.
+---
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import PyOnly from '../../../../components/PyOnly.astro';
+
+## Error handling: try/except instead of try/catch
+
+Python's error handling maps directly onto TypeScript's `try`/`catch`/`finally` — with one powerful addition: an `else` clause that runs only when NO exception was raised. The keywords are `try`/`except`/`else`/`finally`, and you `raise` exceptions instead of `throw`.
+
+## Basic try / except
+
+export const basicErrTs = `// TypeScript
+function divide(a: number, b: number): number {
+  if (b === 0) throw new Error("Cannot divide by zero");
+  return a / b;
+}
+
+try {
+  const result = divide(10, 2);
+  console.log(\`Result: \${result}\`);
+} catch (err) {
+  if (err instanceof Error) {
+    console.error(\`Error: \${err.message}\`);
+  }
+} finally {
+  console.log("Always runs");
+}`;
+
+export const basicErrPy = `# Python
+def divide(a: float, b: float) -> float:
+    if b == 0:
+        raise ValueError("Cannot divide by zero")
+    return a / b
+
+try:
+    result = divide(10, 2)
+    print(f"Result: {result}")
+except ValueError as e:
+    print(f"Error: {e}")
+finally:
+    print("Always runs")`;
+
+<TsGo client:visible ts={basicErrTs} go={basicErrPy} />
+
+Key differences:
+- `except` instead of `catch`.
+- `raise` instead of `throw`.
+- You catch a **specific exception type** directly (e.g. `except ValueError`), not a generic value.
+- The `as e` syntax binds the exception object.
+
+## Multiple exception types
+
+export const multiExcTs = `// TypeScript
+try {
+  const data = JSON.parse("{ bad json }");
+  const num = parseInt("abc", 10);
+  if (isNaN(num)) throw new RangeError("NaN");
+} catch (err) {
+  if (err instanceof SyntaxError) {
+    console.error("JSON error:", err.message);
+  } else if (err instanceof RangeError) {
+    console.error("Range error:", err.message);
+  } else {
+    throw err;  // re-raise unknown errors
+  }
+}`;
+
+export const multiExcPy = `# Python — multiple except clauses
+import json
+
+try:
+    data = json.loads("{ bad json }")
+    value = int("abc")
+except json.JSONDecodeError as e:
+    print(f"JSON error: {e}")
+except ValueError as e:
+    print(f"Value error: {e}")
+except Exception as e:
+    raise  # re-raise any other exception
+
+# You can also catch multiple types in one clause:
+# except (ValueError, TypeError) as e:
+#     print(f"Either error: {e}")`;
+
+<TsGo client:visible ts={multiExcTs} go={multiExcPy} />
+
+## Custom exception classes
+
+export const customExcTs = `// TypeScript
+class AppError extends Error {
+  constructor(
+    message: string,
+    public readonly code: number
+  ) {
+    super(message);
+    this.name = "AppError";
+  }
+}
+
+try {
+  throw new AppError("Not found", 404);
+} catch (err) {
+  if (err instanceof AppError) {
+    console.log(\`[\${err.code}] \${err.message}\`);
+  }
+}`;
+
+export const customExcPy = `# Python
+class AppError(Exception):
+    def __init__(self, message: str, code: int) -> None:
+        super().__init__(message)
+        self.code = code
+
+try:
+    raise AppError("Not found", 404)
+except AppError as e:
+    print(f"[{e.code}] {e}")`;
+
+<TsGo client:visible ts={customExcTs} go={customExcPy} />
+
+## Try it
+
+export const errorsCode = `def divide(a: float, b: float) -> float:
+    if b == 0:
+        raise ValueError("Cannot divide by zero")
+    return a / b
+
+# Successful case
+try:
+    result = divide(10, 2)
+    print(f"10 / 2 = {result}")
+except ValueError as e:
+    print(f"Error: {e}")
+else:
+    print("No error occurred (else clause)")
+finally:
+    print("Always runs")
+
+print()
+
+# Error case
+try:
+    result = divide(10, 0)
+except ValueError as e:
+    print(f"Caught: {e}")
+else:
+    print("This will NOT print")
+finally:
+    print("Finally again")
+`;
+
+<Playground client:visible code={errorsCode} />
+
+<PyOnly title="The else clause on try — no TypeScript equivalent">
+
+TypeScript's `try`/`catch` has no `else` clause. Python's `else` runs **only if the `try` block completed without raising any exception** — after the `try` block, before `finally`. This is a clean way to separate "what to do on success" from "what to do on error" without nesting:
+
+```python
+import json
+
+def parse_config(raw: str) -> dict:
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as e:
+        print(f"Invalid JSON: {e}")
+        return {}
+    else:
+        # Runs only if json.loads succeeded
+        print(f"Parsed {len(data)} keys")
+        return data
+    finally:
+        # Always runs — good for cleanup
+        print("parse_config done")
+```
+
+The `else` clause avoids a common bug: if you put the success-path code inside the `try` block, any exception it raises is caught by the `except`, which may be unintended.
+
+</PyOnly>
+
+export const quizErrors = [
+  {
+    q: 'What is the Python equivalent of JavaScript\'s `throw new Error("msg")`?',
+    options: [
+      'throw Exception("msg")',
+      'raise Exception("msg")',
+      'error Exception("msg")',
+      'panic Exception("msg")',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'When does the `else` clause of a `try` block run in Python?',
+    options: [
+      'When any exception is raised',
+      'Always, after both try and except',
+      'Only when no exception was raised in the try block',
+      'Only when a specific exception type was raised',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'How do you catch multiple exception types in a single `except` clause?',
+    options: [
+      'except ValueError | TypeError as e:',
+      'except ValueError, TypeError as e:',
+      'except (ValueError, TypeError) as e:',
+      'except [ValueError, TypeError] as e:',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'When does the `finally` block run?',
+    options: [
+      'Only when an exception is raised',
+      'Only when no exception is raised',
+      'Always, whether or not an exception was raised',
+      'Only after the else clause',
+    ],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="python-101/errors" questions={quizErrors} />
+
+<ProgressTracker client:visible id="python-101/errors" />
