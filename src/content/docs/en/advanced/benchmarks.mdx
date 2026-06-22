@@ -1,0 +1,181 @@
+---
+title: Benchmarks
+description: testing.B, go test -bench, basic profiling intuition — compared to JavaScript micro-benchmarking with benchmark.js and console.time.
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## JavaScript benchmarking vs Go benchmarking
+
+In JavaScript you reach for `console.time` / `console.timeEnd` for quick measurements, or `benchmark.js` for statistically rigorous micro-benchmarks. Both run outside the test runner and require separate setup.
+
+In Go, benchmarks live in the same `_test.go` files as unit tests. You run them with the same `go test` command — just add a flag. The toolchain handles statistical warmup automatically.
+
+> Playground note: Benchmarks require the `go test -bench` binary context. The code blocks below are real benchmark files — run them locally.
+
+## The benchmark function signature
+
+export const jsBenchCode = `// JavaScript — benchmark.js (external library)
+import Benchmark from 'benchmark';
+
+const suite = new Benchmark.Suite();
+suite
+  .add('sum-loop', () => {
+    let total = 0;
+    for (let i = 0; i < 1000; i++) total += i;
+  })
+  .on('complete', function () {
+    console.log(this[0].toString());
+  })
+  .run();`;
+
+export const goBenchCode = `// Go — built into testing package
+// sum_test.go
+package main
+
+import "testing"
+
+func sum(n int) int {
+    total := 0
+    for i := 0; i < n; i++ {
+        total += i
+    }
+    return total
+}
+
+func BenchmarkSum(b *testing.B) {
+    for b.Loop() {        // Go 1.24+: b.Loop() is the preferred form
+        sum(1000)
+    }
+}`;
+
+<TsGo client:visible ts={jsBenchCode} go={goBenchCode} />
+
+## Running benchmarks
+
+```bash
+# Run all benchmarks in the current package
+go test -bench=. ./...
+
+# Run benchmarks matching a regex
+go test -bench=BenchmarkSum ./...
+
+# Also run unit tests alongside benchmarks
+go test -bench=. -run=. ./...
+
+# Skip unit tests (run benchmarks only)
+go test -bench=. -run='^$' ./...
+
+# Control benchmark time (default 1s)
+go test -bench=. -benchtime=5s ./...
+
+# Report memory allocations
+go test -bench=. -benchmem ./...
+```
+
+## Reading benchmark output
+
+```
+BenchmarkSum-8        14253187        84.23 ns/op
+BenchmarkSum-8        14253187        84.23 ns/op       0 B/op    0 allocs/op
+```
+
+| Column | Meaning |
+|---|---|
+| `BenchmarkSum-8` | Benchmark name + GOMAXPROCS (CPU count) |
+| `14253187` | Number of iterations (`b.N`) the runner chose |
+| `84.23 ns/op` | Nanoseconds per operation |
+| `0 B/op` | Bytes allocated per operation (`-benchmem`) |
+| `0 allocs/op` | Heap allocations per operation (`-benchmem`) |
+
+The Go runner increases `b.N` until the result is statistically stable — you never hard-code the iteration count.
+
+## Comparing implementations
+
+```go
+// strings_test.go
+package strings_test
+
+import (
+    "strings"
+    "testing"
+)
+
+func BenchmarkConcatPlus(b *testing.B) {
+    for b.Loop() {
+        var s string
+        for i := 0; i < 100; i++ {
+            s += "x"  // allocates on every iteration
+        }
+        _ = s
+    }
+}
+
+func BenchmarkConcatBuilder(b *testing.B) {
+    for b.Loop() {
+        var sb strings.Builder
+        for i := 0; i < 100; i++ {
+            sb.WriteByte('x')  // single pre-allocated buffer
+        }
+        _ = sb.String()
+    }
+}
+```
+
+Run with `-benchmem` to see how drastically allocations differ:
+
+```
+BenchmarkConcatPlus-8       228468    5213 ns/op    5440 B/op    99 allocs/op
+BenchmarkConcatBuilder-8   2134500     562 ns/op     128 B/op     1 allocs/op
+```
+
+<GoOnly title="b.ResetTimer and setup costs">
+
+If your benchmark has expensive setup (e.g., building a large dataset), exclude it from the measurement:
+
+```go
+func BenchmarkSearch(b *testing.B) {
+    // Expensive setup — not measured
+    data := generateLargeSlice(100_000)
+    target := data[50_000]
+
+    b.ResetTimer() // Start the clock AFTER setup
+
+    for b.Loop() {
+        _ = linearSearch(data, target)
+    }
+}
+```
+
+Older code (pre-1.24) uses `for i := 0; i < b.N; i++` — both forms are correct; `b.Loop()` is preferred in 1.24+.
+
+</GoOnly>
+
+## Profiling during benchmarks
+
+```bash
+# Write a CPU profile while benchmarking
+go test -bench=BenchmarkSearch -cpuprofile=cpu.out ./...
+
+# Write a heap (memory) profile
+go test -bench=BenchmarkSearch -memprofile=mem.out ./...
+
+# Open the profile in the interactive pprof tool
+go tool pprof cpu.out
+```
+
+The `pprof` tool is covered in depth in the **pprof Profiling** lesson.
+
+export const quizQuestionsBenchmarks = [
+  { q: 'What flag do you add to `go test` to run benchmarks?', options: ['-benchmark', '-bench=.', '--perf', '-test.bench'], answer: 1 },
+  { q: 'What does `b.N` represent in a benchmark function?', options: ['The number of CPUs available', 'The iteration count chosen by the runner for statistical stability', 'The benchmark timeout in nanoseconds', 'The number of goroutines to use'], answer: 1 },
+  { q: 'Which flag shows per-operation memory allocation stats in benchmark output?', options: ['-memstats', '-benchmem', '-allocs', '-trace'], answer: 1 },
+  { q: 'Why do you call b.ResetTimer() in a benchmark?', options: ['To increase b.N', 'To exclude expensive setup time from the measurement', 'To reset the benchmark loop counter', 'To switch from ns/op to ms/op'], answer: 1 },
+];
+
+<Quiz client:visible id="advanced/benchmarks" questions={quizQuestionsBenchmarks} />
+
+<ProgressTracker client:visible id="advanced/benchmarks" />

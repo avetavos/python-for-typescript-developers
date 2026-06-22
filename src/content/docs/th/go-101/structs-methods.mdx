@@ -1,0 +1,153 @@
+---
+title: Structs และ Methods
+description: structs, value vs pointer receivers ของ Go เทียบกับ interface, class และ object ธรรมดาของ TypeScript
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## คำตอบของ Go ต่อแนวคิด class
+
+TypeScript มี `class`, `interface` และ object ธรรมดา ส่วน Go มี **structs** — type ข้อมูลล้วนๆ — และ **methods** — ฟังก์ชันที่ผูกติดกับ type ไม่มี class ไม่มี inheritance ไม่มีคีย์เวิร์ด `this` (Go ใช้ receiver ที่ตั้งชื่อได้แทน)
+
+## การนิยาม struct
+
+export const tsStructCode = `// TypeScript interface + object
+interface User {
+    name: string;
+    age:  number;
+}
+
+const u: User = { name: "Alice", age: 30 };
+console.log(u.name);`;
+
+export const goStructCode = `// Go struct
+type User struct {
+    Name string
+    Age  int
+}
+
+u := User{Name: "Alice", Age: 30}
+fmt.Println(u.Name)`;
+
+<TsGo client:visible ts={tsStructCode} go={goStructCode} />
+
+## Methods บน struct
+
+ใน TypeScript เมธอดอยู่ภายใน `class` แต่ใน Go คุณผูกเมธอดเข้ากับ type ใดก็ได้โดยการระบุ **receiver** ไว้ก่อนชื่อฟังก์ชัน
+
+export const tsMethodCode = `class User {
+    constructor(
+        public name: string,
+        public age: number,
+    ) {}
+
+    greet(): string {
+        return \`Hi, I'm \${this.name}\`;
+    }
+}`;
+
+export const goMethodCode = `type User struct {
+    Name string
+    Age  int
+}
+
+// Method with value receiver
+func (u User) Greet() string {
+    return "Hi, I'm " + u.Name
+}`;
+
+<TsGo client:visible ts={tsMethodCode} go={goMethodCode} />
+
+## ลองเล่นดู
+
+export const playgroundStructCode = `package main
+
+import "fmt"
+
+type Rectangle struct {
+	Width  float64
+	Height float64
+}
+
+func (r Rectangle) Area() float64 {
+	return r.Width * r.Height
+}
+
+func (r Rectangle) Perimeter() float64 {
+	return 2 * (r.Width + r.Height)
+}
+
+// Pointer receiver — can mutate the struct
+func (r *Rectangle) Scale(factor float64) {
+	r.Width *= factor
+	r.Height *= factor
+}
+
+func main() {
+	rect := Rectangle{Width: 4, Height: 3}
+	fmt.Printf("Area: %.1f\\n", rect.Area())
+	fmt.Printf("Perimeter: %.1f\\n", rect.Perimeter())
+
+	rect.Scale(2)
+	fmt.Printf("After scaling: %.1f x %.1f\\n", rect.Width, rect.Height)
+}`;
+
+<Playground client:visible code={playgroundStructCode} />
+
+<GoOnly title="Value Receivers เทียบกับ Pointer Receivers">
+
+**value receiver** (`func (u User) Greet()`) จะได้รับสำเนาของ struct เมธอดจึงไม่สามารถเปลี่ยนแปลงตัวต้นฉบับได้
+
+**pointer receiver** (`func (u *User) SetName(name string)`) จะได้รับ pointer ไปยัง struct และ **สามารถ** เปลี่ยนแปลงมันได้
+
+```go
+// Value receiver — reads, does not mutate
+func (u User) Greet() string {
+    return "Hi, " + u.Name
+}
+
+// Pointer receiver — mutates the original
+func (u *User) Birthday() {
+    u.Age++
+}
+```
+
+**กฎง่ายๆ:** ถ้ามีเมธอดใดบน type หนึ่งที่ต้องเปลี่ยนแปลงค่า ให้ใช้ pointer receiver สำหรับเมธอด **ทั้งหมด** บน type นั้นเพื่อความสม่ำเสมอ
+
+`this` ของ TypeScript เป็น reference เสมอ — ส่วน Go ทำให้ความแตกต่างระหว่าง copy กับ pointer ชัดเจนใน signature
+
+</GoOnly>
+
+<GoOnly title="ไม่มี Inheritance — ใช้ Embed แทน">
+
+Go ไม่มี class inheritance แต่คุณจะ **embed** struct หนึ่งไว้ในอีก struct หนึ่งเพื่อประกอบพฤติกรรมเข้าด้วยกัน:
+
+```go
+type Animal struct { Name string }
+func (a Animal) Speak() string { return a.Name + " speaks" }
+
+type Dog struct {
+    Animal        // embedded — Dog "inherits" Speak
+    Breed string
+}
+
+d := Dog{Animal: Animal{Name: "Rex"}, Breed: "Lab"}
+fmt.Println(d.Speak()) // "Rex speaks" — promoted from Animal
+```
+
+</GoOnly>
+
+export const quizQuestionsStructs = [
+  { q: 'คีย์เวิร์ดใดที่ใช้นิยาม struct ใน Go?', options: ['struct', 'type ... struct', 'class', 'object'], answer: 1 },
+  { q: 'ควรใช้ pointer receiver เมื่อ:', options: ['คุณต้องการอ่านค่า struct', 'คุณต้องการเปลี่ยนแปลงค่า struct', 'struct มีขนาดเล็ก', 'คุณต้องการคัดลอก struct'], answer: 1 },
+  { q: 'อะไรคือสิ่งเทียบเท่ากับ this ของ JavaScript ภายในเมธอดใน Go?', options: ['this', 'self', 'ตัวแปร receiver ที่ตั้งชื่อ', 'super'], answer: 2 },
+  { q: 'Go นำโค้ดกลับมาใช้ซ้ำได้อย่างไรโดยไม่มี inheritance?', options: ['Mixins', 'Embedding', 'Decorators', 'Prototypes'], answer: 1 },
+];
+
+<Quiz client:visible id="go-101/structs-methods" questions={quizQuestionsStructs} />
+
+<ProgressTracker client:visible id="go-101/structs-methods" />

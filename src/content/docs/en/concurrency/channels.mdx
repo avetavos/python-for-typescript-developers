@@ -1,0 +1,195 @@
+---
+title: Channels
+description: Channels are typed pipes for communicating between goroutines — unbuffered and buffered. Compare to Promises and callbacks.
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## Promises and callbacks vs channels
+
+In JavaScript when you need to pass a result from an async operation to another piece of code, you use Promises or callbacks:
+
+```typescript
+function fetchUser(id: number): Promise<User> {
+  return new Promise((resolve) => {
+    // ... async work ...
+    resolve(user);
+  });
+}
+const user = await fetchUser(1); // await the Promise
+```
+
+In Go, **channels** are typed first-class pipes for sending values between goroutines. A channel is both the communication and synchronization mechanism:
+
+```go
+ch := make(chan User)       // create a channel for User values
+go func() { ch <- user }() // send into the channel
+user := <-ch               // receive from the channel (blocks until a value arrives)
+```
+
+## Unbuffered channels
+
+An unbuffered channel has no queue. Send and receive must happen simultaneously — the sender blocks until a receiver is ready, and the receiver blocks until a sender sends. This is a rendezvous.
+
+export const tsPromiseCode = `// TypeScript: Promise for a single future value
+function getResult(): Promise<number> {
+  return new Promise(resolve => {
+    setTimeout(() => resolve(42), 100);
+  });
+}
+const result = await getResult();
+console.log(result); // 42`;
+
+export const goChannelCode = `// Go: unbuffered channel — sender and receiver sync up
+package main
+
+import "fmt"
+
+func getResult(ch chan<- int) {
+    ch <- 42 // send; blocks until someone receives
+}
+
+func main() {
+    ch := make(chan int) // unbuffered
+    go getResult(ch)
+    result := <-ch // receive; blocks until sender sends
+    fmt.Println(result) // 42
+}`;
+
+<TsGo client:visible ts={tsPromiseCode} go={goChannelCode} />
+
+## Buffered channels
+
+A buffered channel has an internal queue. The sender does not block until the buffer is full, and the receiver does not block as long as the buffer has values. This decouples the producer from the consumer.
+
+export const tsQueueCode = `// TypeScript: simulate a buffer with an array
+const queue: number[] = [];
+function enqueue(val: number) {
+  queue.push(val); // does not block
+}
+enqueue(1); enqueue(2); enqueue(3);
+// must drain it yourself`;
+
+export const goBufferedCode = `// Go: buffered channel with a queue of 3
+package main
+
+import "fmt"
+
+func main() {
+    ch := make(chan int, 3) // buffer capacity 3
+
+    ch <- 1 // does not block (space available)
+    ch <- 2
+    ch <- 3
+    // ch <- 4 // would block — buffer full
+
+    fmt.Println(<-ch) // 1
+    fmt.Println(<-ch) // 2
+    fmt.Println(<-ch) // 3
+}`;
+
+<TsGo client:visible ts={tsQueueCode} go={goBufferedCode} />
+
+## Range over a closed channel
+
+Use `for range` to drain a channel until it is closed. The producer closes the channel to signal it is done sending, analogous to returning from an async generator.
+
+export const tsIterableCode = `// TypeScript: async generator as an iterable stream
+async function* generate() {
+  yield 1; yield 2; yield 3;
+}
+for await (const val of generate()) {
+  console.log(val);
+}`;
+
+export const goRangeChannelCode = `// Go: range over a channel closed by the producer
+package main
+
+import (
+    "fmt"
+    "sync"
+)
+
+func produce(ch chan<- int, wg *sync.WaitGroup) {
+    defer wg.Done()
+    for i := 1; i <= 5; i++ {
+        ch <- i
+    }
+}
+
+func main() {
+    ch := make(chan int, 5)
+    var wg sync.WaitGroup
+    wg.Add(1)
+    go produce(ch, &wg)
+    wg.Wait()
+    close(ch) // signal: no more values
+
+    for v := range ch { // drains until channel is closed
+        fmt.Println(v)
+    }
+}`;
+
+<TsGo client:visible ts={tsIterableCode} go={goRangeChannelCode} />
+
+<GoOnly title="Channel direction — compile-time type safety">
+
+Go lets you narrow a channel to send-only or receive-only in a function signature. This documents intent and lets the compiler enforce it:
+
+```go
+func producer(ch chan<- int) { // send-only: ch <- value
+    ch <- 42
+}
+
+func consumer(ch <-chan int) { // receive-only: v := <-ch
+    val := <-ch
+    fmt.Println(val)
+}
+```
+
+Passing a bidirectional `chan int` to either function is fine — Go automatically narrows the type at the call site. Trying to receive inside `producer` is a compile error.
+
+</GoOnly>
+
+export const playgroundChannelsCode = `package main
+
+import (
+	"fmt"
+	"sync"
+)
+
+func producer(ch chan<- int, wg *sync.WaitGroup) {
+	defer wg.Done()
+	for i := 1; i <= 5; i++ {
+		ch <- i
+	}
+}
+
+func main() {
+	ch := make(chan int, 5)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go producer(ch, &wg)
+	wg.Wait()
+	close(ch)
+	for v := range ch {
+		fmt.Println("Received:", v)
+	}
+}`;
+
+<Playground client:visible code={playgroundChannelsCode} />
+
+export const quizQuestionsChannels = [
+  { q: 'What is the difference between an unbuffered and a buffered channel?', options: ['Unbuffered is always faster', 'Unbuffered blocks until a receiver is ready; buffered has an internal queue', 'Buffered channels are safe from data races', 'There is no difference'], answer: 1 },
+  { q: 'Which syntax receives a value from a channel?', options: ['ch.receive()', 'ch.get()', '<-ch', 'ch->'], answer: 2 },
+  { q: 'What must be done before using for range on a channel?', options: ['Flush the buffer', 'Close the channel', 'Wait 1 second', 'Nothing special'], answer: 1 },
+  { q: 'What does chan<- int mean?', options: ['Receive-only channel of int', 'Buffered channel of size 1', 'Send-only channel of int', 'Bidirectional channel'], answer: 2 },
+];
+
+<Quiz client:visible id="concurrency/channels" questions={quizQuestionsChannels} />
+
+<ProgressTracker client:visible id="concurrency/channels" />

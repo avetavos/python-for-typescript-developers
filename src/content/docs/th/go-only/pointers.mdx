@@ -1,0 +1,186 @@
+---
+title: Pointers (ตัวชี้)
+description: เรียนรู้ pointer ใน Go — &, * และ pointer type — รวมถึงเหตุผลที่ใช้ เทียบกับโมเดล reference แบบ implicit ของ JavaScript
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## TypeScript ไม่มี pointer แบบ explicit
+
+ใน TypeScript (และ JavaScript) object ถูกส่งต่อเป็น reference โดยอัตโนมัติ คุณไม่เคยเขียน "ให้ฉัน address ของตัวแปรนี้" runtime จัดการ memory ให้โดยที่คุณมองไม่เห็น
+
+Go เปิดเผย memory address อย่างชัดเจน คุณเลือกเองว่า function จะรับ **copy** ของค่าหรือ **pointer** ไปยังต้นฉบับ การเลือกนั้นมีผลจริงต่อความถูกต้องและประสิทธิภาพ
+
+## Operator & และ *
+
+`&x` ให้ pointer ไปยัง `x` — address ใน memory ที่ `x` อาศัยอยู่
+`*p` dereference pointer `p` — อ่านหรือเขียนค่าที่ address นั้น
+
+export const tsRefCode = `// TypeScript — object ถูกแชร์แบบ implicit
+function increment(obj: { count: number }) {
+  obj.count++;          // mutate ต้นฉบับ (reference)
+}
+
+const counter = { count: 0 };
+increment(counter);
+console.log(counter.count); // 1
+
+// แต่ primitive ถูก copy เสมอ:
+function addOne(n: number): number {
+  return n + 1;         // n คือ copy — caller ไม่เปลี่ยน
+}
+let x = 5;
+addOne(x);
+console.log(x); // ยังเป็น 5`;
+
+export const goPointerCode = `// Go — primitive ถูก copy โดยค่าเริ่มต้น; ใช้ * เพื่อ opt in การ mutate
+func increment(n *int) {
+    *n++            // dereference แล้ว mutate
+}
+
+func main() {
+    x := 42
+    increment(&x)   // ส่ง address ของ x
+    fmt.Println(x)  // 43 — x ถูก mutate
+
+    // ถ้าไม่ใช้ pointer — value จะถูก copy, caller ไม่เปลี่ยน
+    // increment(x)  จะเป็น compile error (type ไม่ตรง)
+}`;
+
+<TsGo client:visible ts={tsRefCode} go={goPointerCode} />
+
+## Pointer types
+
+ทุก type `T` มี pointer type `*T` ที่สอดคล้องกัน ตัวแปร pointer เก็บ address ไม่ใช่ค่า
+
+export const tsPtrTypeCode = `// TypeScript ไม่มี pointer type
+// ที่ใกล้ที่สุดคือ wrapper object หรือ ref pattern:
+const ref = { current: 0 };   // "pointer" แบบ manual`;
+
+export const goPtrTypeCode = `var p *int          // p คือ pointer ไปยัง int, ค่าคือ nil
+x := 10
+p = &x              // p เก็บ address ของ x
+fmt.Println(*p)     // 10 — dereference เพื่ออ่าน
+*p = 20             // เขียนผ่าน pointer
+fmt.Println(x)      // 20`;
+
+<TsGo client:visible ts={tsPtrTypeCode} go={goPtrTypeCode} />
+
+## เมื่อไหรควรใช้ pointer ใน Go
+
+มีสองเหตุผลหลักในการใช้ pointer:
+
+1. **Mutation** — คุณต้องการให้ function แก้ไขตัวแปรของ caller (ไม่ใช่ทำงานกับ copy)
+2. **Efficiency** — struct มีขนาดใหญ่และการ copy ทุกครั้งที่เรียกจะสิ้นเปลือง
+
+สำหรับ struct ขนาดเล็ก (2–3 field) ที่อ่านอย่างเดียว มักใช้ value semantics ได้ สำหรับ struct ขนาดใหญ่หรือจุดที่ต้องการ mutation ให้ใช้ pointer
+
+export const tsWhenCode = `// TypeScript — struct/object ส่งเป็น reference เสมอ
+// คุณไม่มีทางเลือก; runtime ตัดสินใจ
+interface Config { host: string; port: number; }
+function connect(cfg: Config) { /* cfg คือ reference */ }`;
+
+export const goWhenCode = `type Config struct {
+    Host string
+    Port int
+}
+
+// Value receiver — method รับ copy; ไม่สามารถแก้ไขต้นฉบับ
+func (c Config) String() string {
+    return fmt.Sprintf("%s:%d", c.Host, c.Port)
+}
+
+// Pointer receiver — method สามารถแก้ไขต้นฉบับ
+func (c *Config) SetPort(p int) {
+    c.Port = p
+}
+
+func main() {
+    cfg := Config{Host: "localhost", Port: 8080}
+    cfg.SetPort(9090)
+    fmt.Println(cfg.String()) // localhost:9090
+}`;
+
+<TsGo client:visible ts={tsWhenCode} go={goWhenCode} />
+
+## ลองทำ
+
+export const playgroundPointersCode = `package main
+
+import "fmt"
+
+func increment(n *int) {
+	*n++
+}
+
+func swap(a, b *int) {
+	*a, *b = *b, *a
+}
+
+func main() {
+	x := 42
+	fmt.Println("before:", x)
+	increment(&x)
+	fmt.Println("after increment:", x)
+
+	a, b := 10, 20
+	fmt.Printf("before swap: a=%d b=%d\\n", a, b)
+	swap(&a, &b)
+	fmt.Printf("after  swap: a=%d b=%d\\n", a, b)
+
+	// Pointer ไปยัง struct
+	type Point struct{ X, Y int }
+	p := &Point{X: 1, Y: 2}
+	p.X = 99 // Go auto-dereference: (*p).X = 99
+	fmt.Println("point:", *p)
+}`;
+
+<Playground client:visible code={playgroundPointersCode} />
+
+<GoOnly title="nil Pointer — null ของ Go">
+
+ตัวแปร pointer ที่ยังไม่ได้ assign จะมีค่าเป็น `nil` — zero value ของ pointer type ทุกชนิดใน Go การ dereference nil pointer จะทำให้เกิด **runtime panic** (คล้ายกับ NullPointerException ใน Java) ควรตรวจสอบ pointer ก่อน dereference เสมอเมื่อมันอาจเป็น nil
+
+```go
+var p *int        // p == nil
+fmt.Println(p)    // <nil>
+// fmt.Println(*p) // PANIC: nil pointer dereference
+
+n := 42
+p = &n
+fmt.Println(*p)   // 42 — ปลอดภัยแล้ว
+```
+
+ความเสี่ยงที่เทียบเท่าใน TypeScript คือการเข้าถึง property บน `null` หรือ `undefined` Go ทำให้เกิด bug ประเภทเดียวกันได้ — แต่ด้วย error message ที่ชัดเจนกว่าและไม่มีความสับสนเรื่อง `undefined`
+
+</GoOnly>
+
+<GoOnly title="Auto-Dereference บน Struct Field">
+
+Go dereference pointer อัตโนมัติเมื่อเข้าถึง struct field ดังนั้นคุณเขียน `p.Field` แทน `(*p).Field` ทั้งสองมีความหมายเหมือนกัน สิ่งนี้ใช้กับการเรียก method ด้วย — Go จะ dereference หรือ take address อัตโนมัติเพื่อให้ตรงกับ receiver type เมื่อตัวแปรสามารถ addressable ได้
+
+```go
+type Point struct{ X, Y int }
+p := &Point{X: 1, Y: 2}
+
+// ทั้งสองเหมือนกัน:
+fmt.Println((*p).X) // manual dereference
+fmt.Println(p.X)    // auto dereference — idiomatic Go
+```
+
+</GoOnly>
+
+export const quizQuestionsPointers = [
+  { q: '&x ใน Go หมายความว่าอะไร?', options: ['Bitwise AND ของ x', 'Memory address ของ x', 'Boolean AND', 'Dereference x'], answer: 1 },
+  { q: '*p หมายความว่าอะไรเมื่อ p เป็น pointer?', options: ['ประกาศ pointer', 'คูณ p ด้วยบางอย่าง', 'อ่านหรือเขียนค่าที่ address ที่ p เก็บไว้', 'สร้าง pointer ใหม่'], answer: 2 },
+  { q: 'Zero value ของตัวแปร pointer ใน Go คืออะไร?', options: ['0', 'undefined', 'null', 'nil'], answer: 3 },
+  { q: 'คุณมี func double(n int) จะทำอย่างไรให้ double สามารถแก้ไขตัวแปรของ caller ได้?', options: ['double(x)', 'double(*x)', 'เปลี่ยน param เป็น *int และเรียก double(&x)', 'Pointer ทำแบบนั้นไม่ได้'], answer: 2 },
+];
+
+<Quiz client:visible id="go-only/pointers" questions={quizQuestionsPointers} />
+
+<ProgressTracker client:visible id="go-only/pointers" />

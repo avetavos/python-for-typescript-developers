@@ -1,0 +1,187 @@
+---
+title: Table-Driven Tests
+description: Idiomatic Go testing with testing.T, subtests using t.Run, and table-driven patterns — compared to Jest's it.each and describe.each.
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## Jest `it.each` vs Go table-driven tests
+
+In Jest you reach for `it.each` or `describe.each` when you want to run the same assertion logic over many inputs without copy-pasting test functions. Go has no built-in `it.each` — instead, the community settled on a universal idiom: a slice of anonymous structs (the "table"), looped inside a single test function, each case run as a **subtest** via `t.Run`.
+
+> Playground note: The `testing` package requires the `go test` binary context. Code blocks below show real test files — run them locally with `go test ./...`.
+
+## Comparison: testing the same function
+
+export const tsTableCode = `// Jest — it.each
+function add(a: number, b: number) { return a + b; }
+
+it.each([
+  [1,  2,  3],
+  [0,  0,  0],
+  [-1, 1,  0],
+  [10, 20, 30],
+])('add(%i, %i) = %i', (a, b, want) => {
+  expect(add(a, b)).toBe(want);
+});`;
+
+export const goTableCode = `// Go — table-driven with t.Run
+func add(a, b int) int { return a + b }
+
+func TestAdd(t *testing.T) {
+    tests := []struct {
+        name string
+        a, b int
+        want int
+    }{
+        {"positive", 1, 2, 3},
+        {"zeros",    0, 0, 0},
+        {"negative", -1, 1, 0},
+        {"large",    10, 20, 30},
+    }
+
+    for _, tc := range tests {
+        t.Run(tc.name, func(t *testing.T) {
+            got := add(tc.a, tc.b)
+            if got != tc.want {
+                t.Errorf("add(%d, %d) = %d; want %d", tc.a, tc.b, got, tc.want)
+            }
+        })
+    }
+}`;
+
+<TsGo client:visible ts={tsTableCode} go={goTableCode} />
+
+## Anatomy of a table-driven test
+
+```go
+// math_test.go
+package math_test
+
+import "testing"
+
+func TestDivide(t *testing.T) {
+    // 1. The table — a slice of anonymous structs
+    tests := []struct {
+        name    string
+        a, b    float64
+        want    float64
+        wantErr bool
+    }{
+        {"normal",       10, 2, 5, false},
+        {"fraction",     7,  2, 3.5, false},
+        {"divide_by_zero", 1, 0, 0, true},
+    }
+
+    // 2. Loop over the table
+    for _, tc := range tests {
+        // 3. t.Run creates a named subtest
+        t.Run(tc.name, func(t *testing.T) {
+            // 4. t.Parallel() — optional, runs subtests concurrently
+            t.Parallel()
+
+            got, err := Divide(tc.a, tc.b)
+
+            if (err != nil) != tc.wantErr {
+                t.Fatalf("Divide() error = %v, wantErr %v", err, tc.wantErr)
+            }
+            if !tc.wantErr && got != tc.want {
+                t.Errorf("Divide() = %v; want %v", got, tc.want)
+            }
+        })
+    }
+}
+```
+
+Key conventions:
+- `t.Errorf` marks failure but continues the test.
+- `t.Fatalf` marks failure and stops the current subtest immediately.
+- `t.Parallel()` inside `t.Run` allows subtests to run concurrently (safe when cases are independent).
+- The `name` field in each case becomes the subtest label (`TestDivide/normal`, `TestDivide/divide_by_zero`).
+
+## Running specific subtests
+
+```bash
+# Run all tests
+go test ./...
+
+# Run only one subtest by name (supports regex)
+go test -run TestDivide/divide_by_zero ./...
+
+# Run all subtests whose name contains "zero"
+go test -run TestDivide/.*zero.* ./...
+
+# Verbose output — prints each subtest name and PASS/FAIL
+go test -v ./...
+```
+
+## Comparing to Jest structure
+
+export const jestStructureCode = `// Jest
+describe('Divide', () => {
+  it.each([
+    ['normal',         10, 2, 5],
+    ['fraction',        7, 2, 3.5],
+  ])('%s', (_, a, b, want) => {
+    expect(divide(a, b)).toBe(want);
+  });
+
+  it('throws on divide by zero', () => {
+    expect(() => divide(1, 0)).toThrow();
+  });
+});`;
+
+export const goStructureCode = `// Go
+func TestDivide(t *testing.T) {
+    tests := []struct {
+        name    string
+        a, b    float64
+        want    float64
+        wantErr bool
+    }{
+        {"normal",   10, 2, 5,   false},
+        {"fraction",  7, 2, 3.5, false},
+        {"by_zero",   1, 0, 0,   true},
+    }
+    for _, tc := range tests {
+        t.Run(tc.name, func(t *testing.T) {
+            got, err := Divide(tc.a, tc.b)
+            if (err != nil) != tc.wantErr { t.Fatal(...) }
+            if !tc.wantErr && got != tc.want { t.Errorf(...) }
+        })
+    }
+}`;
+
+<TsGo client:visible ts={jestStructureCode} go={goStructureCode} />
+
+<GoOnly title="Testify — the optional assertion library">
+
+Go's standard `testing` package has no `expect(...).toBe(...)` DSL. If you find `t.Errorf` too verbose, the community commonly uses [`github.com/stretchr/testify/assert`](https://github.com/stretchr/testify):
+
+```go
+import "github.com/stretchr/testify/assert"
+
+func TestAdd(t *testing.T) {
+    assert.Equal(t, 3, add(1, 2))
+    assert.NoError(t, err)
+    assert.EqualError(t, err, "division by zero")
+}
+```
+
+Testify is optional — the standard library is sufficient for most projects. The table-driven pattern works identically with or without it.
+
+</GoOnly>
+
+export const quizQuestionsTableTests = [
+  { q: 'In a Go table-driven test, what creates a named subtest for each case?', options: ['t.Case()', 't.Run()', 'testing.Sub()', 't.Parallel()'], answer: 1 },
+  { q: 'What is the difference between t.Errorf and t.Fatalf?', options: ['Errorf logs; Fatalf panics', 'Errorf marks failure and continues; Fatalf marks failure and stops the current test', 'They are identical', 'Fatalf skips the test; Errorf fails it'], answer: 1 },
+  { q: 'How do you run only the subtest named "divide_by_zero" inside TestDivide?', options: ['go test -sub TestDivide/divide_by_zero', 'go test -run TestDivide/divide_by_zero', 'go test --filter divide_by_zero', 'go test -only TestDivide'], answer: 1 },
+  { q: 'The table in a Go table-driven test is typically defined as:', options: ['A map[string]any', 'A slice of anonymous structs', 'A JSON file', 'An exported TestCase type'], answer: 1 },
+];
+
+<Quiz client:visible id="advanced/table-driven-tests" questions={quizQuestionsTableTests} />
+
+<ProgressTracker client:visible id="advanced/table-driven-tests" />

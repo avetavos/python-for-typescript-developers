@@ -1,0 +1,104 @@
+---
+title: Go You Won't Find in TypeScript
+description: An overview of Go's unique concepts — pointers, value semantics, defer, struct embedding, goroutines, static binaries, and generics constraints — and why they exist.
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## Why some Go concepts have no TypeScript counterpart
+
+TypeScript is a layer on top of JavaScript — it runs in a garbage-collected runtime (V8 or Deno), ships as source or transpiled bundles, and every object is implicitly a reference. Go was designed from scratch as a compiled, statically typed, systems-capable language. That different foundation means Go has an entire category of features that TypeScript simply does not have, not because TS forgot them, but because the underlying model is different.
+
+This module covers those features. Work through each lesson to build intuition for the parts of Go that will feel the most foreign at first — and the most powerful once they click.
+
+## What you will learn in this module
+
+| Lesson | The Go-only concept |
+|---|---|
+| Pointers | `&` / `*` — explicit memory addresses |
+| Value vs Reference | Structs and arrays copy; slices and maps share |
+| Defer / Panic / Recover | Deterministic cleanup and structured panic handling |
+| Struct Embedding | Composition without class inheritance |
+| Goroutines Preview | Lightweight threads — not async/await |
+| Static Binaries & Toolchain | One binary, zero runtime, instant cross-compile |
+| Generics Differences | Type parameters with interface constraints — not structural |
+
+## The common thread
+
+Each of these features shares one underlying motivation: **explicitness and predictability at low cost**. Go prefers making side-effects visible (who owns this memory? does this function take a copy or share the original?) over the implicit convenience that JavaScript/TypeScript provide. That trade-off leads to fewer surprise bugs in production — at the cost of slightly more upfront thought.
+
+export const tsNoneCode = `// TypeScript has no pointers, no explicit value-copy semantics,
+// no defer keyword, no struct embedding, no goroutines,
+// and no notion of "compile to a static binary".
+// These are all Go-specific.`;
+
+export const goPreviewCode = `// Go — a taste of each concept in this module
+package main
+
+import "fmt"
+
+type Logger struct{ prefix string }
+func (l Logger) Log(msg string) { fmt.Println(l.prefix+":", msg) }
+
+type Service struct {
+    Logger          // embedded — no inheritance needed
+    name   string
+}
+
+func riskyOp() (err error) {
+    defer func() {               // defer: always runs on exit
+        if r := recover(); r != nil {
+            err = fmt.Errorf("recovered: %v", r)
+        }
+    }()
+    panic("something went wrong")
+}
+
+func double[T int | float64](v T) T { return v * 2 } // generics
+
+func main() {
+    svc := Service{Logger: Logger{prefix: "SVC"}, name: "demo"}
+    svc.Log("starting")          // promoted method from Logger
+
+    x := 10
+    p := &x                      // pointer to x
+    *p = 99                      // mutate through pointer
+    fmt.Println("x via pointer:", x)
+
+    err := riskyOp()
+    fmt.Println("riskyOp err:", err)
+
+    fmt.Println("double 7:", double(7))
+}`;
+
+<TsGo client:visible ts={tsNoneCode} go={goPreviewCode} />
+
+<GoOnly title="Why These Concepts Exist — Go's Design Goals">
+
+Go was created at Google in 2007 to solve real engineering problems: slow compile times (C++), missing concurrency primitives (Java), and unpredictable garbage-collection pauses (many managed languages). The features in this module are direct answers to those goals:
+
+- **Pointers** — give you control over whether data is copied or shared, without a GC-heavy object model.
+- **Value semantics** — make data-flow obvious: structs travel as copies unless you deliberately pass a pointer.
+- **Defer** — replaces verbose `try/finally` chains with a clean one-liner cleanup that runs no matter how the function exits.
+- **Struct embedding** — enables composition-over-inheritance without a class hierarchy.
+- **Goroutines** — scale to millions of concurrent tasks using a lightweight M:N scheduler, not OS threads.
+- **Static binaries** — ship a single executable with zero external dependencies, no `node_modules`, no runtime install.
+- **Generic constraints** — prevent `any`-typed generic functions from accidentally being called with wrong types, enforced at compile time.
+
+None of these are accidents; each is a deliberate trade-off that makes Go programs easier to reason about at scale.
+
+</GoOnly>
+
+export const quizQuestionsIndex = [
+  { q: 'Which of the following is a Go concept with NO direct TypeScript equivalent?', options: ['Type inference', 'Generics', 'Explicit pointers', 'Arrow functions'], answer: 2 },
+  { q: 'Why does Go use pointers instead of always passing references?', options: ['To make code harder to read', 'To give explicit control over copying vs sharing data', 'Because JavaScript does the same', 'To avoid garbage collection entirely'], answer: 1 },
+  { q: 'Which Go feature replaces verbose try/finally cleanup blocks?', options: ['panic', 'recover', 'defer', 'init'], answer: 2 },
+];
+
+<Quiz client:visible id="go-only/index" questions={quizQuestionsIndex} />
+
+<ProgressTracker client:visible id="go-only/index" />

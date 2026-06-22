@@ -1,0 +1,209 @@
+---
+title: pprof Profiling
+description: runtime/pprof และ net/http/pprof สำหรับ CPU และ heap profiles, อ่าน flame graphs — เปรียบเทียบกับ node --prof และ clinic.js
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## Node.js profiling vs Go pprof
+
+ใน Node.js คุณมี `node --prof` (V8 CPU profiler), `node --inspect` (Chrome DevTools) และเครื่องมือเช่น `clinic.js` (clinic doctor, clinic flame) สำหรับ heap และ event-loop analysis ทั้งหมดเป็น out-of-process หรือต้องการ wrap start command
+
+Go มาพร้อม `runtime/pprof` ใน standard library และ `net/http/pprof` สำหรับ live HTTP-based profiling — ไม่ต้องใช้เครื่องมือภายนอกในการ collection และคำสั่ง `go tool pprof` จัดการ analysis
+
+> หมายเหตุเกี่ยวกับ Playground: pprof ต้องการการเขียน profile files ไปยัง disk และรัน `go tool pprof` บล็อกโค้ดด้านล่างเป็นไฟล์จริง — รัน locally
+
+## สองวิธีในการ collect profiles
+
+### 1. File-based (สำหรับ scripts หรือ benchmarks)
+
+```go
+// main.go
+package main
+
+import (
+    "os"
+    "runtime/pprof"
+    "log"
+)
+
+func main() {
+    // --- CPU profile ---
+    cpuFile, err := os.Create("cpu.out")
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer cpuFile.Close()
+
+    if err := pprof.StartCPUProfile(cpuFile); err != nil {
+        log.Fatal(err)
+    }
+    defer pprof.StopCPUProfile()
+
+    // ... โค้ดที่ต้องการทดสอบ ...
+    doWork()
+
+    // --- Heap profile (เขียนตอนท้าย) ---
+    heapFile, err := os.Create("mem.out")
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer heapFile.Close()
+
+    pprof.WriteHeapProfile(heapFile)
+}
+```
+
+### 2. HTTP endpoint (สำหรับ long-running servers)
+
+```go
+// main.go
+package main
+
+import (
+    "net/http"
+    _ "net/http/pprof" // blank import register routes /debug/pprof/
+    "log"
+)
+
+func main() {
+    // Application server ของคุณ
+    go func() {
+        log.Println(http.ListenAndServe(":6060", nil))
+    }()
+
+    // ... rest of app ...
+}
+```
+
+endpoints ที่มี:
+- `http://localhost:6060/debug/pprof/` — index
+- `http://localhost:6060/debug/pprof/profile?seconds=30` — CPU profile 30 วินาที
+- `http://localhost:6060/debug/pprof/heap` — heap snapshot
+- `http://localhost:6060/debug/pprof/goroutine` — goroutine stacks ทั้งหมด
+- `http://localhost:6060/debug/pprof/trace?seconds=5` — execution trace
+
+export const nodeProfilingCode = `// Node.js — เครื่องมือหลายอย่าง ทั้งหมดภายนอก
+// Option 1: built-in V8 profiler
+node --prof server.js
+node --prof-process isolate-*.log > report.txt
+
+// Option 2: clinic.js (npm install -g clinic)
+clinic doctor -- node server.js
+clinic flame  -- node server.js
+
+// Option 3: Chrome DevTools
+node --inspect server.js  // open chrome://inspect`;
+
+export const goProfilingCode = `// Go — เครื่องมือเดียว มาพร้อม toolchain
+// Collect CPU profile 30 วินาที จาก live server:
+go tool pprof http://localhost:6060/debug/pprof/profile?seconds=30
+
+// Collect จากไฟล์ที่เขียนโดย runtime/pprof:
+go tool pprof cpu.out
+
+// เปิด interactive web UI (ต้องการ Graphviz):
+go tool pprof -http=:8080 cpu.out`;
+
+<TsGo client:visible ts={nodeProfilingCode} go={goProfilingCode} />
+
+## อ่าน CPU profile
+
+```bash
+# เริ่ม interactive pprof shell
+go tool pprof cpu.out
+
+# ภายใน shell:
+(pprof) top10           # top 10 functions ตาม CPU time
+(pprof) list myFunc     # annotated source สำหรับ myFunc
+(pprof) web             # เปิด SVG flame graph ใน browser
+(pprof) pdf             # save เป็น PDF
+
+# หรือเปิด web UI โดยตรง (flame graphs สวยกว่า)
+go tool pprof -http=:8080 cpu.out
+```
+
+ตัวอย่าง output จาก `top10`:
+
+```
+Showing nodes accounting for 2.40s, 96.77% of 2.48s total
+      flat  flat%   sum%        cum   cum%
+     1.20s 48.39% 48.39%      1.20s 48.39%  runtime.mallocgc
+     0.60s 24.19% 72.58%      0.60s 24.19%  strings.(*Builder).WriteString
+     0.30s 12.10% 84.68%      0.30s 12.10%  main.processItem
+```
+
+| คอลัมน์ | ความหมาย |
+|---|---|
+| `flat` | เวลาที่ใช้ **ใน** ฟังก์ชันนี้ (ไม่รวม callees) |
+| `flat%` | เปอร์เซ็นต์ของ total profile time |
+| `cum` | เวลา cumulative (ฟังก์ชันนี้ + ฟังก์ชันทั้งหมดที่มันเรียก) |
+| `cum%` | เปอร์เซ็นต์ cumulative |
+
+## Heap profile
+
+```bash
+go tool pprof mem.out
+
+(pprof) top10 -cum    # top allocators ตาม cumulative bytes
+(pprof) list myFunc   # line-level allocation counts
+```
+
+heap profile แสดง:
+- **alloc_objects / alloc_space** — total allocations ตั้งแต่ program start
+- **inuse_objects / inuse_space** — objects/bytes ที่กำลังใช้งาน (หลัง GC)
+
+## Benchmarks + pprof ด้วยกัน
+
+```bash
+# เขียน CPU + memory profiles ระหว่าง benchmark run
+go test -bench=BenchmarkFoo -cpuprofile=cpu.out -memprofile=mem.out ./...
+
+# แล้ว analyse
+go tool pprof cpu.out
+go tool pprof mem.out
+```
+
+<GoOnly title="คำเตือนด้านความปลอดภัย: อย่า expose pprof ใน production">
+
+`net/http/pprof` expose live goroutine dump, heap snapshot และ CPU profiles — เพียงพอที่จะ reconstruct internal data structures **อย่า expose port 6060 (หรือ port ใดก็ตามที่ serve pprof) บน public interface**
+
+รูปแบบที่ปลอดภัย:
+- Bind เฉพาะ `127.0.0.1:6060` และใช้ SSH tunnel เพื่อเข้าถึง
+- วางไว้หลัง internal VPN หรือ management interface แยกต่างหาก
+- Register handler แบบ conditional เฉพาะเมื่อ `DEBUG=true` ใน environment
+
+```go
+if os.Getenv("DEBUG") == "true" {
+    go http.ListenAndServe("127.0.0.1:6060", nil)
+}
+```
+
+</GoOnly>
+
+## Goroutine และ trace profiles
+
+```bash
+# ตรวจสอบ goroutine leaks (ควร flat ตลอดเวลา)
+go tool pprof http://localhost:6060/debug/pprof/goroutine
+
+# Execution trace — แสดง scheduling, GC, goroutine lifecycle
+curl -s "http://localhost:6060/debug/pprof/trace?seconds=5" > trace.out
+go tool trace trace.out
+```
+
+execution trace คือ view ที่ละเอียดที่สุด: แสดง goroutine start/stop ทุกครั้ง, GC pauses, network blocks และ system calls — คล้ายกับสิ่งที่ `clinic doctor` ทำสำหรับ event loop ของ Node
+
+export const quizQuestionsPprof = [
+  { q: 'blank import ใดที่ register HTTP endpoints /debug/pprof/?', options: ['"runtime/pprof"', '"net/http/pprof"', '"debug/pprof"', '"os/pprof"'], answer: 1 },
+  { q: 'ใน pprof output คอลัมน์ "flat" แสดงถึงอะไร?', options: ['เวลาที่ใช้ในฟังก์ชันนี้บวกกับทุกฟังก์ชันที่มันเรียก', 'เวลาที่ใช้ในฟังก์ชันนี้เท่านั้น ไม่รวม callees', 'Bytes ทั้งหมดที่ allocate โดยฟังก์ชันนี้', 'จำนวนครั้งที่ฟังก์ชันนี้ถูกเรียก'], answer: 1 },
+  { q: 'คำสั่งใดที่เปิด interactive flame graph web UI สำหรับ profile file?', options: ['go pprof -ui cpu.out', 'go tool pprof -http=:8080 cpu.out', 'go tool trace cpu.out', 'go run pprof cpu.out'], answer: 1 },
+  { q: 'ทำไมถึงไม่ควร expose pprof endpoints บน public interface?', options: ['มันทำให้ server ช้าลงภายใต้ load', 'มัน expose heap snapshots และ goroutine dumps ที่สามารถรั่วข้อมูล internal ที่ sensitive', 'ต้องการ root permissions ในการอ่าน', 'มัน disable garbage collector'], answer: 1 },
+];
+
+<Quiz client:visible id="advanced/pprof-profiling" questions={quizQuestionsPprof} />
+
+<ProgressTracker client:visible id="advanced/pprof-profiling" />

@@ -1,0 +1,197 @@
+---
+title: Worker Pools
+description: Implement the worker pool pattern with goroutines and channels for bounded parallel work. Compare to a Promise concurrency pool in JavaScript.
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## Promise pool vs worker pool
+
+In TypeScript, when you need to limit the number of concurrent operations (e.g., "no more than 3 API calls at once"), you reach for a library like `p-limit` or build a Promise pool manually:
+
+```typescript
+import pLimit from 'p-limit';
+const limit = pLimit(3); // max 3 concurrent
+
+const results = await Promise.all(
+  items.map(item => limit(() => processItem(item)))
+);
+```
+
+In Go the worker pool is idiomatic, stdlib-only, and arguably cleaner: a fixed number of goroutines (workers) each pull work from a shared jobs channel. The channel acts as the concurrent-safe queue; `close(jobs)` signals that no more work will arrive.
+
+## Basic worker pool
+
+export const tsPromisePoolCode = `// TypeScript: p-limit for bounded concurrency
+import pLimit from 'p-limit';
+
+const limit = pLimit(3); // at most 3 concurrent tasks
+const tasks = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+const results = await Promise.all(
+  tasks.map(n => limit(async () => n * n))
+);
+console.log(results.reduce((a, b) => a + b, 0)); // 285`;
+
+export const goWorkerPoolCode = `// Go: worker pool — goroutines pull from a jobs channel
+package main
+
+import (
+    "fmt"
+    "sync"
+)
+
+func worker(id int, jobs <-chan int, results chan<- int, wg *sync.WaitGroup) {
+    defer wg.Done()
+    for j := range jobs { // blocks until a job arrives or channel is closed
+        results <- j * j
+    }
+}
+
+func main() {
+    const numWorkers = 3
+    const numJobs = 9
+
+    jobs := make(chan int, numJobs)
+    results := make(chan int, numJobs)
+
+    var wg sync.WaitGroup
+    for w := 1; w <= numWorkers; w++ {
+        wg.Add(1)
+        go worker(w, jobs, results, &wg)
+    }
+
+    for j := 1; j <= numJobs; j++ {
+        jobs <- j
+    }
+    close(jobs) // signal: no more jobs — workers will exit their for-range
+
+    wg.Wait()
+    close(results)
+
+    sum := 0
+    for r := range results {
+        sum += r
+    }
+    fmt.Println("Sum of squares:", sum) // 285
+}`;
+
+<TsGo client:visible ts={tsPromisePoolCode} go={goWorkerPoolCode} />
+
+## Pipeline pattern — chaining workers
+
+Channels compose naturally into pipelines: the output channel of one stage becomes the input channel of the next. This is Go's analog to chained async generators.
+
+export const tsPipelineCode = `// TypeScript: pipeline via chained async generators
+async function* double(src: AsyncIterable<number>) {
+  for await (const n of src) yield n * 2;
+}
+async function* addOne(src: AsyncIterable<number>) {
+  for await (const n of src) yield n + 1;
+}`;
+
+export const goPipelineCode = `// Go: pipeline via chained channel-returning functions
+package main
+
+import "fmt"
+
+func generate(nums ...int) <-chan int {
+    out := make(chan int, len(nums))
+    for _, n := range nums {
+        out <- n
+    }
+    close(out)
+    return out
+}
+
+func double(in <-chan int) <-chan int {
+    out := make(chan int, 10)
+    go func() {
+        for n := range in {
+            out <- n * 2
+        }
+        close(out)
+    }()
+    return out
+}
+
+func main() {
+    nums := generate(1, 2, 3, 4, 5)
+    doubled := double(nums)
+    for v := range doubled {
+        fmt.Println(v) // 2, 4, 6, 8, 10
+    }
+}`;
+
+<TsGo client:visible ts={tsPipelineCode} go={goPipelineCode} />
+
+<GoOnly title="Why worker pools are idiomatic in Go">
+
+Go's concurrency primitives fit worker pools naturally:
+
+- **Channel as a concurrent-safe queue** — no mutex required; the channel itself serializes access.
+- **for range on a channel** — each worker loops cleanly until the channel is closed, with no explicit `done` flag.
+- **close(jobs) as a shutdown signal** — instead of sending N sentinel values, one `close` notifies all workers simultaneously.
+- **WaitGroup + close(results)** — the pool waits for all workers, closes the results channel, then the collector drains it safely.
+
+Scaling is trivial: increase `numWorkers` to exploit more CPU cores; decrease it to throttle external resource usage (e.g., database connection limits).
+
+</GoOnly>
+
+export const playgroundWorkerPoolCode = `package main
+
+import (
+	"fmt"
+	"sync"
+)
+
+func worker(id int, jobs <-chan int, results chan<- int, wg *sync.WaitGroup) {
+	defer wg.Done()
+	for j := range jobs {
+		results <- j * j
+	}
+}
+
+func main() {
+	const numWorkers = 3
+	const numJobs = 9
+
+	jobs := make(chan int, numJobs)
+	results := make(chan int, numJobs)
+
+	var wg sync.WaitGroup
+	for w := 1; w <= numWorkers; w++ {
+		wg.Add(1)
+		go worker(w, jobs, results, &wg)
+	}
+
+	for j := 1; j <= numJobs; j++ {
+		jobs <- j
+	}
+	close(jobs)
+
+	wg.Wait()
+	close(results)
+
+	sum := 0
+	for r := range results {
+		sum += r
+	}
+	fmt.Println("Sum of squares:", sum)
+}`;
+
+<Playground client:visible code={playgroundWorkerPoolCode} />
+
+export const quizQuestionsWorkerPool = [
+  { q: 'In the Go worker pool pattern, what role does the jobs channel play?', options: ['A mutex for the workers', 'A concurrent-safe queue for pending work', 'A logger', 'An error handler'], answer: 1 },
+  { q: 'Why is close(jobs) called after all jobs are sent?', options: ['To flush the buffer', 'To signal workers there is no more work, causing for-range to exit', 'To prevent a deadlock immediately', 'For garbage collection'], answer: 1 },
+  { q: 'How do you increase the throughput of a Go worker pool?', options: ['Use more mutexes', 'Increase numWorkers', 'Use a larger buffered channel only', 'Use context.WithTimeout'], answer: 1 },
+];
+
+<Quiz client:visible id="concurrency/worker-pools" questions={quizQuestionsWorkerPool} />
+
+<ProgressTracker client:visible id="concurrency/worker-pools" />

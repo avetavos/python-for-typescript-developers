@@ -1,0 +1,138 @@
+---
+title: ตั้งค่า Go
+description: ติดตั้ง Go และเรียนรู้คำสั่ง CLI ที่จำเป็น — go run, go build, go mod init, go install — เทียบกับ node, tsc, และ npm
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## ตั้งค่า environment Go ของคุณ
+
+การตั้งค่า TypeScript ต้องใช้ Node.js, npm (หรือ package manager อื่น), และ `tsc` Go มี toolchain เดียวแบบ unified — คุณติดตั้ง Go ครั้งเดียวและได้ทุกอย่าง: compiler, formatter, test runner, และ module manager
+
+## ติดตั้ง Go
+
+ดาวน์โหลด official installer จาก [go.dev/dl](https://go.dev/dl/) หลังติดตั้ง ตรวจสอบด้วย:
+
+```bash
+go version
+# go version go1.22.0 darwin/arm64
+```
+
+Go ติดตั้งที่ `/usr/local/go` โดยค่าเริ่มต้น `GOPATH` (workspace directory, ค่าเริ่มต้นคือ `~/go`) คือที่ที่ module ที่ดาวน์โหลดและ binary ที่ติดตั้งอยู่ คุณแทบไม่ต้องคิดถึงมัน — `go mod` จัดการทุกอย่าง
+
+## Go CLI vs Node/npm CLI
+
+นักพัฒนา Node.js ทุกคนรู้จัก `node`, `npm`, และ `tsc` Go รวมทุกอย่างนี้ไว้ใน `go` command เดียว
+
+export const tsCliCode = `# TypeScript / Node.js toolchain
+node index.js            # รัน file
+npx ts-node src/index.ts # รัน TypeScript โดยตรง
+tsc                      # คอมไพล์ TypeScript
+npm install              # ติดตั้ง dependency
+npm run build            # รัน build script
+npx <tool>              # รัน package binary`;
+
+export const goCliCode = `# Go toolchain (ทั้งหมดใน command เดียว)
+go run main.go           # คอมไพล์ + รันใน step เดียว
+go run .                 # รัน package ปัจจุบัน
+go build -o myapp .      # คอมไพล์เป็น binary
+go mod init github.com/you/myapp  # init module ใหม่
+go get github.com/gin-gonic/gin   # เพิ่ม dependency
+go install tool@latest   # ติดตั้ง CLI tool แบบ global`;
+
+<TsGo client:visible ts={tsCliCode} go={goCliCode} />
+
+## go run vs go build
+
+`go run` คือ development loop ของคุณ — มันคอมไพล์และรันใน step เดียว เหมือน `ts-node` หรือ `npx tsx` ใช้ระหว่าง develop `go build` สร้าง binary แบบ standalone ที่ deploy ได้ ไม่มี "watch mode" built-in แต่เครื่องมืออย่าง [air](https://github.com/air-verse/air) ให้ live reload
+
+export const tsRunCode = `# TypeScript development loop
+npx ts-node src/index.ts    # คอมไพล์ + รัน (dev)
+tsc && node dist/index.js   # คอมไพล์แล้วรัน (CI/prod)
+npx tsx watch src/index.ts  # watch mode`;
+
+export const goRunCode = `# Go development loop
+go run .                    # คอมไพล์ + รัน (dev)
+go build -o ./bin/app . && ./bin/app  # คอมไพล์แล้วรัน
+# air                       # watch mode (third-party)`;
+
+<TsGo client:visible ts={tsRunCode} go={goRunCode} />
+
+## go mod init — เทียบเท่ากับ npm init
+
+เมื่อเริ่มโปรเจกต์ Go ใหม่ คุณ initialize module ด้วย `go mod init` สิ่งนี้สร้างไฟล์ `go.mod` — เทียบเท่ากับ `package.json` ของ Go
+
+export const tsNpmInitCode = `# TypeScript
+npm init -y
+# สร้าง package.json พร้อม name, version, deps
+
+# แล้วเพิ่ม dependency:
+npm install express
+# อัพเดท package.json + สร้าง package-lock.json`;
+
+export const goModInitCode = `# Go
+go mod init github.com/yourname/myapp
+# สร้าง go.mod
+
+# แล้วเพิ่ม dependency:
+go get github.com/gin-gonic/gin
+# อัพเดท go.mod + สร้าง go.sum (เหมือน package-lock.json)`;
+
+<TsGo client:visible ts={tsNpmInitCode} go={goModInitCode} />
+
+## go install — CLI tool แบบ global
+
+`npm install -g` ติดตั้ง CLI tool แบบ global `go install` ทำเหมือนกัน — มันคอมไพล์ module และวาง binary ใน `$GOPATH/bin` (เพิ่มสิ่งนี้ใน `PATH` ของคุณ)
+
+export const tsInstallCode = `# TypeScript: CLI tools แบบ global
+npm install -g typescript
+npm install -g prettier
+npx create-react-app myapp`;
+
+export const goInstallCode = `# Go: CLI tools แบบ global
+go install golang.org/x/tools/gopls@latest      # LSP server
+go install github.com/air-verse/air@latest       # live reload
+go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest`;
+
+<TsGo client:visible ts={tsInstallCode} go={goInstallCode} />
+
+<GoOnly title="GOPATH, GOROOT, และ module cache">
+
+คุณจะเห็น environment variable เหล่านี้ถูกอ้างถึงเป็นครั้งคราว:
+
+| Variable | ค่าเริ่มต้น | คืออะไร |
+|----------|------------|---------|
+| `GOROOT` | `/usr/local/go` | ที่ที่ Go toolchain ติดตั้งอยู่ |
+| `GOPATH` | `~/go` | workspace ของคุณ — module cache อยู่ใน `~/go/pkg/mod/` |
+| `GOBIN` | `$GOPATH/bin` | ที่ที่ `go install` วาง binary |
+
+รัน `go env` เพื่อดู Go environment variable ทั้งหมด รัน `go env GOPATH` สำหรับค่าเดียว คุณแทบไม่ต้องเปลี่ยนค่าเหล่านี้ — `go mod` ทำให้ module cache โปร่งใส
+
+```bash
+# diagnostics ที่มีประโยชน์
+go env          # แสดง Go environment variable ทั้งหมด
+go env GOPATH   # แสดงแค่ GOPATH
+go version      # แสดง Go version ที่ติดตั้ง
+go doc fmt      # อ่าน docs ของ fmt package ในเทอร์มินัล
+```
+
+</GoOnly>
+
+## Playground
+
+บทนี้เป็น setup lesson — Playground มีความหมายน้อยกว่าที่นี่ (ไม่มีอะไรต้องติดตั้งในเบราว์เซอร์) แต่คุณสามารถใช้ playground ในบทถัดไป (Hello World) เพื่อรันโปรแกรม Go แรกที่สมบูรณ์ของคุณ
+
+export const quizQuestionsSetup = [
+  { q: 'Go เทียบเท่ากับ `ts-node src/index.ts` คืออะไร?', options: ['go install .', 'go build .', 'go run .', 'go test .'], answer: 2 },
+  { q: '`go mod init` สร้างไฟล์อะไร?', options: ['go.json', 'package.go', 'go.mod', 'go.sum'], answer: 2 },
+  { q: '`go install` วาง compiled binary ไว้ที่ไหน?', options: ['./bin/', '/usr/local/bin/', '$GOPATH/bin', './node_modules/.bin/'], answer: 2 },
+  { q: 'go.sum เทียบเท่ากับอะไรใน Node.js ecosystem?', options: ['package.json', '.npmrc', 'package-lock.json', '.yarnrc'], answer: 2 },
+];
+
+<Quiz client:visible id="intro/setup" questions={quizQuestionsSetup} />
+
+<ProgressTracker client:visible id="intro/setup" />

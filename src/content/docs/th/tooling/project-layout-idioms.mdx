@@ -1,0 +1,148 @@
+---
+title: รูปแบบโครงสร้าง Project
+description: โครงสร้าง Go project แบบ idiomatic — cmd/, internal/ และการตั้งชื่อ package — เทียบกับ convention ของ src/ ที่คุ้นเคยจาก Node/TypeScript
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## src/ vs cmd/ + internal/
+
+TypeScript project เกือบทั้งหมดวาง source code ไว้ใน `src/` นอกจากนั้นโครงสร้างขึ้นอยู่กับคุณ — NestJS มี convention ของตัวเอง, Next.js มีของตัวเอง, และ Express project ธรรมดาอาจดูแตกต่างไปโดยสิ้นเชิง
+
+Go มีมาตรฐานชุมชนที่ได้รับการยอมรับซึ่งควรเรียนรู้ตั้งแต่ต้น Go project ส่วนใหญ่ที่คุณพบบน GitHub ใช้โครงสร้างหลักเดียวกัน:
+
+```bash
+myapp/
+├── cmd/
+│   └── myapp/
+│       └── main.go        # entry point binary
+├── internal/
+│   ├── handler/
+│   │   └── user.go
+│   ├── service/
+│   │   └── user.go
+│   └── repository/
+│       └── user.go
+├── pkg/
+│   └── logger/
+│       └── logger.go
+├── go.mod
+└── go.sum
+```
+
+export const tsLayoutCode = `// TypeScript / Node project ทั่วไป
+src/
+  main.ts               // entry point
+  modules/
+    users/
+      users.controller.ts
+      users.service.ts
+      users.repository.ts
+  shared/
+    logger.ts
+    utils.ts
+package.json
+tsconfig.json`;
+
+export const goLayoutCode = `// Go project แบบ idiomatic
+cmd/
+  myapp/
+    main.go             // entry point
+internal/
+  handler/
+    user.go
+  service/
+    user.go
+  repository/
+    user.go
+pkg/
+  logger/
+    logger.go
+go.mod
+go.sum`;
+
+<TsGo client:visible ts={tsLayoutCode} go={goLayoutCode} />
+
+## cmd/ — หนึ่ง directory ต่อหนึ่ง binary
+
+directory `cmd/` เก็บ entry point ของโปรแกรม ชื่อ sub-directory แต่ละอันกลายเป็นชื่อ binary ถ้ามี web server และ background worker:
+
+```bash
+cmd/
+  server/
+    main.go    # go build ./cmd/server  → ได้ binary ./server
+  worker/
+    main.go    # go build ./cmd/worker  → ได้ binary ./worker
+```
+
+สิ่งนี้มีประโยชน์เพราะ Go module เดียวสามารถสร้าง binary ได้หลายตัว ไม่มี convention เทียบเท่าใน Node — คุณมักจะใช้ workspaces แยกกันหรือ repository แยกกัน
+
+## internal/ — ความเป็น private ที่ compiler บังคับใช้
+
+directory `internal/` ถูก **Go compiler บังคับใช้เอง** โค้ดภายใน `internal/` สามารถ import ได้เฉพาะโค้ดในต้นไม้ parent ของ `internal/` directory นั้น
+
+```bash
+# ด้วย layout นี้:
+myapp/
+  internal/
+    service/
+      user.go    # package service
+
+# import นี้ได้รับอนุญาต (module เดียวกัน):
+import "myapp/internal/service"   // จาก cmd/myapp/main.go ✓
+
+# import นี้ถูกบล็อก (module อื่น):
+import "myapp/internal/service"   // จาก github.com/other/proj ✗
+# compiler error: use of internal package not allowed
+```
+
+สิ่งนี้ให้ visibility boundary ที่แข็งซึ่ง TypeScript ไม่สามารถบังคับใช้ได้ — แม้แต่ `private` class members ก็เป็นแค่ convention ที่ tsc บังคับใช้ ไม่ใช่ runtime
+
+## pkg/ — shared code แบบ optional
+
+`pkg/` สำหรับโค้ดที่คุณต้องการให้ consumer ภายนอก import ได้อย่างชัดเจน ให้นึกถึงมันเป็น public API surface ของคุณ — ตรงข้ามกับ `internal/` หลายทีมข้ามไป `pkg/` เลยและวาง shared utilities ไว้ใน named packages ที่ root โดยตรง
+
+## Convention การตั้งชื่อ package
+
+ชื่อ package ใน Go เป็น **noun ตัวพิมพ์เล็กสั้น เป็น singular** — ไม่มี underscore, ไม่มี camelCase
+
+```bash
+# ดี
+package handler
+package service
+package repository
+package logger
+
+# หลีกเลี่ยง
+package userHandlers   # camelCase
+package user_service   # underscore
+package handlers       # plural (minor แต่พบบ่อย)
+```
+
+ชื่อ package คือสิ่งที่ caller เขียน: `handler.NewUser(...)`, `service.CreateOrder(...)` ให้สั้นเพื่อให้ชื่อแบบ fully-qualified อ่านได้ตามธรรมชาติ
+
+> ไม่มี snippet ที่รันได้ที่นี่ — ทั้งหมดเป็นพฤติกรรมของ filesystem และ compiler ลองสร้าง layout ด้านบนใน terminal: `mkdir -p cmd/myapp internal/service && touch cmd/myapp/main.go internal/service/user.go go.mod`
+
+<GoOnly title="internal/ — boundary ที่ compiler บังคับใช้จริง">
+
+TypeScript มี `private`, `protected` และ module-level visibility แต่ทั้งหมดนี้เป็น TypeScript conventions ที่ compile-time ใน runtime (JavaScript) module ใด ๆ ก็ `require()` ไฟล์ใด ๆ ใน `node_modules` ได้
+
+directory `internal/` ของ Go ถูกบังคับใช้โดย Go toolchain ไม่ใช่ linter หรือ type-system convention ถ้า module ภายนอกพยายาม import path ที่มี `/internal/` compiler จะปฏิเสธการ build นี่คือการรับประกันเชิงโครงสร้างที่คุณไม่สามารถ bypass ได้โดยไม่ตั้งใจ
+
+มันเป็น idiomatic วิธีที่จะบอกว่า "โค้ดนี้เป็น implementation detail ของ module นี้และไม่ใช่ส่วนหนึ่งของ public API"
+
+</GoOnly>
+
+export const quizQuestionsLayout = [
+  { q: 'directory `cmd/` มีไว้เพื่อเก็บอะไรตาม convention ของ Go project?', options: ['Configuration files', 'Entry-point binaries (main packages)', 'Internal business logic', 'Generated code เท่านั้น'], answer: 1 },
+  { q: 'ใครบังคับใช้ข้อจำกัด visibility ของ `internal/`?', options: ['Linter', 'Go compiler เอง', 'go vet', 'golangci-lint'], answer: 1 },
+  { q: 'ชื่อ Go package แบบใดถูกต้อง?', options: ['userService', 'user_service', 'service', 'ServicePackage'], answer: 2 },
+  { q: 'โค้ดใน `internal/` สามารถ import ได้โดย:', options: ['Go module ใด ๆ ก็ได้', 'เฉพาะ packages ใน parent tree เดียวกับ internal/ directory นั้น', 'เฉพาะ cmd/ packages', 'ไม่มี package — internal หมายถึง unexported'], answer: 1 },
+];
+
+<Quiz client:visible id="tooling/project-layout-idioms" questions={quizQuestionsLayout} />
+
+<ProgressTracker client:visible id="tooling/project-layout-idioms" />

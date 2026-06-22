@@ -1,0 +1,198 @@
+---
+title: โครงสร้างโปรเจกต์ Go
+description: เข้าใจ Go module layout, go.mod vs package.json, packages vs folder, imports, และโครงสร้างโปรเจกต์แบบ idiomatic — เทียบกับโปรเจกต์ Node.js
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## โปรเจกต์ Go มีโครงสร้างอย่างไร
+
+จากมุมมอง Node.js/TypeScript คุณคุ้นเคยกับ `package.json`, `tsconfig.json`, โฟลเดอร์ `src/`, และ `node_modules` โปรเจกต์ Go มีโครงสร้างที่ต่างออกไปแต่มีระเบียบเท่ากัน การเข้าใจมันตั้งแต่ต้นจะช่วยประหยัดเวลาหลายชั่วโมง
+
+## go.mod — package.json ของ Go
+
+`go.mod` ถูกสร้างโดย `go mod init` และเป็น root manifest ของ Go module ของคุณ มันประกาศชื่อ module (prefix ของ import path ของคุณ) และ minimum Go version ที่ต้องการ
+
+export const tsPackageJsonCode = `// package.json
+{
+  "name": "my-app",
+  "version": "1.0.0",
+  "scripts": { "build": "tsc", "start": "node dist/index.js" },
+  "dependencies": { "express": "^4.18.2" },
+  "devDependencies": { "typescript": "^5.0.0" }
+}`;
+
+export const goModCode = `// go.mod
+module github.com/yourname/myapp
+
+go 1.22
+
+require (
+    github.com/gin-gonic/gin v1.9.1
+)
+
+// go.sum คือ lockfile (เหมือน package-lock.json)
+// จัดการอัตโนมัติ — ไม่ควรแก้ด้วยตัวเอง`;
+
+<TsGo client:visible ts={tsPackageJsonCode} go={goModCode} />
+
+ชื่อ module (`github.com/yourname/myapp`) ไม่ใช่แค่ชื่อ — มันคือ import path prefix ที่ใช้ทั่วโค้ดของคุณ โดย convention มักตรงกับ URL ของ source repository
+
+## Package — หนึ่งต่อ directory
+
+ใน Go **package** คือ directory ของไฟล์ `.go` ที่ประกาศ `package name` เดียวกันทั้งหมด สิ่งนี้เข้มงวดกว่า TypeScript/ESM ที่ทุกไฟล์เป็น module ของตัวเอง ใน Go คุณ import ที่ระดับ package ไม่ใช่ระดับไฟล์
+
+export const tsImportsCode = `// TypeScript: imports ระดับไฟล์
+import { UserService } from './services/user.service';
+import type { User } from './models/user.model';
+import * as utils from '../shared/utils';`;
+
+export const goImportsCode = `// Go: imports ระดับ package
+import (
+    "github.com/yourname/myapp/internal/services"
+    "github.com/yourname/myapp/internal/models"
+    "github.com/yourname/myapp/pkg/utils"
+)
+
+// แล้วใช้: services.NewUserService(...)
+//            models.User{...}
+//            utils.SomeHelper(...)`;
+
+<TsGo client:visible ts={tsImportsCode} go={goImportsCode} />
+
+## โครงสร้างโปรเจกต์แบบ Idiomatic
+
+ชุมชน Go ได้ลงตัวกับ layout มาตรฐานสำหรับ service และ CLI นี่คือการเทียบกับโปรเจกต์ Node/TypeScript ทั่วไป:
+
+export const tsProjectStructCode = `// TypeScript / Node.js project
+my-app/
+  src/
+    controllers/     # route handler
+    services/        # business logic
+    models/          # TypeScript interface/type
+    middleware/      # Express middleware
+    index.ts         # entry point
+  dist/              # compiled output
+  package.json
+  tsconfig.json
+  .env`;
+
+export const goProjectStructCode = `// Go project (idiomatic layout)
+myapp/
+  cmd/
+    myapp/
+      main.go        # entry point (package main)
+  internal/
+    handlers/        # HTTP handler
+    services/        # business logic
+    models/          # struct definition
+    middleware/      # HTTP middleware
+  pkg/               # package ที่นำกลับมาใช้ได้ (public API)
+  go.mod
+  go.sum
+  .env`;
+
+<TsGo client:visible ts={tsProjectStructCode} go={goProjectStructCode} />
+
+กฎสำคัญ:
+- `cmd/` เก็บ entry point (`main` package) หนึ่ง subdirectory ต่อ binary
+- `internal/` คือโค้ด private ที่ Go enforce — package ที่นี่ไม่สามารถ import โดย module ภายนอก
+- `pkg/` เก็บ package ที่คุณตั้งใจเปิดเผยสำหรับการใช้งานภายนอก
+
+<GoOnly title="internal/ — privacy ที่ compiler enforce">
+
+ใน TypeScript โค้ด "private" คือ convention (prefix `_`, barrel file, documentation) Go enforce มันที่ระดับ compiler ด้วย directory `internal/` Package ใดๆ ที่อยู่ใน `internal/` สามารถ import ได้เฉพาะโดยโค้ดที่แชร์ parent directory tree เดียวกัน
+
+```
+myapp/
+  internal/
+    database/   # เฉพาะ myapp/** ที่ import ได้
+  pkg/
+    utils/      # ใครก็ import ได้
+```
+
+```go
+// สำเร็จ (same module):
+import "github.com/yourname/myapp/internal/database"
+
+// ล้มเหลวตอน compile time (external module):
+// import "github.com/yourname/myapp/internal/database"
+// cannot use internal package
+```
+
+สิ่งนี้ให้คุณสร้าง stable public API ใน `pkg/` ในขณะที่เก็บ implementation detail ไว้ใน `internal/` อย่างแท้จริง
+
+</GoOnly>
+
+## Identifier ที่ exported vs unexported
+
+ใน TypeScript คุณใช้ `export` และ `import` ใน Go visibility กำหนดโดยตัวอักษรแรกของชื่อ identifier — ไม่ต้องใช้ keyword `export`
+
+export const tsExportCode = `// TypeScript: export แบบ explicit
+export interface User { id: string; name: string; }
+export function greet(name: string): string {
+  return \`Hello, \${name}!\`;
+}
+// helper ภายใน (ไม่มี export)
+function formatName(n: string): string { return n.trim(); }`;
+
+export const goExportCode = `// Go: ตัวพิมพ์ใหญ่ = exported, ตัวพิมพ์เล็ก = unexported
+type User struct {         // exported (U ตัวใหญ่)
+    ID   string
+    Name string
+}
+
+func Greet(name string) string {  // exported (G ตัวใหญ่)
+    return "Hello, " + formatName(name) + "!"
+}
+
+func formatName(n string) string { // unexported (lowercase)
+    return strings.TrimSpace(n)
+}`;
+
+<TsGo client:visible ts={tsExportCode} go={goExportCode} />
+
+## ลองเลย — package และ import
+
+export const playgroundProjectCode = `package main
+
+import (
+	"fmt"
+	"strings"
+)
+
+// Exported function — ตัวพิมพ์ใหญ่
+func Greet(name string) string {
+	return "Hello, " + formatName(name) + "!"
+}
+
+// unexported helper — ตัวพิมพ์เล็ก
+func formatName(n string) string {
+	return strings.ToUpper(n[:1]) + n[1:]
+}
+
+func main() {
+	fmt.Println(Greet("gopher"))
+	fmt.Println(Greet("world"))
+
+	// Standard library import โดย path
+	// "strings" -> the strings package
+	fmt.Println(strings.ToUpper("go is great"))
+}`;
+
+<Playground client:visible code={playgroundProjectCode} />
+
+export const quizQuestionsProject = [
+  { q: 'ใน Go อะไรกำหนดว่า identifier ถูก export (public) หรือไม่?', options: ['Keyword `export` ก่อนมัน', 'อยู่ในไฟล์ชื่อ exports.go', 'เริ่มต้นด้วยตัวพิมพ์ใหญ่', 'อยู่ใน directory pkg/'], answer: 2 },
+  { q: 'directory `internal/` enforce อะไรใน Go?', options: ['โค้ดในนั้นรันเร็วกว่า', 'เฉพาะ module tree เดียวกันเท่านั้นที่ import package เหล่านั้นได้', 'Package ข้างในถูก test อัตโนมัติ', 'โค้ดทั้งหมดข้างในถูก format ด้วย gofmt'], answer: 1 },
+  { q: 'ใน Go scope ของ import คืออะไร? (เช่น import "fmt")', options: ['ทั้ง module', 'ทั้งไฟล์', 'Function เดียว', 'ทั้ง package directory'], answer: 1 },
+  { q: 'go.sum เทียบเท่ากับอะไรใน Node.js ecosystem?', options: ['package.json', 'tsconfig.json', 'package-lock.json', '.npmignore'], answer: 2 },
+];
+
+<Quiz client:visible id="intro/project-anatomy" questions={quizQuestionsProject} />
+
+<ProgressTracker client:visible id="intro/project-anatomy" />

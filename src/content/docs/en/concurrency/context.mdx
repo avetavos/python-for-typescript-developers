@@ -1,0 +1,212 @@
+---
+title: Context — Cancellation and Deadlines
+description: Use context.Context to propagate cancellation, deadlines, and timeouts through a call chain. Compare to JavaScript's AbortController.
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## AbortController vs context.Context
+
+In the browser/Node.js you use `AbortController` to cancel a `fetch` or any operation that accepts an `AbortSignal`:
+
+```typescript
+const controller = new AbortController();
+setTimeout(() => controller.abort(), 5000); // cancel after 5 s
+const res = await fetch(url, { signal: controller.signal });
+```
+
+In Go, `context.Context` plays the same role — and goes further. It is a standard interface that carries a cancellation signal, an optional deadline, and arbitrary request-scoped values. You pass it as the first argument to every I/O function in the call chain so that a cancellation at the top automatically propagates all the way down.
+
+## context.WithCancel
+
+`context.WithCancel` returns a new context and a `cancel` function. Calling `cancel` closes the `ctx.Done()` channel, which every goroutine listening on that context will see:
+
+export const tsAbortCode = `// TypeScript: AbortController
+const controller = new AbortController();
+const { signal } = controller;
+
+async function worker(signal: AbortSignal) {
+  // signal.aborted becomes true when abort() is called
+  while (!signal.aborted) {
+    await doWork();
+  }
+  console.log("Worker cancelled");
+}
+
+controller.abort(); // broadcast cancellation`;
+
+export const goWithCancelCode = `// Go: context.WithCancel
+package main
+
+import (
+    "context"
+    "fmt"
+    "sync"
+)
+
+func worker(ctx context.Context, id int, wg *sync.WaitGroup) {
+    defer wg.Done()
+    select {
+    case <-ctx.Done(): // unblocks when cancel() is called
+        fmt.Printf("Worker %d cancelled: %v\\n", id, ctx.Err())
+    }
+}
+
+func main() {
+    ctx, cancel := context.WithCancel(context.Background())
+    var wg sync.WaitGroup
+
+    for i := 1; i <= 3; i++ {
+        wg.Add(1)
+        go worker(ctx, i, &wg)
+    }
+
+    cancel()   // broadcast cancellation to all workers
+    wg.Wait()
+    fmt.Println("All workers stopped")
+}`;
+
+<TsGo client:visible ts={tsAbortCode} go={goWithCancelCode} />
+
+## context.WithTimeout
+
+For operations that must complete within a deadline, use `context.WithTimeout`. Go automatically cancels the context when the timer expires:
+
+export const tsTimeoutCode = `// TypeScript: timeout via Promise.race
+async function withTimeout<T>(
+  fn: () => Promise<T>,
+  ms: number
+): Promise<T> {
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error(\`Timed out after \${ms}ms\`)), ms)
+  );
+  return Promise.race([fn(), timeout]);
+}`;
+
+export const goWithTimeoutCode = `// Go: context.WithTimeout
+package main
+
+import (
+    "context"
+    "fmt"
+    "sync"
+    "time"
+)
+
+func slowOperation(ctx context.Context, wg *sync.WaitGroup) {
+    defer wg.Done()
+    select {
+    case <-time.After(5 * time.Second): // simulated slow work
+        fmt.Println("Operation complete")
+    case <-ctx.Done():
+        fmt.Println("Operation timed out:", ctx.Err())
+    }
+}
+
+func main() {
+    ctx, cancel := context.WithTimeout(
+        context.Background(),
+        100*time.Millisecond, // deadline: 100 ms
+    )
+    defer cancel() // always defer cancel — prevents resource leak
+
+    var wg sync.WaitGroup
+    wg.Add(1)
+    go slowOperation(ctx, &wg)
+    wg.Wait()
+}`;
+
+<TsGo client:visible ts={tsTimeoutCode} go={goWithTimeoutCode} />
+
+## context.WithValue — request-scoped data
+
+export const tsReqCode = `// TypeScript: pass request-scoped data via function arguments
+async function handler(req: Request) {
+  const userId = req.headers.get('x-user-id');
+  await processRequest(userId);
+}`;
+
+export const goCtxValueCode = `// Go: context.WithValue carries data through the call chain
+package main
+
+import (
+    "context"
+    "fmt"
+)
+
+type contextKey string
+
+const userIDKey contextKey = "userID"
+
+func processRequest(ctx context.Context) {
+    userID := ctx.Value(userIDKey)
+    fmt.Println("Processing for user:", userID)
+}
+
+func main() {
+    ctx := context.WithValue(
+        context.Background(),
+        userIDKey,
+        "user-123",
+    )
+    processRequest(ctx)
+}`;
+
+<TsGo client:visible ts={tsReqCode} go={goCtxValueCode} />
+
+<GoOnly title="Five rules for context in Go">
+
+1. **Context is always the first parameter** — `func Do(ctx context.Context, ...)`. Convention, not a compiler rule.
+2. **Never store a context in a struct** — pass it through function arguments so the lifetime is explicit.
+3. **Always defer cancel()** — even if you know the timeout will fire first, deferring cancel prevents a goroutine leak in the `WithTimeout`/`WithDeadline` implementation.
+4. **Use `context.Background()` at the entry point** and `context.TODO()` when you know a context should be added but have not wired it yet.
+5. **`context.WithValue` is for request-scoped metadata only** (trace IDs, user IDs) — not for optional function parameters.
+
+</GoOnly>
+
+export const playgroundContextCode = `package main
+
+import (
+	"context"
+	"fmt"
+	"sync"
+)
+
+func worker(ctx context.Context, id int, wg *sync.WaitGroup) {
+	defer wg.Done()
+	select {
+	case <-ctx.Done():
+		fmt.Printf("Worker %d stopped: %v\\n", id, ctx.Err())
+	}
+}
+
+func main() {
+	ctx, cancel := context.WithCancel(context.Background())
+	var wg sync.WaitGroup
+
+	for i := 1; i <= 3; i++ {
+		wg.Add(1)
+		go worker(ctx, i, &wg)
+	}
+
+	cancel()
+	wg.Wait()
+	fmt.Println("All workers stopped")
+}`;
+
+<Playground client:visible code={playgroundContextCode} />
+
+export const quizQuestionsContext = [
+  { q: 'What JavaScript API is most analogous to context.Context?', options: ['Promise', 'AbortController', 'EventEmitter', 'setTimeout'], answer: 1 },
+  { q: 'Why should cancel() always be deferred?', options: ['For performance', 'To prevent goroutine/resource leaks', 'To print a log line', 'To restart goroutines'], answer: 1 },
+  { q: 'How should a context be passed through a Go call chain?', options: ['Store it in a global variable', 'Store it in a struct field', 'As the first argument of every function', 'Through a channel'], answer: 2 },
+  { q: 'Which channel closes when a context is cancelled?', options: ['ctx.Cancel()', 'ctx.Stop()', 'ctx.Done()', 'ctx.End()'], answer: 2 },
+];
+
+<Quiz client:visible id="concurrency/context" questions={quizQuestionsContext} />
+
+<ProgressTracker client:visible id="concurrency/context" />

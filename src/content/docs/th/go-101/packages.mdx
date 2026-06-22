@@ -1,0 +1,183 @@
+---
+title: Packages, Modules และ Imports
+description: packages, exported identifiers ผ่านการขึ้นต้นด้วยตัวพิมพ์ใหญ่, go.mod modules และ imports ของ Go เทียบกับ ES modules และ npm
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## Packages: ระบบโมดูลของ Go
+
+TypeScript ใช้ ES modules (`import`/`export`) ร่วมกับ npm สำหรับ package Go มีแนวคิดที่คล้ายกัน: **packages** (ไดเรกทอรีของไฟล์ `.go` ที่ใช้คำประกาศ `package` ร่วมกัน) และ **modules** (กลุ่มของ package ที่นิยามโดย `go.mod` เหมือนกับ `package.json`)
+
+## Packages และคำประกาศ package
+
+ไฟล์ Go ทุกไฟล์เริ่มต้นด้วย `package <name>` ไฟล์ในไดเรกทอรีเดียวกันใช้ package ร่วมกัน ส่วนโปรแกรมที่รันได้ใช้ `package main`
+
+export const tsModuleCode = `// TypeScript: file is automatically a module
+export function add(a: number, b: number): number {
+    return a + b;
+}
+export const PI = 3.14159;`;
+
+export const goPackageCode = `// Go: explicit package declaration
+package mathutil
+
+func Add(a, b int) int {
+    return a + b
+}
+
+const PI = 3.14159`;
+
+<TsGo client:visible ts={tsModuleCode} go={goPackageCode} />
+
+## Exported เทียบกับ unexported identifiers
+
+ระบบ export ของ Go เรียบง่ายอย่างหมดจด: **ขึ้นต้นด้วยตัวพิมพ์ใหญ่ → exported (public) ขึ้นต้นด้วยตัวพิมพ์เล็ก → unexported (เป็น private ภายใน package)** ไม่ต้องใช้คีย์เวิร์ด `export`
+
+export const tsExportCode = `// TypeScript: explicit export keyword
+export function PublicFunc() { ... }
+function privateFunc() { ... }   // not exported
+
+export class PublicClass { ... }
+class InternalClass { ... }`;
+
+export const goExportCode = `// Go: capitalisation IS the export keyword
+func PublicFunc() { ... }   // exported — capital P
+func privateFunc() { ... }  // unexported — lowercase p
+
+type PublicStruct struct { ... }
+type internalStruct struct { ... }`;
+
+<TsGo client:visible ts={tsExportCode} go={goExportCode} />
+
+## go.mod — สิ่งเทียบเท่ากับ package.json
+
+export const tsGoModCode = `// package.json (npm)
+{
+  "name": "my-app",
+  "version": "1.0.0",
+  "dependencies": {
+    "express": "^4.18.0"
+  }
+}
+
+// Add dependency:
+// npm install express`;
+
+export const goModCode = `// go.mod
+module github.com/user/my-app
+
+go 1.22
+
+require (
+    github.com/gin-gonic/gin v1.9.1
+)
+
+// Add dependency:
+// go get github.com/gin-gonic/gin`;
+
+<TsGo client:visible ts={tsGoModCode} go={goModCode} />
+
+## การ import package
+
+export const tsImportCode = `// TypeScript
+import { readFileSync } from 'fs';
+import express from 'express';
+import { add } from './mathutil';`;
+
+export const goImportCode = `// Go
+import (
+    "os"                           // stdlib
+    "github.com/gin-gonic/gin"     // third-party
+    "github.com/user/app/mathutil" // local package
+)`;
+
+<TsGo client:visible ts={tsImportCode} go={goImportCode} />
+
+## ลองเล่นดู
+
+export const playgroundPkgCode = `package main
+
+import (
+	"fmt"
+	"strings"
+	"unicode"
+)
+
+func isExported(name string) bool {
+	if name == "" {
+		return false
+	}
+	return unicode.IsUpper(rune(name[0]))
+}
+
+func main() {
+	names := []string{"Println", "printf", "HTTP", "myHelper", "PublicAPI"}
+	for _, n := range names {
+		status := "unexported"
+		if isExported(n) {
+			status = "EXPORTED"
+		}
+		fmt.Printf("%-12s -> %s\\n", n, status)
+	}
+
+	s := "go for typescript developers"
+	fmt.Println(strings.ToTitle(s))
+}`;
+
+<Playground client:visible code={playgroundPkgCode} />
+
+<GoOnly title="การขึ้นต้นด้วยตัวพิมพ์ใหญ่เป็นกลไกการ export">
+
+นี่เป็นหนึ่งในตัวเลือกการออกแบบที่โดดเด่นที่สุดของ Go **ไม่มี** คีย์เวิร์ด `public`, `private`, `protected` หรือ `export` ตัวอักษรตัวแรกของ identifier ใดๆ (ฟังก์ชัน, type, ตัวแปร, ค่าคงที่, field ของ struct) เป็นตัวกำหนด visibility:
+
+- `Exported` — ตัวอักษรแรกเป็นตัวพิมพ์ใหญ่ — มองเห็นได้นอก package
+- `unexported` — ตัวอักษรแรกเป็นตัวพิมพ์เล็ก — เป็น private ภายใน package
+
+```go
+type User struct {
+    Name  string  // exported field
+    email string  // unexported field — callers can't access this
+}
+```
+
+คุณสามารถบอกได้ทันทีจาก identifier ใดๆ ว่ามันเป็นส่วนหนึ่งของ public API ของ package หรือไม่ เพียงแค่อ่านโค้ด
+
+</GoOnly>
+
+<GoOnly title="init() — การ initialize ของ package">
+
+แต่ละ package ของ Go สามารถมีฟังก์ชัน `init()` ที่รันโดยอัตโนมัติเมื่อ package ถูก import ครั้งแรก ก่อน `main()` คุณไม่สามารถเรียก `init()` ได้โดยตรง
+
+```go
+package db
+
+var pool *sql.DB
+
+func init() {
+    var err error
+    pool, err = sql.Open("postgres", os.Getenv("DATABASE_URL"))
+    if err != nil {
+        log.Fatal(err)
+    }
+}
+```
+
+สิ่งเทียบเท่าใน Node.js คือโค้ดระดับ top-level ที่รันเมื่อโมดูลถูก `require()` ครั้งแรก แต่ `init()` ของ Go นั้นชัดเจนและมีนิยามที่แน่นอน
+
+</GoOnly>
+
+export const quizQuestionsPkg = [
+  { q: 'Go กำหนดว่า identifier เป็น exported (public) อย่างไร?', options: ['ใช้คีย์เวิร์ด export', 'ด้วยการใส่ไว้ใน object exports', 'ตัวอักษรแรกเป็นตัวพิมพ์ใหญ่ = exported, ตัวพิมพ์เล็ก = unexported', 'ด้วยการวางไว้ในไฟล์ exports พิเศษ'], answer: 2 },
+  { q: 'สิ่งเทียบเท่ากับ package.json ใน Go คืออะไร?', options: ['go.sum', 'go.mod', 'go.lock', 'module.go'], answer: 1 },
+  { q: 'คำประกาศ package ใดที่โปรแกรม Go ที่รันได้ทุกตัวต้องใช้?', options: ['package app', 'package run', 'package main', 'package exec'], answer: 2 },
+  { q: 'คำสั่งใดที่เพิ่ม dependency จากภายนอกเข้าไปใน Go module?', options: ['go install', 'go add', 'go get', 'go require'], answer: 2 },
+];
+
+<Quiz client:visible id="go-101/packages" questions={quizQuestionsPkg} />
+
+<ProgressTracker client:visible id="go-101/packages" />

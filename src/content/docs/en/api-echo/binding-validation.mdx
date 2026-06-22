@@ -1,0 +1,199 @@
+---
+title: Binding & Validation
+description: Decode JSON request bodies into Go structs with c.Bind, and validate them with struct tags — compared to class-validator/Zod in TypeScript.
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## Binding — reading the request body
+
+In Express you access `req.body` (after `express.json()`). In Echo, `c.Bind(&target)` does the same: it reads the `Content-Type` header and decodes the body into the struct you pass. It also binds path params and query params if the struct fields carry the right tags.
+
+export const tsBinding = `// Express + TypeScript
+interface CreateBookDTO {
+  title: string;
+  author: string;
+  year: number;
+}
+
+app.post('/books', (req, res) => {
+  const body = req.body as CreateBookDTO;
+  // body.title, body.author, body.year available
+  res.status(201).json(body);
+});`;
+
+export const goBinding = `// Echo
+type CreateBookRequest struct {
+    Title  string \`json:"title"\`
+    Author string \`json:"author"\`
+    Year   int    \`json:"year"\`
+}
+
+func createBook(c echo.Context) error {
+    var req CreateBookRequest
+    if err := c.Bind(&req); err != nil {
+        return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+    }
+    // req.Title, req.Author, req.Year available
+    return c.JSON(http.StatusCreated, req)
+}`;
+
+<TsGo client:visible ts={tsBinding} go={goBinding} />
+
+## Struct tags — the annotation system
+
+Go struct tags are string literals attached to fields. They act like TypeScript decorators but without code execution — they are read at runtime via reflection. `json:"name"` controls serialization; `validate:"rule"` is read by a validator library.
+
+export const tsDecorators = `// TypeScript class-validator
+import { IsString, IsInt, Min, IsNotEmpty } from 'class-validator';
+
+class CreateBookDTO {
+  @IsString()
+  @IsNotEmpty()
+  title: string;
+
+  @IsString()
+  author: string;
+
+  @IsInt()
+  @Min(1000)
+  year: number;
+}`;
+
+export const goStructTags = `// Go struct tags
+type CreateBookRequest struct {
+    Title  string \`json:"title"  validate:"required"\`
+    Author string \`json:"author" validate:"required"\`
+    Year   int    \`json:"year"   validate:"required,min=1000"\`
+}`;
+
+<TsGo client:visible ts={tsDecorators} go={goStructTags} />
+
+## Try it — struct tags with encoding/json
+
+The stdlib `encoding/json` package reads `json:"..."` tags during Marshal/Unmarshal. This works in the playground:
+
+export const playgroundStructTags = `package main
+
+import (
+	"encoding/json"
+	"fmt"
+)
+
+type Book struct {
+	Title  string \`json:"title"\`
+	Author string \`json:"author"\`
+	Year   int    \`json:"year"\`
+	// omitempty: field is omitted from JSON when it is zero/empty
+	ISBN   string \`json:"isbn,omitempty"\`
+}
+
+func main() {
+	// Unmarshal (JSON -> struct)
+	raw := \`{"title":"The Go Programming Language","author":"Donovan & Kernighan","year":2015}\`
+	var b Book
+	if err := json.Unmarshal([]byte(raw), &b); err != nil {
+		fmt.Println("error:", err)
+		return
+	}
+	fmt.Printf("Title:  %s\\n", b.Title)
+	fmt.Printf("Author: %s\\n", b.Author)
+	fmt.Printf("Year:   %d\\n", b.Year)
+	fmt.Printf("ISBN:   %q (empty — omitted in output)\\n", b.ISBN)
+
+	// Marshal (struct -> JSON)
+	out, _ := json.MarshalIndent(b, "", "  ")
+	fmt.Println(string(out))
+}`;
+
+<Playground client:visible code={playgroundStructTags} />
+
+## Validation with go-playground/validator
+
+Echo has no built-in validation, but it exposes `e.Validator`. The standard approach is to wire in `go-playground/validator`.
+
+export const tsClassValidator = `// NestJS global validation pipe
+import { ValidationPipe } from '@nestjs/common';
+app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
+
+// DTO
+class CreateBookDTO {
+  @IsString() @IsNotEmpty() title: string;
+  @IsInt() @Min(1000) year: number;
+}`;
+
+export const goValidation = `// Wire validator once in main.go
+import "github.com/go-playground/validator/v10"
+
+type CustomValidator struct {
+    v *validator.Validate
+}
+
+func (cv *CustomValidator) Validate(i any) error {
+    return cv.v.Struct(i)
+}
+
+// In main():
+e.Validator = &CustomValidator{v: validator.New()}
+
+// Handler — bind then validate
+func createBook(c echo.Context) error {
+    var req CreateBookRequest
+    if err := c.Bind(&req); err != nil {
+        return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+    }
+    if err := c.Validate(req); err != nil {
+        return echo.NewHTTPError(http.StatusUnprocessableEntity, err.Error())
+    }
+    // req is safe to use
+    return c.JSON(http.StatusCreated, req)
+}`;
+
+<TsGo client:visible ts={tsClassValidator} go={goValidation} />
+
+<GoOnly title="Common validate tags">
+
+| Tag | Meaning |
+|-----|---------|
+| `required` | Field must be non-zero |
+| `min=n` | For numbers: value ≥ n; for strings/slices: length ≥ n |
+| `max=n` | Upper bound |
+| `email` | Valid e-mail format |
+| `url` | Valid URL |
+| `oneof=a b c` | Value must be one of the listed strings |
+| `len=n` | Exact length |
+
+Combine with commas: `validate:"required,min=1,max=200"`.
+
+</GoOnly>
+
+export const quizQuestionsBinding = [
+  {
+    q: 'Which Echo method decodes a JSON request body into a struct?',
+    options: ['c.Body()', 'c.JSON()', 'c.Bind()', 'c.Decode()'],
+    answer: 2,
+  },
+  {
+    q: 'What Go mechanism do libraries like encoding/json and go-playground/validator use to read struct field metadata?',
+    options: ['Decorators', 'Reflection and struct tags', 'Code generation', 'Generics'],
+    answer: 1,
+  },
+  {
+    q: 'What does the json:"isbn,omitempty" tag do?',
+    options: [
+      'Makes the field required in JSON input',
+      'Omits the field from JSON output when it is zero/empty',
+      'Renames the field to omitempty',
+      'Validates that isbn is not empty',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="api-echo/binding-validation" questions={quizQuestionsBinding} />
+
+<ProgressTracker client:visible id="api-echo/binding-validation" />

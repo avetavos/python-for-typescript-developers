@@ -1,0 +1,169 @@
+---
+title: Project Layout
+description: How to structure an Echo project — go.mod, main.go, and directory conventions — compared to an Express or NestJS project.
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## Layout comparison
+
+A TypeScript/Node project carries `package.json`, a build tool, a `dist/` output folder, and `node_modules`. A Go project is simpler: `go.mod` declares the module and its dependencies; there is no separate build-output folder — `go build` produces a single binary.
+
+export const tsLayout = `// Express / NestJS project tree
+my-api/
+├── package.json
+├── tsconfig.json
+├── src/
+│   ├── main.ts
+│   ├── app.module.ts       ← NestJS root module
+│   ├── books/
+│   │   ├── books.controller.ts
+│   │   ├── books.service.ts
+│   │   └── books.dto.ts
+│   └── middleware/
+│       └── logger.middleware.ts
+└── node_modules/`;
+
+export const goLayout = `// Echo project tree
+books-api/
+├── go.mod
+├── go.sum
+├── main.go                 ← entry point; wire everything here
+├── internal/
+│   ├── handler/
+│   │   └── books.go        ← HTTP handlers (parse, validate, call service)
+│   ├── service/
+│   │   └── books.go        ← business logic
+│   └── store/
+│       └── books.go        ← database queries
+└── model/
+    └── book.go             ← shared structs / domain types`;
+
+<TsGo client:visible ts={tsLayout} go={goLayout} />
+
+## go.mod — the package.json of Go
+
+`go.mod` declares the module path (used as the import prefix) and the minimum Go version. `go get` adds dependencies; `go mod tidy` removes unused ones.
+
+export const tsPackageJson = `// package.json
+{
+  "name": "books-api",
+  "version": "1.0.0",
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}`;
+
+export const goModFile = `// go.mod
+module github.com/you/books-api
+
+go 1.22
+
+require (
+    github.com/labstack/echo/v4 v4.12.0
+)`;
+
+<TsGo client:visible ts={tsPackageJson} go={goModFile} />
+
+## main.go — wiring the application
+
+In NestJS, `main.ts` calls `NestFactory.create`. In Echo, `main.go` calls `echo.New()`, registers middleware and routes, then calls `e.Start`. All wiring is explicit Go code — no decorators, no DI container.
+
+export const tsMainTs = `// NestJS main.ts
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  app.setGlobalPrefix('api');
+  await app.listen(3000);
+}
+bootstrap();`;
+
+export const goMainGo = `// main.go
+package main
+
+import (
+    "net/http"
+
+    "github.com/labstack/echo/v4"
+    "github.com/labstack/echo/v4/middleware"
+
+    "github.com/you/books-api/internal/handler"
+    "github.com/you/books-api/internal/store"
+)
+
+func main() {
+    e := echo.New()
+
+    // Middleware
+    e.Use(middleware.Logger())
+    e.Use(middleware.Recover())
+
+    // Dependency wiring (manual, no container)
+    bookStore := store.NewBookStore()
+    bookHandler := handler.NewBookHandler(bookStore)
+
+    // Routes
+    api := e.Group("/api")
+    api.GET("/books", bookHandler.List)
+    api.POST("/books", bookHandler.Create)
+    api.GET("/books/:id", bookHandler.Get)
+    api.PUT("/books/:id", bookHandler.Update)
+    api.DELETE("/books/:id", bookHandler.Delete)
+
+    e.Logger.Fatal(e.Start(":1323"))
+}`;
+
+<TsGo client:visible ts={tsMainTs} go={goMainGo} />
+
+<GoOnly title="Why internal/?">
+
+The `internal/` directory is a Go language feature: packages inside it can only be imported by code in the same module. It is the idiomatic way to keep handlers, services, and stores private — equivalent to marking a NestJS module as non-exported. Any attempt to import `github.com/you/books-api/internal/handler` from outside the `books-api` module will fail at compile time.
+
+</GoOnly>
+
+> Run this locally — it needs the Echo module and a network port. From your project root: `go run main.go`
+
+export const quizQuestionsLayout = [
+  {
+    q: 'What is the Go equivalent of package.json for declaring dependencies?',
+    options: ['go.lock', 'go.mod', 'Gopkg.toml', 'go.sum'],
+    answer: 1,
+  },
+  {
+    q: 'What does the internal/ directory enforce in Go?',
+    options: [
+      'Files are compiled in debug mode',
+      'Packages can only be imported within the same module',
+      'Packages are excluded from testing',
+      'Dependencies are pinned to exact versions',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'Which command removes unused dependencies from go.mod?',
+    options: ['go clean', 'go mod tidy', 'go prune', 'go remove'],
+    answer: 1,
+  },
+  {
+    q: 'In Echo, where does explicit route registration happen?',
+    options: [
+      'Automatically via decorators',
+      'In a config file',
+      'In main.go or a dedicated router file',
+      'In go.mod',
+    ],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="api-echo/project-layout" questions={quizQuestionsLayout} />
+
+<ProgressTracker client:visible id="api-echo/project-layout" />

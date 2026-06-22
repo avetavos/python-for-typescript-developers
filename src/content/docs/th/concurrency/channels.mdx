@@ -1,0 +1,193 @@
+---
+title: Channels
+description: เรียนรู้ channels แบบ unbuffered และ buffered สำหรับสื่อสารระหว่าง goroutines; เปรียบเทียบกับ Promises และ callbacks
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## Promises/Callbacks vs Channels
+
+ใน JavaScript เมื่อคุณต้องการส่งผลลัพธ์จาก async operation ไปยังโค้ดอื่น คุณใช้ Promises หรือ callbacks:
+
+```typescript
+function fetchUser(id: number): Promise<User> {
+  return new Promise((resolve) => {
+    // ... async work ...
+    resolve(user);
+  });
+}
+const user = await fetchUser(1); // รอรับค่า
+```
+
+ใน Go channels ทำหน้าที่เป็น **typed pipes** สำหรับส่งข้อมูลระหว่าง goroutines โดยตรง:
+
+```go
+ch := make(chan User)      // สร้าง channel ชนิด User
+go func() { ch <- user }() // ส่งค่าเข้า channel
+user := <-ch               // รับค่าจาก channel (blocking)
+```
+
+## Unbuffered vs Buffered Channels
+
+export const tsPromiseCode = `// TypeScript: Promise สำหรับค่าเดียว
+function getResult(): Promise<number> {
+  return new Promise(resolve => {
+    setTimeout(() => resolve(42), 100);
+  });
+}
+const result = await getResult();
+console.log(result); // 42`;
+
+export const goChannelCode = `// Go: channel สำหรับส่งค่าระหว่าง goroutines
+package main
+
+import "fmt"
+
+func getResult(ch chan<- int) {
+    ch <- 42 // ส่งค่าเข้า channel
+}
+
+func main() {
+    ch := make(chan int) // unbuffered channel
+    go getResult(ch)
+    result := <-ch // รับค่า (blocking จนกว่าจะมีค่า)
+    fmt.Println(result) // 42
+}`;
+
+<TsGo client:visible ts={tsPromiseCode} go={goChannelCode} />
+
+## Buffered Channels
+
+Buffered channel มี queue ภายใน ทำให้ sender ไม่ต้อง block จนกว่า buffer จะเต็ม:
+
+export const tsQueueCode = `// TypeScript: คล้ายกับ buffered queue ด้วย array
+const queue: number[] = [];
+function enqueue(val: number) {
+  queue.push(val); // ไม่ block
+}
+enqueue(1); enqueue(2); enqueue(3);
+// ต้อง process ด้วยตัวเอง`;
+
+export const goBufferedCode = `// Go: buffered channel (queue ขนาด 3)
+package main
+
+import "fmt"
+
+func main() {
+    ch := make(chan int, 3) // buffer size 3
+
+    ch <- 1 // ไม่ block (buffer ยังว่างอยู่)
+    ch <- 2
+    ch <- 3
+    // ch <- 4 // จะ block เพราะ buffer เต็ม
+
+    fmt.Println(<-ch) // 1
+    fmt.Println(<-ch) // 2
+    fmt.Println(<-ch) // 3
+}`;
+
+<TsGo client:visible ts={tsQueueCode} go={goBufferedCode} />
+
+## Range over Channels
+
+ใช้ `for range` เพื่ออ่านค่าจาก channel จนกว่าจะถูก close:
+
+export const tsIterableCode = `// TypeScript: iterate over async iterable
+async function* generate() {
+  yield 1; yield 2; yield 3;
+}
+for await (const val of generate()) {
+  console.log(val);
+}`;
+
+export const goRangeChannelCode = `// Go: range over closed channel
+package main
+
+import (
+    "fmt"
+    "sync"
+)
+
+func produce(ch chan<- int, wg *sync.WaitGroup) {
+    defer wg.Done()
+    for i := 1; i <= 5; i++ {
+        ch <- i
+    }
+}
+
+func main() {
+    ch := make(chan int, 5)
+    var wg sync.WaitGroup
+    wg.Add(1)
+    go produce(ch, &wg)
+    wg.Wait()
+    close(ch) // ต้อง close ก่อน range
+
+    for v := range ch {
+        fmt.Println(v)
+    }
+}`;
+
+<TsGo client:visible ts={tsIterableCode} go={goRangeChannelCode} />
+
+<GoOnly title="Channel Direction — Type Safety สำหรับ Channels">
+
+Go สามารถกำหนดทิศทางของ channel ใน function signature ได้:
+
+```go
+func producer(ch chan<- int) { // send-only: ส่งได้อย่างเดียว
+    ch <- 42
+}
+
+func consumer(ch <-chan int) { // receive-only: รับได้อย่างเดียว
+    val := <-ch
+    fmt.Println(val)
+}
+```
+
+การกำหนดทิศทางทำให้ compiler ช่วย enforce การใช้งานที่ถูกต้อง และทำให้โค้ดอ่านง่ายขึ้น
+
+</GoOnly>
+
+export const playgroundChannelsCode = `package main
+
+import (
+	"fmt"
+	"sync"
+)
+
+func producer(ch chan<- int, wg *sync.WaitGroup) {
+	defer wg.Done()
+	for i := 1; i <= 5; i++ {
+		ch <- i
+	}
+}
+
+func main() {
+	ch := make(chan int, 5)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go producer(ch, &wg)
+	wg.Wait()
+	close(ch)
+	for v := range ch {
+		fmt.Println("Received:", v)
+	}
+}`;
+
+<Playground client:visible code={playgroundChannelsCode} />
+
+export const quizQuestionsChannels = [
+  { q: 'อะไรคือความแตกต่างระหว่าง unbuffered และ buffered channel?', options: ['Unbuffered เร็วกว่าเสมอ', 'Unbuffered blocks จนกว่า receiver พร้อม; buffered มี queue', 'Buffered ปลอดภัยกว่าจาก race conditions', 'ไม่มีความแตกต่าง'], answer: 1 },
+  { q: 'syntax ใดที่ใช้รับค่าจาก channel?', options: ['ch.receive()', 'ch.get()', '<-ch', 'ch->'], answer: 2 },
+  { q: 'ต้องทำอะไรก่อนใช้ for range บน channel?', options: ['ล้าง buffer', 'close channel', 'รอ 1 second', 'ไม่ต้องทำอะไร'], answer: 1 },
+  { q: 'chan<- int หมายความว่าอะไร?', options: ['Receive-only channel', 'Buffered channel ขนาด 1', 'Send-only channel', 'Bidirectional channel'], answer: 2 },
+];
+
+<Quiz client:visible id="concurrency/channels" questions={quizQuestionsChannels} />
+
+<ProgressTracker client:visible id="concurrency/channels" />

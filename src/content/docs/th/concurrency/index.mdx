@@ -1,0 +1,124 @@
+---
+title: การทำงานพร้อมกัน — ภาพรวม
+description: ภาพรวมของโมเดล concurrency ของ Go เทียบกับ event loop แบบ single-threaded ของ JavaScript และความแตกต่างระหว่าง concurrency กับ parallelism
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## JavaScript ทำงานแบบ single-threaded — Go ทำงานแบบ multi-threaded จริง ๆ
+
+ในฐานะนักพัฒนา TypeScript/Node.js คุณคุ้นเคยกับ **event loop** ที่ทำงานบน thread เดียว โค้ด JS ทั้งหมดรันบน thread เดียวกัน และ "concurrency" ที่คุณเห็นนั้นคือการสลับ context ระหว่าง callbacks, Promises, และ async/await — ไม่ใช่การรันแบบคู่ขนานจริง ๆ
+
+Go แตกต่างกันอย่างสิ้นเชิง: **goroutines** รันบน OS threads จริงผ่าน scheduler ของ Go runtime ทำให้สามารถดำเนินการได้พร้อมกันหลายอย่างบน CPU หลาย core ได้จริง
+
+## Concurrency ≠ Parallelism
+
+Rob Pike (ผู้สร้าง Go) อธิบายไว้อย่างชัดเจน:
+
+- **Concurrency** คือการ*จัดการ*หลายสิ่งพร้อมกัน (โครงสร้าง)
+- **Parallelism** คือการ*ทำ*หลายสิ่งพร้อมกันจริง ๆ (การดำเนินการ)
+
+ตัวอย่าง: เชฟที่สับผักในขณะที่น้ำกำลังเดือด = concurrent (จัดการหลายอย่าง) เชฟสองคนทำงานพร้อมกันในครัวเดียวกัน = parallel (ทำหลายอย่างพร้อมกันจริง)
+
+Node.js เก่งเรื่อง concurrency (I/O พร้อมกัน) แต่ไม่สามารถ parallel จริงได้โดยไม่ใช้ Worker Threads หรือหลาย process Go รองรับทั้งสองอย่างได้ตามธรรมชาติ
+
+## โมเดล concurrency เปรียบเทียบ
+
+export const tsEventLoopCode = `// JavaScript: single-threaded event loop
+// "concurrency" through callbacks / Promises
+async function fetchData(url: string) {
+  const res = await fetch(url);   // yields to event loop
+  return res.json();
+}
+
+// setTimeout / setInterval schedule callbacks on the loop
+setTimeout(() => console.log("later"), 0);
+console.log("first"); // always prints before "later"`;
+
+export const goConcurrencyOverviewCode = `// Go: real concurrent goroutines
+// Each 'go' spawns a lightweight thread managed by Go runtime
+package main
+
+import (
+    "fmt"
+    "sync"
+)
+
+func fetchData(url string, wg *sync.WaitGroup) {
+    defer wg.Done()
+    fmt.Println("Fetching:", url) // runs concurrently
+}
+
+func main() {
+    var wg sync.WaitGroup
+    urls := []string{"api/users", "api/orders", "api/products"}
+    for _, url := range urls {
+        wg.Add(1)
+        go fetchData(url, &wg)
+    }
+    wg.Wait() // block until all goroutines finish
+}`;
+
+<TsGo client:visible ts={tsEventLoopCode} go={goConcurrencyOverviewCode} />
+
+## สิ่งที่จะเรียนในโมดูลนี้
+
+- **Goroutines** — `go f()` สร้าง goroutine ได้ทันที; เปรียบเทียบกับ async functions
+- **Channels** — ท่อส่งข้อมูลระหว่าง goroutines; เปรียบเทียบกับ Promises/callbacks
+- **Select** — เลือกจากหลาย channels พร้อมกัน; เปรียบเทียบกับ `Promise.race`
+- **Sync** — `WaitGroup`, `Mutex`, `RWMutex` สำหรับ shared state
+- **Context** — cancellation และ deadlines; เปรียบเทียบกับ `AbortController`
+- **Worker Pools** — pattern สำหรับจัดการงานพร้อมกันอย่างมีประสิทธิภาพ
+
+<GoOnly title="ทำไม Go ถึง Concurrent โดยธรรมชาติ">
+
+Go ถูกออกแบบมาตั้งแต่ต้นให้รองรับ concurrency ผ่านหลักการ **CSP (Communicating Sequential Processes)** ของ Tony Hoare
+
+คำแนะนำสำคัญจาก Go team:
+
+> "Don't communicate by sharing memory; share memory by communicating."
+
+หมายความว่า แทนที่จะใช้ lock เพื่อปกป้อง shared data ให้ใช้ channels เพื่อส่งข้อมูลระหว่าง goroutines แทน
+
+Goroutines มีน้ำหนักเบามาก — stack เริ่มต้นเพียง 2KB (เทียบกับ OS thread ที่ ~1MB) ทำให้สามารถสร้างได้หลักแสนตัวในแอปเดียว
+
+</GoOnly>
+
+export const playgroundIndexCode = `package main
+
+import (
+	"fmt"
+	"sync"
+)
+
+func task(name string, wg *sync.WaitGroup) {
+	defer wg.Done()
+	fmt.Printf("Task %s running\\n", name)
+}
+
+func main() {
+	var wg sync.WaitGroup
+	tasks := []string{"A", "B", "C"}
+	for _, t := range tasks {
+		wg.Add(1)
+		go task(t, &wg)
+	}
+	wg.Wait()
+	fmt.Println("All tasks complete")
+}`;
+
+<Playground client:visible code={playgroundIndexCode} />
+
+export const quizQuestionsIndex = [
+  { q: 'อะไรคือความแตกต่างหลักระหว่าง concurrency และ parallelism?', options: ['ไม่มีความแตกต่าง', 'Concurrency คือการจัดการหลายสิ่งพร้อมกัน; parallelism คือการทำหลายสิ่งพร้อมกันจริง ๆ', 'Parallelism ต้องการ async/await', 'Concurrency ต้องการ CPU หลาย core'], answer: 1 },
+  { q: 'JavaScript ทำงานบนกี่ thread โดยค่าเริ่มต้น?', options: ['หลาย thread', 'Thread เดียว', '4 threads', 'ขึ้นอยู่กับ OS'], answer: 1 },
+  { q: 'Goroutine stack เริ่มต้นมีขนาดเท่าไหร่?', options: ['1MB', '512KB', '2KB', '64KB'], answer: 2 },
+];
+
+<Quiz client:visible id="concurrency/index" questions={quizQuestionsIndex} />
+
+<ProgressTracker client:visible id="concurrency/index" />

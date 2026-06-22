@@ -1,0 +1,181 @@
+---
+title: Benchmarks
+description: testing.B, go test -bench และ profiling intuition เบื้องต้น — เปรียบเทียบกับ JavaScript micro-benchmarking ด้วย benchmark.js และ console.time
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## JavaScript benchmarking vs Go benchmarking
+
+ใน JavaScript คุณใช้ `console.time` / `console.timeEnd` สำหรับการวัดเร็ว หรือ `benchmark.js` สำหรับ micro-benchmarks ที่เข้มงวดทางสถิติ ทั้งสองรันนอก test runner และต้องมีการตั้งค่าแยกต่างหาก
+
+ใน Go, benchmarks อยู่ในไฟล์ `_test.go` เดียวกับ unit tests คุณรันด้วยคำสั่ง `go test` เดียวกัน — เพียงเพิ่ม flag toolchain จัดการ statistical warmup อัตโนมัติ
+
+> หมายเหตุเกี่ยวกับ Playground: Benchmarks ต้องการ binary context ของ `go test -bench` บล็อกโค้ดด้านล่างเป็นไฟล์ benchmark จริง — รัน locally
+
+## Signature ของ benchmark function
+
+export const jsBenchCode = `// JavaScript — benchmark.js (ไลบรารีภายนอก)
+import Benchmark from 'benchmark';
+
+const suite = new Benchmark.Suite();
+suite
+  .add('sum-loop', () => {
+    let total = 0;
+    for (let i = 0; i < 1000; i++) total += i;
+  })
+  .on('complete', function () {
+    console.log(this[0].toString());
+  })
+  .run();`;
+
+export const goBenchCode = `// Go — built-in ใน testing package
+// sum_test.go
+package main
+
+import "testing"
+
+func sum(n int) int {
+    total := 0
+    for i := 0; i < n; i++ {
+        total += i
+    }
+    return total
+}
+
+func BenchmarkSum(b *testing.B) {
+    for b.Loop() {        // Go 1.24+: b.Loop() เป็น form ที่แนะนำ
+        sum(1000)
+    }
+}`;
+
+<TsGo client:visible ts={jsBenchCode} go={goBenchCode} />
+
+## การรัน benchmarks
+
+```bash
+# รัน benchmarks ทั้งหมดใน package ปัจจุบัน
+go test -bench=. ./...
+
+# รัน benchmarks ที่ match regex
+go test -bench=BenchmarkSum ./...
+
+# รัน unit tests ควบคู่ไปกับ benchmarks ด้วย
+go test -bench=. -run=. ./...
+
+# ข้าม unit tests (รันเฉพาะ benchmarks)
+go test -bench=. -run='^$' ./...
+
+# ควบคุมเวลา benchmark (default 1s)
+go test -bench=. -benchtime=5s ./...
+
+# รายงาน memory allocations
+go test -bench=. -benchmem ./...
+```
+
+## อ่าน benchmark output
+
+```
+BenchmarkSum-8        14253187        84.23 ns/op
+BenchmarkSum-8        14253187        84.23 ns/op       0 B/op    0 allocs/op
+```
+
+| คอลัมน์ | ความหมาย |
+|---|---|
+| `BenchmarkSum-8` | ชื่อ Benchmark + GOMAXPROCS (จำนวน CPU) |
+| `14253187` | จำนวน iterations (`b.N`) ที่ runner เลือก |
+| `84.23 ns/op` | Nanoseconds ต่อ operation |
+| `0 B/op` | Bytes ที่ allocate ต่อ operation (`-benchmem`) |
+| `0 allocs/op` | Heap allocations ต่อ operation (`-benchmem`) |
+
+Go runner เพิ่ม `b.N` จนกว่าผลลัพธ์จะ statistically stable — คุณไม่เคย hardcode จำนวน iterations
+
+## เปรียบเทียบ implementations
+
+```go
+// strings_test.go
+package strings_test
+
+import (
+    "strings"
+    "testing"
+)
+
+func BenchmarkConcatPlus(b *testing.B) {
+    for b.Loop() {
+        var s string
+        for i := 0; i < 100; i++ {
+            s += "x"  // allocates ทุก iteration
+        }
+        _ = s
+    }
+}
+
+func BenchmarkConcatBuilder(b *testing.B) {
+    for b.Loop() {
+        var sb strings.Builder
+        for i := 0; i < 100; i++ {
+            sb.WriteByte('x')  // single pre-allocated buffer
+        }
+        _ = sb.String()
+    }
+}
+```
+
+รันด้วย `-benchmem` เพื่อดูว่า allocations แตกต่างกันมากเพียงใด:
+
+```
+BenchmarkConcatPlus-8       228468    5213 ns/op    5440 B/op    99 allocs/op
+BenchmarkConcatBuilder-8   2134500     562 ns/op     128 B/op     1 allocs/op
+```
+
+<GoOnly title="b.ResetTimer และ setup costs">
+
+ถ้า benchmark ของคุณมี expensive setup (เช่น สร้าง dataset ขนาดใหญ่) ให้ exclude มันออกจากการวัด:
+
+```go
+func BenchmarkSearch(b *testing.B) {
+    // Expensive setup — ไม่ถูกวัด
+    data := generateLargeSlice(100_000)
+    target := data[50_000]
+
+    b.ResetTimer() // เริ่มนาฬิกาหลัง setup
+
+    for b.Loop() {
+        _ = linearSearch(data, target)
+    }
+}
+```
+
+โค้ดเก่า (pre-1.24) ใช้ `for i := 0; i < b.N; i++` — ทั้งสอง form ถูกต้อง; `b.Loop()` แนะนำใน 1.24+
+
+</GoOnly>
+
+## Profiling ระหว่าง benchmarks
+
+```bash
+# เขียน CPU profile ขณะ benchmark
+go test -bench=BenchmarkSearch -cpuprofile=cpu.out ./...
+
+# เขียน heap (memory) profile
+go test -bench=BenchmarkSearch -memprofile=mem.out ./...
+
+# เปิด profile ใน interactive pprof tool
+go tool pprof cpu.out
+```
+
+`pprof` tool ครอบคลุมในเชิงลึกในบทเรียน **pprof Profiling**
+
+export const quizQuestionsBenchmarks = [
+  { q: 'ต้องเพิ่ม flag ใดกับ `go test` เพื่อรัน benchmarks?', options: ['-benchmark', '-bench=.', '--perf', '-test.bench'], answer: 1 },
+  { q: '`b.N` แสดงถึงอะไรใน benchmark function?', options: ['จำนวน CPUs ที่มี', 'จำนวน iterations ที่ runner เลือกเพื่อ statistical stability', 'benchmark timeout ใน nanoseconds', 'จำนวน goroutines ที่ใช้'], answer: 1 },
+  { q: 'Flag ใดที่แสดง memory allocation stats ต่อ operation ใน benchmark output?', options: ['-memstats', '-benchmem', '-allocs', '-trace'], answer: 1 },
+  { q: 'ทำไมถึงเรียก b.ResetTimer() ใน benchmark?', options: ['เพื่อเพิ่ม b.N', 'เพื่อ exclude expensive setup time ออกจากการวัด', 'เพื่อ reset benchmark loop counter', 'เพื่อสลับจาก ns/op เป็น ms/op'], answer: 1 },
+];
+
+<Quiz client:visible id="advanced/benchmarks" questions={quizQuestionsBenchmarks} />
+
+<ProgressTracker client:visible id="advanced/benchmarks" />

@@ -1,0 +1,225 @@
+---
+title: CI with GitHub Actions
+description: A working GitHub Actions workflow for Go — setup, test, build, and lint — compared to a Node/TypeScript CI workflow.
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## Your Node CI workflow, translated to Go
+
+If you have set up CI for a TypeScript project, you already understand the structure: check out code, set up the language runtime, install dependencies, run checks. The Go version is nearly identical — with a few welcome simplifications.
+
+## Go CI workflow
+
+Create `.github/workflows/ci.yml` in your repository:
+
+```yaml
+name: Go CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  test:
+    name: Test & Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          cache: true            # caches the module download cache
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Verify dependencies
+        run: go mod verify
+
+      - name: Run go vet
+        run: go vet ./...
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+
+      - name: Run tests
+        run: go test -race -coverprofile=coverage.out -covermode=atomic ./...
+
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v4
+        with:
+          file: coverage.out
+          fail_ci_if_error: false
+
+  build:
+    name: Build Binary
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          cache: true
+
+      - name: Build
+        run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o bin/app ./cmd/app
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-linux-amd64
+          path: bin/app
+```
+
+Key flags on the test step:
+- `-race` enables the Go race detector — it catches data races in concurrent code at a ~2–20x runtime cost (acceptable in CI)
+- `-coverprofile=coverage.out` writes coverage data for upload
+- `-covermode=atomic` is required for accurate coverage when `-race` is on
+
+## Node CI workflow (for comparison)
+
+```yaml
+name: Node CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npx eslint src --ext .ts
+
+      - name: Test
+        run: npx jest --coverage
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci --omit=dev
+      - run: npm run build
+```
+
+export const tsWorkflowCode = `# Node CI: needs setup-node + npm ci
+# Type-check: tsc --noEmit (separate step)
+# Lint: ESLint (separate step + config file)
+# Test: Jest (separate step + config)
+# Build: tsc/webpack output is JS files
+
+steps:
+  - uses: actions/setup-node@v4
+    with:
+      node-version: "20"
+      cache: "npm"
+  - run: npm ci
+  - run: npx tsc --noEmit
+  - run: npx eslint src --ext .ts
+  - run: npx jest --coverage
+  - run: npm run build`;
+
+export const goWorkflowCode = `# Go CI: needs setup-go + go mod download
+# Type-check: already part of go build/vet
+# Lint: go vet + golangci-lint-action
+# Test: go test -race (built-in)
+# Build: single static binary
+
+steps:
+  - uses: actions/setup-go@v5
+    with:
+      go-version: "1.22"
+      cache: true
+  - run: go mod download
+  - run: go vet ./...
+  - uses: golangci/golangci-lint-action@v6
+  - run: go test -race -coverprofile=coverage.out ./...
+  - run: CGO_ENABLED=0 GOOS=linux go build -o bin/app ./cmd/app`;
+
+<TsGo client:visible ts={tsWorkflowCode} go={goWorkflowCode} />
+
+> Save this as `.github/workflows/ci.yml` in your repository. Push to a branch and watch the Actions tab — no local setup required to verify the workflow.
+
+## go test flags worth knowing in CI
+
+```bash
+# Run all tests with race detector
+go test -race ./...
+
+# Run with coverage and write to file
+go test -race -coverprofile=coverage.out -covermode=atomic ./...
+
+# Print coverage summary to stdout
+go tool cover -func=coverage.out
+
+# Fail if coverage drops below a threshold (useful in CI)
+go test ./... && go tool cover -func=coverage.out | tail -1 | awk '{if ($3+0 < 80) exit 1}'
+
+# Run only tests matching a pattern
+go test ./... -run TestUser
+
+# Run tests with verbose output
+go test -v ./...
+```
+
+<GoOnly title="The race detector — a unique Go superpower">
+
+Go's race detector (`-race`) is a remarkable tool. It instruments your binary at compile time to detect when two goroutines access the same memory without synchronisation — even if the race is non-deterministic and rarely manifests in production.
+
+TypeScript has no equivalent because JavaScript is single-threaded. Worker threads share memory via `SharedArrayBuffer` and `Atomics`, but race conditions in the classic sense (unsynchronised goroutine reads and writes) simply cannot happen.
+
+In Go, concurrency is a first-class feature and data races are a real class of bug. Running `go test -race ./...` in CI is standard practice and catches races that would only appear under load in production.
+
+</GoOnly>
+
+export const quizQuestionsCi = [
+  { q: 'Which `go test` flag enables the concurrent race detector?', options: ['-concurrent', '-sync', '-race', '-detect'], answer: 2 },
+  { q: 'What does `go mod verify` check in a CI pipeline?', options: ['That all tests pass', 'That the go.sum hashes match downloaded modules', 'That the binary compiles', 'That golangci-lint has no findings'], answer: 1 },
+  { q: 'In the Go CI workflow, why is `-covermode=atomic` used alongside `-race`?', options: ['It speeds up coverage collection', 'Atomic mode is required for accurate coverage when the race detector is active', 'It enables branch coverage instead of statement coverage', 'It uploads coverage to Codecov automatically'], answer: 1 },
+  { q: 'Which GitHub Action sets up the Go toolchain in CI?', options: ['actions/go@v5', 'setup-go/action@v5', 'actions/setup-go@v5', 'golang/setup@v5'], answer: 2 },
+];
+
+<Quiz client:visible id="tooling/ci" questions={quizQuestionsCi} />
+
+<ProgressTracker client:visible id="tooling/ci" />

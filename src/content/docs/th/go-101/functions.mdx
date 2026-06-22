@@ -1,0 +1,151 @@
+---
+title: Functions
+description: ฟังก์ชัน, parameter, การคืนค่าหลายค่า, named returns และ variadics ของ Go เทียบกับฟังก์ชันและ tuple ของ TypeScript
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## Functions: พื้นที่ที่คุ้นเคย
+
+ฟังก์ชันใน TypeScript มีความยืดหยุ่นสูง — arrow function, default params, rest params, การคืนค่าแบบ tuple ฟังก์ชันใน Go ชัดเจนกว่าแต่ก็ทรงพลังพอกัน สิ่งที่นักพัฒนา TypeScript จะแปลกใจมากที่สุดคือ **ฟังก์ชันใน Go คืนค่าได้หลายค่าโดยตรง** โดยไม่ต้องห่อเป็น tuple หรือ array
+
+## ไวยากรณ์ฟังก์ชันพื้นฐาน
+
+export const tsFuncCode = `function add(a: number, b: number): number {
+    return a + b;
+}
+
+// Arrow function
+const greet = (name: string): string => {
+    return \`Hello, \${name}!\`;
+};`;
+
+export const goFuncCode = `func add(a int, b int) int {
+    return a + b
+}
+
+// No arrow functions — just func
+func greet(name string) string {
+    return "Hello, " + name + "!"
+}`;
+
+<TsGo client:visible ts={tsFuncCode} go={goFuncCode} />
+
+## การคืนค่าหลายค่า
+
+ใน TypeScript การคืนค่าสองอย่างหมายถึงต้องใช้ tuple หรือ object แต่ใน Go การคืนค่าหลายค่าเป็นฟีเจอร์ระดับ first-class ที่ใช้กันทุกที่ — โดยเฉพาะการคืนผลลัพธ์พร้อมกับ error
+
+export const tsTupleCode = `// TypeScript: tuple or object
+function divide(a: number, b: number): [number, Error | null] {
+    if (b === 0) return [0, new Error("division by zero")];
+    return [a / b, null];
+}
+const [result, err] = divide(10, 2);`;
+
+export const goMultiCode = `// Go: multiple return values
+func divide(a, b float64) (float64, error) {
+    if b == 0 {
+        return 0, fmt.Errorf("division by zero")
+    }
+    return a / b, nil
+}
+result, err := divide(10, 2)`;
+
+<TsGo client:visible ts={tsTupleCode} go={goMultiCode} />
+
+## Variadic functions
+
+variadic ของ Go ทำงานเหมือน rest parameters ของ TypeScript เป๊ะๆ ใช้ `...T` ในรายการ parameter ส่วนภายในฟังก์ชันมันจะเป็น slice
+
+export const tsVariadicCode = `function sum(...nums: number[]): number {
+    return nums.reduce((a, b) => a + b, 0);
+}
+sum(1, 2, 3, 4);`;
+
+export const goVariadicCode = `func sum(nums ...int) int {
+    total := 0
+    for _, n := range nums {
+        total += n
+    }
+    return total
+}
+sum(1, 2, 3, 4)`;
+
+<TsGo client:visible ts={tsVariadicCode} go={goVariadicCode} />
+
+## ลองเล่นดู
+
+export const playgroundFuncsCode = `package main
+
+import (
+	"errors"
+	"fmt"
+)
+
+func add(a, b int) int {
+	return a + b
+}
+
+func divide(a, b float64) (float64, error) {
+	if b == 0 {
+		return 0, errors.New("division by zero")
+	}
+	return a / b, nil
+}
+
+func sum(nums ...int) int {
+	total := 0
+	for _, n := range nums {
+		total += n
+	}
+	return total
+}
+
+func main() {
+	fmt.Println(add(3, 4))
+
+	result, err := divide(10, 3)
+	if err != nil {
+		fmt.Println("Error:", err)
+	} else {
+		fmt.Printf("10 / 3 = %.4f\\n", result)
+	}
+
+	fmt.Println(sum(1, 2, 3, 4, 5))
+}`;
+
+<Playground client:visible code={playgroundFuncsCode} />
+
+<GoOnly title="Named Return Values">
+
+Go อนุญาตให้คุณตั้งชื่อตัวแปรที่จะคืนค่าใน signature ของฟังก์ชันได้ จากนั้น body ของฟังก์ชันสามารถใช้ `return` เปล่าๆ เพื่อคืนค่าที่ชื่อเหล่านั้นถืออยู่ ณ ขณะนั้น สิ่งนี้มีประโยชน์ในด้านการอธิบายโค้ด และสำหรับฟังก์ชันสั้นๆ ที่ความหมายของแต่ละค่าที่คืนชัดเจนอยู่แล้ว
+
+```go
+func minMax(nums []int) (min, max int) {
+    min, max = nums[0], nums[0]
+    for _, n := range nums[1:] {
+        if n < min { min = n }
+        if n > max { max = n }
+    }
+    return // bare return — returns min and max
+}
+```
+
+ใช้ named returns อย่างประหยัด เพราะมันอาจลดความชัดเจนในฟังก์ชันที่ยาวขึ้น
+
+</GoOnly>
+
+export const quizQuestionsFunc = [
+  { q: 'Go จัดการการคืนค่าหลายค่าจากฟังก์ชันอย่างไร?', options: ['ห่อในอาร์เรย์', 'ห่อใน object', 'คืนค่าหลายค่าได้โดยตรง', 'ใช้ tuple type'], answer: 2 },
+  { q: 'ไวยากรณ์ใดที่ใช้ประกาศ variadic parameter ใน Go?', options: ['*T', '[]T', '...T', '&T'], answer: 2 },
+  { q: 'ใน Go คีย์เวิร์ดใดที่ใช้กำหนดฟังก์ชัน?', options: ['function', 'fn', 'def', 'func'], answer: 3 },
+  { q: 'คุณใช้การประกาศแบบสั้น := ได้เมื่อไหร่?', options: ['ที่ไหนก็ได้ในไฟล์', 'ภายในฟังก์ชันเท่านั้น', 'ในระดับ package เท่านั้น', 'ใน init() เท่านั้น'], answer: 1 },
+];
+
+<Quiz client:visible id="go-101/functions" questions={quizQuestionsFunc} />
+
+<ProgressTracker client:visible id="go-101/functions" />

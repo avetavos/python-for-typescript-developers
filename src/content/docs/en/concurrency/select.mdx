@@ -1,0 +1,214 @@
+---
+title: Select
+description: Use select to wait on multiple channels simultaneously — Go's answer to Promise.race. Includes the default case for non-blocking polls.
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## Promise.race vs select
+
+In TypeScript `Promise.race` accepts an array of Promises and resolves with whichever settles first:
+
+```typescript
+const result = await Promise.race([
+  fetch('/api/primary'),
+  fetch('/api/backup'),
+]);
+```
+
+In Go, `select` does the same for channels — it waits on multiple channel operations and proceeds with the first one that is ready:
+
+```go
+select {
+case msg := <-ch1:
+    fmt.Println("from ch1:", msg)
+case msg := <-ch2:
+    fmt.Println("from ch2:", msg)
+}
+```
+
+`select` blocks until at least one case can proceed. If multiple cases are ready simultaneously, Go picks one uniformly at random — keeping the scheduling fair but non-deterministic.
+
+## Basic select
+
+export const tsRaceCode = `// TypeScript: Promise.race for the first result
+async function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number
+): Promise<T> {
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error("timeout")), ms)
+  );
+  return Promise.race([promise, timeout]);
+}`;
+
+export const goSelectCode = `// Go: select picks the first ready channel
+package main
+
+import "fmt"
+
+func main() {
+    ch1 := make(chan string, 1)
+    ch2 := make(chan string, 1)
+
+    ch1 <- "one"
+    ch2 <- "two"
+
+    // Use separate selects so output is deterministic
+    select {
+    case msg := <-ch1:
+        fmt.Println("Received from ch1:", msg)
+    }
+    select {
+    case msg := <-ch2:
+        fmt.Println("Received from ch2:", msg)
+    }
+}`;
+
+<TsGo client:visible ts={tsRaceCode} go={goSelectCode} />
+
+## default case — non-blocking poll
+
+Add a `default` branch to make select return immediately when no channel is ready instead of blocking:
+
+export const tsNonBlockCode = `// TypeScript: non-blocking check via Promise.race with null fallback
+async function tryReceive(): Promise<string | null> {
+  return Promise.race([
+    getMessage(),
+    Promise.resolve(null), // resolves immediately
+  ]);
+}`;
+
+export const goDefaultSelectCode = `// Go: non-blocking select with default
+package main
+
+import "fmt"
+
+func main() {
+    ch := make(chan string, 1)
+
+    select {
+    case msg := <-ch:
+        fmt.Println("Got:", msg)
+    default:
+        fmt.Println("No message available") // runs immediately
+    }
+
+    ch <- "hello"
+
+    select {
+    case msg := <-ch:
+        fmt.Println("Got:", msg)
+    default:
+        fmt.Println("No message available")
+    }
+}`;
+
+<TsGo client:visible ts={tsNonBlockCode} go={goDefaultSelectCode} />
+
+## select with context cancellation
+
+The most common real-world use of select is to simultaneously listen for incoming work *and* a cancellation signal from a `context.Context`:
+
+export const tsAbortCode = `// TypeScript: AbortController for cooperative cancellation
+async function processItems(
+  items: string[],
+  signal: AbortSignal
+) {
+  for (const item of items) {
+    if (signal.aborted) break;
+    await processItem(item);
+  }
+}`;
+
+export const goCtxSelectCode = `// Go: select listening to both a jobs channel and ctx.Done()
+package main
+
+import (
+    "context"
+    "fmt"
+    "sync"
+)
+
+func worker(ctx context.Context, jobs <-chan int, wg *sync.WaitGroup) {
+    defer wg.Done()
+    for {
+        select {
+        case j, ok := <-jobs:
+            if !ok {
+                return // channel was closed — no more work
+            }
+            fmt.Println("Processing job:", j)
+        case <-ctx.Done():
+            fmt.Println("Worker cancelled:", ctx.Err())
+            return
+        }
+    }
+}`;
+
+<TsGo client:visible ts={tsAbortCode} go={goCtxSelectCode} />
+
+<GoOnly title="Select picks randomly when multiple cases are ready">
+
+When more than one case in a `select` is ready at the same instant, Go chooses one **uniformly at random**. This is intentional — it prevents any single channel from starving others.
+
+```go
+select {
+case msg := <-ch1: // may or may not be chosen
+    fmt.Println(msg)
+case msg := <-ch2: // may or may not be chosen
+    fmt.Println(msg)
+}
+```
+
+This is why the playground example uses two separate `select` statements — guaranteeing deterministic output for learning purposes. In production code the randomness is a feature, not a bug.
+
+</GoOnly>
+
+export const playgroundSelectCode = `package main
+
+import "fmt"
+
+func main() {
+	ch1 := make(chan string, 1)
+	ch2 := make(chan string, 1)
+
+	ch1 <- "hello"
+	ch2 <- "world"
+
+	// Receive from ch1 first (deterministic: separate selects)
+	select {
+	case msg := <-ch1:
+		fmt.Println("ch1:", msg)
+	}
+
+	// Receive from ch2
+	select {
+	case msg := <-ch2:
+		fmt.Println("ch2:", msg)
+	}
+
+	// default: non-blocking — ch1 is empty now
+	select {
+	case msg := <-ch1:
+		fmt.Println("extra:", msg)
+	default:
+		fmt.Println("no more messages")
+	}
+}`;
+
+<Playground client:visible code={playgroundSelectCode} />
+
+export const quizQuestionsSelect = [
+  { q: 'What JavaScript construct is most analogous to Go\'s select statement?', options: ['switch/case', 'Promise.all', 'Promise.race', 'async/await'], answer: 2 },
+  { q: 'When multiple cases in a select are ready at the same time, what happens?', options: ['The first case is always chosen', 'The last case is chosen', 'One case is chosen at random', 'A panic occurs'], answer: 2 },
+  { q: 'What does the default case in a select do?', options: ['Blocks until a channel is ready', 'Makes the select non-blocking', 'Panics if no channel is ready', 'Waits 1 second before executing'], answer: 1 },
+];
+
+<Quiz client:visible id="concurrency/select" questions={quizQuestionsSelect} />
+
+<ProgressTracker client:visible id="concurrency/select" />

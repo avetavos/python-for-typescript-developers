@@ -1,0 +1,113 @@
+---
+title: Variables, Types & Zero Values
+description: Learn Go's variable declaration, type inference, constants, and zero values — compared to TypeScript's let, const, and undefined.
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## Variables in TypeScript vs Go
+
+In TypeScript you have `let` for mutable variables, `const` for immutable bindings, and type inference via `:`. You're also comfortable with values starting as `undefined` before assignment.
+
+Go has similar mechanisms but with cleaner rules and one concept TypeScript has no direct answer for: **zero values**.
+
+## Variable declaration
+
+Go offers two styles. The short declaration `:=` (only inside functions) infers the type from the right-hand side — just like `let x =` in TypeScript. The long form `var` is used at package level or when you need to declare without an immediate value.
+
+export const tsVarCode = `// TypeScript
+let count: number = 0;
+let name = "Alice";   // inferred as string
+const MAX = 100;`;
+
+export const goVarCode = `// Go
+var count int = 0
+name := "Alice"   // inferred as string
+const MAX = 100`;
+
+<TsGo client:visible ts={tsVarCode} go={goVarCode} />
+
+## Type inference with :=
+
+The `:=` operator is Go's workhorse for local variables. It declares AND assigns in one step — no `let`, no type annotation needed when the type is obvious.
+
+export const tsInferCode = `let score = 42;        // number
+let ratio = 3.14;      // number
+let label = "hello";   // string
+let active = true;     // boolean`;
+
+export const goInferCode = `score := 42          // int
+ratio := 3.14        // float64
+label := "hello"     // string
+active := true       // bool`;
+
+<TsGo client:visible ts={tsInferCode} go={goInferCode} />
+
+## Constants
+
+Go constants work like TypeScript `const` — immutable, evaluated at compile time. Go also has `iota` for auto-incrementing enum-like sequences (covered later).
+
+export const tsConstCode = `const PI = 3.14159;
+const APP_NAME = "MyApp";`;
+
+export const goConstCode = `const PI = 3.14159
+const AppName = "MyApp"`;
+
+<TsGo client:visible ts={tsConstCode} go={goConstCode} />
+
+## Try it
+
+export const playgroundVarsCode = `package main
+
+import "fmt"
+
+func main() {
+	// Short declaration
+	name := "Gopher"
+	age := 3
+
+	// Long form (package-level style)
+	var score int = 100
+
+	const greeting = "Hello"
+
+	fmt.Printf("%s, %s! Age: %d, Score: %d\\n", greeting, name, age, score)
+}`;
+
+<Playground client:visible code={playgroundVarsCode} />
+
+<GoOnly title="Zero Values — No undefined in Go">
+
+In TypeScript, a declared-but-unassigned variable is `undefined`. In Go, every type has a **zero value** — the default it gets when declared without assignment. There is no `undefined`, no `null` for value types.
+
+| Go type | Zero value |
+|---------|-----------|
+| `int`, `float64` | `0`, `0.0` |
+| `string` | `""` (empty string) |
+| `bool` | `false` |
+| pointer, slice, map, channel, func | `nil` |
+
+```go
+var x int     // x == 0
+var s string  // s == ""
+var b bool    // b == false
+```
+
+This makes Go programs predictable — you never accidentally operate on `undefined`.
+
+</GoOnly>
+
+export const quizQuestionsVars = [
+  { q: 'What operator is used for short variable declaration inside a function in Go?', options: ['=', ':=', '::', '->'], answer: 1 },
+  { q: 'What is the zero value of a string in Go?', options: ['null', 'undefined', '""', '"null"'], answer: 2 },
+  { q: 'Which Go declaration style works at package level (outside any function)?', options: [':=', 'let', 'var', 'const only'], answer: 2 },
+  { q: 'In Go, const values are evaluated at:', options: ['Runtime', 'Compile time', 'Import time', 'First use'], answer: 1 },
+];
+
+<Quiz client:visible id="go-101/variables" questions={quizQuestionsVars} />
+
+<ProgressTracker client:visible id="go-101/variables" />

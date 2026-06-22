@@ -1,0 +1,242 @@
+---
+title: การทดสอบ Echo Handler
+description: เขียน handler test ด้วย httptest package และ testing standard library ของ Go — เปรียบกับ supertest/Jest ใน Node
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## เปรียบเทียบ philosophy การทดสอบ
+
+ใน Node คุณมักจะ spin up แอป NestJS/Express กับ Supertest และยิง HTTP request เข้าไป ใน Go package `net/http/httptest` ให้คุณสร้าง in-memory HTTP recorder (`httptest.ResponseRecorder`) โดยไม่ต้อง bind network port การทดสอบรวดเร็ว deterministic และไม่ต้องการ cleanup
+
+| สิ่งที่ต้องการ | Node.js / Jest + Supertest | Go / testing + httptest |
+|---|---|---|
+| Test runner | Jest | `go test` (stdlib) |
+| HTTP simulation | `supertest(app).get('/books')` | `httptest.NewRecorder()` + เรียก handler |
+| Assertion | `expect(res.statusCode).toBe(200)` | `if res.Code != 200 { t.Errorf(...) }` |
+| Mock dependency | Jest `jest.fn()` | Interface + test double struct |
+
+## Handler test พื้นฐาน
+
+```go
+// handler/books_test.go
+package handler_test
+
+import (
+    "encoding/json"
+    "net/http"
+    "net/http/httptest"
+    "strings"
+    "testing"
+
+    "github.com/labstack/echo/v4"
+    "github.com/you/books-api/internal/handler"
+)
+
+func TestGetBook_OK(t *testing.T) {
+    e := echo.New()
+
+    req := httptest.NewRequest(http.MethodGet, "/books/1", nil)
+    rec := httptest.NewRecorder()
+    c   := e.NewContext(req, rec)
+    c.SetParamNames("id")
+    c.SetParamValues("1")
+
+    h := handler.NewBookHandler(&fakeBookStore{})
+    if err := h.Get(c); err != nil {
+        t.Fatalf("handler returned error: %v", err)
+    }
+
+    if rec.Code != http.StatusOK {
+        t.Errorf("expected 200, got %d", rec.Code)
+    }
+
+    var body map[string]any
+    if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+        t.Fatalf("could not decode body: %v", err)
+    }
+    if body["title"] != "Go in Action" {
+        t.Errorf("unexpected title: %v", body["title"])
+    }
+}
+```
+
+## Mock store ด้วย interface
+
+กำหนด interface `BookStore` ใน handler package ในการทดสอบ implement ด้วย struct ที่คืนข้อมูลที่ควบคุมได้ — ไม่ต้องการฐานข้อมูลจริง
+
+export const tsJestMock = `// Jest — mock service
+const mockBooksService = {
+  findById: jest.fn().mockResolvedValue({
+    id: '1',
+    title: 'Go in Action',
+  }),
+};
+
+const module = await Test.createTestingModule({
+  controllers: [BooksController],
+  providers: [{ provide: BooksService, useValue: mockBooksService }],
+}).compile();`;
+
+export const goInterfaceMock = `// Go — interface + test double (ไม่ต้องการ mocking library)
+
+// handler/books.go — ประกาศ interface ที่ handler พึ่งพา
+type BookStore interface {
+    FindByID(ctx context.Context, id string) (model.Book, error)
+    Insert(ctx context.Context, req model.CreateBookRequest) (model.Book, error)
+}
+
+// handler/books_test.go — implementation สำหรับ test
+type fakeBookStore struct{}
+
+func (f *fakeBookStore) FindByID(_ context.Context, id string) (model.Book, error) {
+    return model.Book{ID: id, Title: "Go in Action", Author: "Kennedy"}, nil
+}
+
+func (f *fakeBookStore) Insert(_ context.Context, req model.CreateBookRequest) (model.Book, error) {
+    return model.Book{ID: "new-id", Title: req.Title, Author: req.Author}, nil
+}`;
+
+<TsGo client:visible ts={tsJestMock} go={goInterfaceMock} />
+
+## ทดสอบ POST handler กับ JSON body
+
+```go
+func TestCreateBook_Created(t *testing.T) {
+    e := echo.New()
+
+    body := `{"title":"Go in Action","author":"Kennedy","year":2015}`
+    req  := httptest.NewRequest(http.MethodPost, "/books",
+        strings.NewReader(body))
+    req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+
+    rec := httptest.NewRecorder()
+    c   := e.NewContext(req, rec)
+
+    h := handler.NewBookHandler(&fakeBookStore{})
+    if err := h.Create(c); err != nil {
+        t.Fatalf("handler error: %v", err)
+    }
+
+    if rec.Code != http.StatusCreated {
+        t.Errorf("expected 201, got %d: %s", rec.Code, rec.Body.String())
+    }
+}
+```
+
+## ทดสอบ error path
+
+```go
+func TestGetBook_NotFound(t *testing.T) {
+    e   := echo.New()
+    req := httptest.NewRequest(http.MethodGet, "/books/999", nil)
+    rec := httptest.NewRecorder()
+    c   := e.NewContext(req, rec)
+    c.SetParamNames("id")
+    c.SetParamValues("999")
+
+    h := handler.NewBookHandler(&notFoundStore{})
+    err := h.Get(c)
+
+    // Echo handler คืน HTTPError แทนการเขียนลง rec โดยตรง
+    var he *echo.HTTPError
+    if !errors.As(err, &he) {
+        t.Fatalf("expected HTTPError, got %T", err)
+    }
+    if he.Code != http.StatusNotFound {
+        t.Errorf("expected 404, got %d", he.Code)
+    }
+}
+
+type notFoundStore struct{}
+
+func (n *notFoundStore) FindByID(_ context.Context, _ string) (model.Book, error) {
+    return model.Book{}, store.ErrNotFound
+}
+
+func (n *notFoundStore) Insert(_ context.Context, _ model.CreateBookRequest) (model.Book, error) {
+    return model.Book{}, nil
+}
+```
+
+## รัน test
+
+```bash
+# รัน test ทั้งหมด
+go test ./...
+
+# พร้อม coverage report
+go test -cover ./...
+
+# Race detector (สำคัญสำหรับ concurrent handler)
+go test -race ./...
+
+# Verbose output
+go test -v ./internal/handler/...
+```
+
+<GoOnly title="Table-driven test">
+
+ข้อตกลงของ Go ในการทดสอบหลาย scenario คือ slice ของ test case (table-driven test) หลีกเลี่ยงการ copy-paste ฟังก์ชัน test:
+
+```go
+func TestGetBook(t *testing.T) {
+    tests := []struct {
+        name       string
+        id         string
+        store      BookStore
+        wantStatus int
+    }{
+        {"found",     "1",   &fakeBookStore{},  http.StatusOK},
+        {"not found", "999", &notFoundStore{},  http.StatusNotFound},
+    }
+
+    for _, tc := range tests {
+        t.Run(tc.name, func(t *testing.T) {
+            e := echo.New()
+            req := httptest.NewRequest(http.MethodGet, "/books/"+tc.id, nil)
+            rec := httptest.NewRecorder()
+            c   := e.NewContext(req, rec)
+            c.SetParamNames("id")
+            c.SetParamValues(tc.id)
+
+            h := NewBookHandler(tc.store)
+            h.Get(c)
+        })
+    }
+}
+```
+
+</GoOnly>
+
+> รันบนเครื่องของคุณ — test ต้องการ Echo package ใช้ `go test ./...` จาก project root ของคุณ
+
+export const quizQuestionsTesting = [
+  {
+    q: 'package stdlib ใดที่ให้ in-memory HTTP recorder สำหรับทดสอบ Go handler?',
+    options: ['net/http', 'testing/mock', 'net/http/httptest', 'echo/testing'],
+    answer: 2,
+  },
+  {
+    q: 'จะ mock store dependency ใน Go โดยไม่ใช้ mocking library ภายนอกได้อย่างไร?',
+    options: [
+      'ใช้ reflect.Mock',
+      'กำหนด interface และ implement ด้วย test struct',
+      'Patch global variable',
+      'ใช้ build tag เพื่อสลับ package',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'flag ใดที่เปิด race detector เมื่อรัน Go test?',
+    options: ['-race', '-concurrent', '-sync', '-detect'],
+    answer: 0,
+  },
+];
+
+<Quiz client:visible id="api-echo/testing" questions={quizQuestionsTesting} />
+
+<ProgressTracker client:visible id="api-echo/testing" />

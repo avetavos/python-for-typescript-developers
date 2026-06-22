@@ -1,0 +1,198 @@
+---
+title: Go Project Anatomy
+description: Understand Go module layout, go.mod vs package.json, packages vs folders, imports, and idiomatic project structure — compared to a Node.js project.
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## How a Go project is laid out
+
+Coming from Node.js/TypeScript, you are used to `package.json`, `tsconfig.json`, a `src/` directory, and `node_modules`. Go projects have a different but equally structured layout. Understanding it up front will save you hours of confusion.
+
+## go.mod — the package.json of Go
+
+`go.mod` is created by `go mod init` and is the root manifest for your Go module. It declares the module name (your import path prefix) and the minimum Go version required.
+
+export const tsPackageJsonCode = `// package.json
+{
+  "name": "my-app",
+  "version": "1.0.0",
+  "scripts": { "build": "tsc", "start": "node dist/index.js" },
+  "dependencies": { "express": "^4.18.2" },
+  "devDependencies": { "typescript": "^5.0.0" }
+}`;
+
+export const goModCode = `// go.mod
+module github.com/yourname/myapp
+
+go 1.22
+
+require (
+    github.com/gin-gonic/gin v1.9.1
+)
+
+// go.sum is the lockfile (like package-lock.json)
+// it is auto-managed — never edit it manually`;
+
+<TsGo client:visible ts={tsPackageJsonCode} go={goModCode} />
+
+The module name (`github.com/yourname/myapp`) is not just a name — it is the import path prefix used throughout your code. Conventionally it matches your source repository URL.
+
+## Packages — one per directory
+
+In Go, a **package** is a directory of `.go` files that all declare the same `package name`. This is stricter than TypeScript/ESM, where every file is its own module. In Go you import at the package level, not the file level.
+
+export const tsImportsCode = `// TypeScript: file-level imports
+import { UserService } from './services/user.service';
+import type { User } from './models/user.model';
+import * as utils from '../shared/utils';`;
+
+export const goImportsCode = `// Go: package-level imports
+import (
+    "github.com/yourname/myapp/internal/services"
+    "github.com/yourname/myapp/internal/models"
+    "github.com/yourname/myapp/pkg/utils"
+)
+
+// then use: services.NewUserService(...)
+//            models.User{...}
+//            utils.SomeHelper(...)`;
+
+<TsGo client:visible ts={tsImportsCode} go={goImportsCode} />
+
+## Idiomatic project structure
+
+The Go community has converged on a standard layout for services and CLIs. Here it is compared to a typical Node/TypeScript service:
+
+export const tsProjectStructCode = `// TypeScript / Node.js project
+my-app/
+  src/
+    controllers/     # route handlers
+    services/        # business logic
+    models/          # TypeScript interfaces/types
+    middleware/      # Express middleware
+    index.ts         # entry point
+  dist/              # compiled output
+  package.json
+  tsconfig.json
+  .env`;
+
+export const goProjectStructCode = `// Go project (idiomatic layout)
+myapp/
+  cmd/
+    myapp/
+      main.go        # entry point (package main)
+  internal/
+    handlers/        # HTTP handlers
+    services/        # business logic
+    models/          # struct definitions
+    middleware/      # HTTP middleware
+  pkg/               # reusable packages (public API)
+  go.mod
+  go.sum
+  .env`;
+
+<TsGo client:visible ts={tsProjectStructCode} go={goProjectStructCode} />
+
+Key rules:
+- `cmd/` holds your entry points (`main` packages). One subdirectory per binary.
+- `internal/` is Go-enforced private code — packages here cannot be imported by external modules.
+- `pkg/` holds packages you intentionally expose for external use.
+
+<GoOnly title="internal/ — compiler-enforced privacy">
+
+In TypeScript, "private" code is a convention (`_` prefix, barrel files, documentation). Go enforces it at the compiler level with the `internal/` directory. Any package inside `internal/` can only be imported by code that shares the same parent directory tree.
+
+```
+myapp/
+  internal/
+    database/   # only myapp/** can import this
+  pkg/
+    utils/      # anyone can import this
+```
+
+```go
+// This works (same module):
+import "github.com/yourname/myapp/internal/database"
+
+// This fails at compile time (external module):
+// import "github.com/yourname/myapp/internal/database"
+// cannot use internal package
+```
+
+This lets you build a stable public API in `pkg/` while keeping implementation details truly private in `internal/`.
+
+</GoOnly>
+
+## Exported vs unexported identifiers
+
+In TypeScript you use `export` and `import`. In Go, visibility is determined by the first letter of an identifier's name — no `export` keyword needed.
+
+export const tsExportCode = `// TypeScript: explicit export
+export interface User { id: string; name: string; }
+export function greet(name: string): string {
+  return \`Hello, \${name}!\`;
+}
+// internal helper (no export)
+function formatName(n: string): string { return n.trim(); }`;
+
+export const goExportCode = `// Go: uppercase = exported, lowercase = unexported
+type User struct {         // exported (capital U)
+    ID   string
+    Name string
+}
+
+func Greet(name string) string {  // exported (capital G)
+    return "Hello, " + formatName(name) + "!"
+}
+
+func formatName(n string) string { // unexported (lowercase)
+    return strings.TrimSpace(n)
+}`;
+
+<TsGo client:visible ts={tsExportCode} go={goExportCode} />
+
+## Try it — packages and imports
+
+export const playgroundProjectCode = `package main
+
+import (
+	"fmt"
+	"strings"
+)
+
+// Exported function — capital letter
+func Greet(name string) string {
+	return "Hello, " + formatName(name) + "!"
+}
+
+// unexported helper — lowercase letter
+func formatName(n string) string {
+	return strings.ToUpper(n[:1]) + n[1:]
+}
+
+func main() {
+	fmt.Println(Greet("gopher"))
+	fmt.Println(Greet("world"))
+
+	// The standard library is imported by path
+	// "strings" -> the strings package
+	fmt.Println(strings.ToUpper("go is great"))
+}`;
+
+<Playground client:visible code={playgroundProjectCode} />
+
+export const quizQuestionsProject = [
+  { q: 'In Go, what determines whether an identifier is exported (public)?', options: ['The `export` keyword before it', 'Being defined in a file named exports.go', 'Starting with an uppercase letter', 'Being in the pkg/ directory'], answer: 2 },
+  { q: 'What does the `internal/` directory enforce in Go?', options: ['That code in it runs faster', 'That only the same module tree can import those packages', 'That packages inside are auto-tested', 'That all code inside is formatted with gofmt'], answer: 1 },
+  { q: 'In Go, what is the scope of an import? (e.g. import "fmt")', options: ['The entire module', 'The entire file', 'A single function', 'The whole package directory'], answer: 1 },
+  { q: 'What is go.sum equivalent to in the Node.js ecosystem?', options: ['package.json', 'tsconfig.json', 'package-lock.json', '.npmignore'], answer: 2 },
+];
+
+<Quiz client:visible id="intro/project-anatomy" questions={quizQuestionsProject} />
+
+<ProgressTracker client:visible id="intro/project-anatomy" />

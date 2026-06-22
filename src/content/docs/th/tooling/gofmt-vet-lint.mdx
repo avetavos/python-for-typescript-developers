@@ -1,0 +1,149 @@
+---
+title: gofmt, go vet และ Linting
+description: เครื่องมือจัดรูปแบบและ static analysis ของ Go — ทางเลือกแบบ zero-config แทน Prettier, ESLint และ tsc
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## Prettier + ESLint + tsc → gofmt + go vet + staticcheck
+
+ในโลก TypeScript คุณต้องใช้เครื่องมือสามตัวแยกกันเพื่อครอบคลุมการจัดรูปแบบ รูปแบบที่เสี่ยงต่อบัก และ type error:
+
+- **Prettier** จัดรูปแบบโค้ดให้สม่ำเสมอ
+- **ESLint** ตรวจจับรูปแบบที่น่าสงสัยและบังคับใช้ convention
+- **tsc** (type-checker) รายงาน type error
+
+Go รวมสิ่งนี้ไว้ในเครื่องมือที่เป็นส่วนหนึ่งของการติดตั้ง Go มาตรฐาน โดยมี linter ของ third-party (`staticcheck` หรือ `golangci-lint`) ที่ชุมชนนำมาใช้กันอย่างแพร่หลาย
+
+## gofmt — formatter แบบมีความเห็นชัดเจน
+
+`gofmt` (หรือ alias `go fmt`) เขียนทับไฟล์ source ของคุณ in-place เพื่อให้ตรงกับ Go style หนึ่งเดียว ต่างจาก Prettier ตรงที่มัน **ไม่มี configuration เลย** ไม่มี `.gofmtrc`, `printWidth`, หรือ option `singleQuote`
+
+```bash
+# จัดรูปแบบทุก package ใน module
+go fmt ./...
+
+# Preview ว่าจะเปลี่ยนอะไร (dry-run)
+gofmt -d .
+
+# เขียนการเปลี่ยนแปลง in-place
+gofmt -w .
+```
+
+Editor ส่วนใหญ่รัน `gofmt` อัตโนมัติเมื่อ save ถ้าใช้ VS Code ให้ติดตั้ง Go extension อย่างเป็นทางการและมันจะทำงานโดยไม่ต้อง config เพิ่มเติม
+
+export const tsFmtCode = `// .prettierrc
+{
+  "semi": true,
+  "singleQuote": false,
+  "printWidth": 100,
+  "tabWidth": 2,
+  "trailingComma": "es5"
+}
+
+// รัน:
+// npx prettier --write src/`;
+
+export const goFmtCode = `# ไม่ต้องมี config file
+# รัน:
+go fmt ./...
+
+# หรือเชื่อมกับ "format on save" ของ editor
+# ผลลัพธ์จะเหมือนกันเสมอไม่ว่าใครจะรัน`;
+
+<TsGo client:visible ts={tsFmtCode} go={goFmtCode} />
+
+## go vet — ตัวตรวจจับบัก
+
+`go vet` คือ static analyser ที่มาพร้อมกับ Go มันค้นหาบักจริง ๆ ไม่ใช่แค่ปัญหา style เช่น:
+
+- การส่ง type ผิดให้ format string ของ `fmt.Printf`
+- โค้ดที่ไม่สามารถถึงได้หลัง `return`
+- struct tag ที่รูปแบบผิด
+- Mutex ที่ถูก copy โดยค่า
+
+```bash
+go vet ./...
+```
+
+ให้นึกถึงมันเป็น subset ของ ESLint rules ที่จับความผิดพลาดจริง ๆ ไม่ใช่ preference ด้าน style
+
+export const tsVetCode = `// ESLint (ส่วนหนึ่งของ .eslintrc.json)
+{
+  "rules": {
+    "no-unreachable": "error",
+    "no-unused-vars": "error",
+    "@typescript-eslint/no-explicit-any": "warn"
+  }
+}
+
+// รัน:
+// npx eslint src --ext .ts`;
+
+export const goVetCode = `# ไม่ต้อง config
+go vet ./...
+
+# ตัวอย่าง output เมื่อมีปัญหา:
+# ./main.go:12:2: Printf format %d has arg name of wrong type string`;
+
+<TsGo client:visible ts={tsVetCode} go={goVetCode} />
+
+## staticcheck และ golangci-lint
+
+`go vet` จับบักที่ชัดเจนที่สุด สำหรับการตรวจสอบที่ครอบคลุมกว่า — exports ที่ไม่ถูกใช้, การใช้ deprecated API, โค้ดที่ทำให้เรียบง่ายได้ — ชุมชนพึ่งพา:
+
+- **staticcheck** (`honnef.co/go/tools`) — linter แบบ focused ที่มี signal สูง
+- **golangci-lint** — meta-linter ที่รัน linter หลายตัวพร้อมกัน รวมถึง `staticcheck`, `errcheck`, `gosimple` และอื่น ๆ
+
+```bash
+# ติดตั้ง staticcheck
+go install honnef.co/go/tools/cmd/staticcheck@latest
+
+# รัน
+staticcheck ./...
+
+# หรือใช้ golangci-lint (แนะนำสำหรับ CI)
+# ติดตั้ง: https://golangci-lint.run/usage/install/
+golangci-lint run ./...
+```
+
+`.golangci.yml` เริ่มต้นที่แนะนำ:
+
+```yaml
+linters:
+  enable:
+    - staticcheck
+    - errcheck
+    - gosimple
+    - unused
+
+linters-settings:
+  staticcheck:
+    go: "1.22"
+```
+
+> รันสิ่งเหล่านี้ใน terminal หลังจากติดตั้ง golangci-lint ไม่มีเวอร์ชันที่รันในเบราว์เซอร์สำหรับ linter
+
+<GoOnly title="Style เดียว — ไม่มีการทะเลาะเรื่อง style อีกต่อไป">
+
+ผลกระทบทางวัฒนธรรมที่สำคัญที่สุดของ `gofmt` คือ **โค้ดเบส Go ทุกที่ดูเหมือนกัน** เมื่อคุณเปิด Go repo ที่ไม่คุ้นเคยบน GitHub คุณอ่านได้ทันทีเพราะการจัดรูปแบบเหมือนกับ project ของคุณเอง
+
+ใน TypeScript แต่ละ project มี Prettier config, ESLint config และบางครั้งมีการผสมทั้งสองแบบเอง แรงเสียดทานในการ onboard เพิ่มขึ้นทุกครั้งที่มี config file ใหม่ที่นักพัฒนาต้องเรียนรู้
+
+Go หลีกเลี่ยงสิ่งนี้ทั้งหมด Style คือภาษา Pull request ไม่เคยถูกบล็อกด้วยการ nitpick เรื่องการจัดรูปแบบ
+
+</GoOnly>
+
+export const quizQuestionsGofmt = [
+  { q: 'คุณสร้างไฟล์อะไรเพื่อกำหนดค่า style ของ gofmt?', options: ['.gofmtrc', '.go-style.json', 'gofmt.config.js', 'ไม่มีไฟล์ — gofmt ไม่มี configuration'], answer: 3 },
+  { q: 'เครื่องมือไหนที่เทียบเท่ากับ bug-detection rules ของ ESLint ใน Go (ไม่ใช่ style)?', options: ['gofmt', 'go vet', 'go mod', 'go doc'], answer: 1 },
+  { q: '`go fmt ./...` ทำอะไร?', options: ['รัน tests บนทุก package', 'จัดรูปแบบไฟล์ Go source ทั้งหมดใน module', 'ตรวจสอบเฉพาะ unused imports', 'คอมไพล์ทุก package'], answer: 1 },
+  { q: 'golangci-lint อธิบายได้ดีที่สุดว่า:', options: ['เป็นตัวแทนของ go vet', 'meta-linter ที่รัน linter หลายตัวพร้อมกัน', 'type checker ของ Go', 'dependency manager'], answer: 1 },
+];
+
+<Quiz client:visible id="tooling/gofmt-vet-lint" questions={quizQuestionsGofmt} />
+
+<ProgressTracker client:visible id="tooling/gofmt-vet-lint" />

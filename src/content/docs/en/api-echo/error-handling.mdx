@@ -1,0 +1,195 @@
+---
+title: Error Handling
+description: Return errors from handlers, use echo.HTTPError for HTTP-aware errors, and write a central error handler — tied back to Go's errors-as-values philosophy.
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## Errors as values — the Go philosophy
+
+TypeScript uses `throw` and `try/catch`. Go treats errors as ordinary return values: every function that can fail returns `(result, error)`. You check the error explicitly — the compiler will not let you ignore it silently. Echo extends this naturally: a handler that returns a non-nil `error` triggers Echo's error handler.
+
+export const tsErrorThrow = `// TypeScript / Express — throw-based
+async function getBook(id: string): Promise<Book> {
+  const book = await db.findOne(id);
+  if (!book) throw new NotFoundException('book not found');
+  return book;
+}
+
+// Express error middleware at the bottom
+app.use((err, req, res, next) => {
+  const status = err.status ?? 500;
+  res.status(status).json({ message: err.message });
+});`;
+
+export const goErrorReturn = `// Go / Echo — return-based
+func findBook(ctx context.Context, id string) (Book, error) {
+    book, err := store.FindByID(ctx, id)
+    if err != nil {
+        return Book{}, fmt.Errorf("findBook: %w", err)
+    }
+    return book, nil
+}
+
+// Handler — propagate the error to Echo's error handler
+func getBook(c echo.Context) error {
+    book, err := findBook(c.Request().Context(), c.Param("id"))
+    if err != nil {
+        return echo.NewHTTPError(http.StatusNotFound, err.Error())
+    }
+    return c.JSON(http.StatusOK, book)
+}`;
+
+<TsGo client:visible ts={tsErrorThrow} go={goErrorReturn} />
+
+## echo.NewHTTPError — HTTP-aware errors
+
+`echo.NewHTTPError(statusCode, message)` creates an `*echo.HTTPError`. When a handler returns one, Echo's default error handler serializes it as `{"message": "..."}` with the correct HTTP status code. For bare `error` values, Echo returns `500 Internal Server Error`.
+
+```go
+// 400
+return echo.NewHTTPError(http.StatusBadRequest, "invalid id format")
+
+// 401
+return echo.NewHTTPError(http.StatusUnauthorized, "missing token")
+
+// 404
+return echo.NewHTTPError(http.StatusNotFound, "book not found")
+
+// 409
+return echo.NewHTTPError(http.StatusConflict, "book already exists")
+```
+
+## Wrapping errors with context
+
+Always wrap errors using `fmt.Errorf("context: %w", err)` so the original error is preserved for `errors.Is` / `errors.As` checks and for structured logging.
+
+export const tsErrorWrap = `// TypeScript — wrapping with cause
+throw new Error('failed to save book', { cause: originalError });
+
+// NestJS — HTTP-specific
+throw new InternalServerErrorException('failed to save book');`;
+
+export const goErrorWrap = `// Go — wrapping with %w
+func (s *BookService) Create(ctx context.Context, req CreateBookRequest) (Book, error) {
+    book, err := s.store.Insert(ctx, req)
+    if err != nil {
+        // %w preserves the original error for errors.Is / errors.As
+        return Book{}, fmt.Errorf("BookService.Create: %w", err)
+    }
+    return book, nil
+}
+
+// In the handler — check error type
+func createBook(c echo.Context) error {
+    book, err := svc.Create(c.Request().Context(), req)
+    if err != nil {
+        // errors.Is walks the wrap chain
+        if errors.Is(err, store.ErrDuplicate) {
+            return echo.NewHTTPError(http.StatusConflict, "book already exists")
+        }
+        return echo.NewHTTPError(http.StatusInternalServerError, "failed to create book")
+    }
+    return c.JSON(http.StatusCreated, book)
+}`;
+
+<TsGo client:visible ts={tsErrorWrap} go={goErrorWrap} />
+
+## Central error handler
+
+Echo lets you replace its default error handler with `e.HTTPErrorHandler`. This is where you log errors, translate domain errors to HTTP codes, and ensure a consistent response envelope.
+
+export const tsErrMiddleware = `// Express — error middleware (4-arg function, must be last)
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+  console.error(err);
+  if (err instanceof HttpException) {
+    return res.status(err.status).json({ message: err.message });
+  }
+  res.status(500).json({ message: 'internal server error' });
+});`;
+
+export const goErrHandler = `// Echo — custom HTTP error handler
+func customErrorHandler(err error, c echo.Context) {
+    var he *echo.HTTPError
+    if errors.As(err, &he) {
+        // Echo HTTPError — use its status code
+        _ = c.JSON(he.Code, map[string]any{
+            "message": he.Message,
+        })
+        return
+    }
+
+    // Unknown error — log it, return 500
+    c.Logger().Errorf("unhandled error: %v", err)
+    _ = c.JSON(http.StatusInternalServerError, map[string]any{
+        "message": "internal server error",
+    })
+}
+
+// Register in main():
+e.HTTPErrorHandler = customErrorHandler`;
+
+<TsGo client:visible ts={tsErrMiddleware} go={goErrHandler} />
+
+<GoOnly title="Sentinel errors — the Go equivalent of custom exceptions">
+
+Define package-level sentinel errors to represent well-known failure modes. Handlers and services can check for them with `errors.Is`:
+
+```go
+// store/errors.go
+var (
+    ErrNotFound  = errors.New("not found")
+    ErrDuplicate = errors.New("duplicate entry")
+)
+
+// store/books.go — wrap sentinel on DB error
+if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
+    return Book{}, fmt.Errorf("Insert: %w", store.ErrDuplicate)
+}
+
+// handler — translate domain error to HTTP code
+if errors.Is(err, store.ErrNotFound) {
+    return echo.NewHTTPError(http.StatusNotFound, "book not found")
+}
+```
+
+This keeps HTTP semantics out of the store layer and business logic out of the handler layer.
+
+</GoOnly>
+
+> Run this locally — it needs the Echo module and a network port.
+
+export const quizQuestionsError = [
+  {
+    q: 'What happens when an Echo handler returns a bare (non-HTTPError) error?',
+    options: [
+      'The error is silently ignored',
+      'Echo returns 500 Internal Server Error',
+      'Echo returns 400 Bad Request',
+      'Echo panics',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'Which format string verb preserves the original error for errors.Is checks?',
+    options: ['%v', '%s', '%w', '%e'],
+    answer: 2,
+  },
+  {
+    q: 'How do you register a custom central error handler in Echo?',
+    options: [
+      'e.Use(errorHandler)',
+      'e.OnError = errorHandler',
+      'e.HTTPErrorHandler = errorHandler',
+      'e.ErrorHandler(errorHandler)',
+    ],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="api-echo/error-handling" questions={quizQuestionsError} />
+
+<ProgressTracker client:visible id="api-echo/error-handling" />

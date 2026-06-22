@@ -1,0 +1,220 @@
+---
+title: JSON Response
+description: ส่ง JSON response ด้วย c.JSON, ควบคุม status code และจัดโครงสร้าง response payload — เปรียบกับ res.json ใน Express
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## ส่ง JSON response
+
+ใน Express เรียก `res.status(200).json(payload)` ใน Echo คือ `c.JSON(statusCode, payload)` Echo ตั้ง header `Content-Type: application/json` ให้อัตโนมัติ
+
+export const tsJsonResp = `// Express
+app.get('/books/:id', (req, res) => {
+  const book = { id: req.params.id, title: 'Go in Action' };
+  res.status(200).json(book);
+});
+
+// 404
+res.status(404).json({ message: 'not found' });`;
+
+export const goJsonResp = `// Echo
+func getBook(c echo.Context) error {
+    book := map[string]string{
+        "id":    c.Param("id"),
+        "title": "Go in Action",
+    }
+    return c.JSON(http.StatusOK, book)
+}
+
+// 404 (ผ่าน HTTPError — ดูในบท Error Handling)
+return echo.NewHTTPError(http.StatusNotFound, "not found")`;
+
+<TsGo client:visible ts={tsJsonResp} go={goJsonResp} />
+
+## Typed response struct
+
+การใช้ `map[string]string` สะดวกสำหรับตัวอย่าง แต่โค้ด production ควรใช้ typed response struct เพื่อให้ compiler ตรวจจับ typo ใน field name และทำให้ API surface มีเอกสารใน code
+
+export const tsTypedResp = `// TypeScript — response type
+interface BookResponse {
+  id: string;
+  title: string;
+  author: string;
+  publishedAt: string; // ISO 8601
+}
+
+const toResponse = (b: Book): BookResponse => ({
+  id: b.id,
+  title: b.title,
+  author: b.author,
+  publishedAt: b.createdAt.toISOString(),
+});
+
+res.json(toResponse(book));`;
+
+export const goTypedResp = `// Go — response struct
+type BookResponse struct {
+    ID          string \`json:"id"\`
+    Title       string \`json:"title"\`
+    Author      string \`json:"author"\`
+    PublishedAt string \`json:"publishedAt"\` // RFC 3339 / ISO 8601
+}
+
+func toBookResponse(b Book) BookResponse {
+    return BookResponse{
+        ID:          b.ID,
+        Title:       b.Title,
+        Author:      b.Author,
+        PublishedAt: b.CreatedAt.UTC().Format(time.RFC3339),
+    }
+}
+
+return c.JSON(http.StatusOK, toBookResponse(book))`;
+
+<TsGo client:visible ts={tsTypedResp} go={goTypedResp} />
+
+## HTTP status code มาตรฐาน
+
+Echo re-export constant จาก `net/http` ของ Go ใช้ชื่อ constant แทนตัวเลขดิบ
+
+```go
+http.StatusOK           // 200
+http.StatusCreated      // 201
+http.StatusNoContent    // 204
+http.StatusBadRequest   // 400
+http.StatusUnauthorized // 401
+http.StatusForbidden    // 403
+http.StatusNotFound     // 404
+http.StatusConflict     // 409
+http.StatusUnprocessableEntity // 422
+http.StatusInternalServerError // 500
+```
+
+## ลองใช้งาน — JSON marshal/unmarshal
+
+`encoding/json` คือ engine ที่อยู่เบื้องหลัง `c.JSON` ลองใช้โดยตรง:
+
+export const playgroundJson = `package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"time"
+)
+
+type BookResponse struct {
+	ID          string    \`json:"id"\`
+	Title       string    \`json:"title"\`
+	Author      string    \`json:"author"\`
+	PublishedAt time.Time \`json:"publishedAt"\`
+}
+
+func main() {
+	book := BookResponse{
+		ID:          "abc-123",
+		Title:       "The Go Programming Language",
+		Author:      "Donovan & Kernighan",
+		PublishedAt: time.Date(2015, 10, 26, 0, 0, 0, 0, time.UTC),
+	}
+
+	// Marshal เป็น JSON (สิ่งที่ c.JSON ทำภายใน)
+	data, err := json.MarshalIndent(book, "", "  ")
+	if err != nil {
+		fmt.Println("marshal error:", err)
+		return
+	}
+	fmt.Println(string(data))
+
+	// Unmarshal กลับ
+	var decoded BookResponse
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		fmt.Println("unmarshal error:", err)
+		return
+	}
+	fmt.Printf("\\nDecoded title: %s\\n", decoded.Title)
+	fmt.Printf("Published:     %s\\n", decoded.PublishedAt.Format(time.RFC3339))
+}`;
+
+<Playground client:visible code={playgroundJson} />
+
+## List response และ pagination
+
+ไม่ควร return JSON array เปล่า ๆ ที่ top level — ห่อด้วย object เสมอเพื่อให้สามารถเพิ่ม metadata ได้ทีหลังโดยไม่ทำลาย API
+
+export const tsListResp = `// Express — paginated list
+res.json({
+  data: books,
+  total: count,
+  page: Number(req.query.page ?? 1),
+  limit: Number(req.query.limit ?? 10),
+});`;
+
+export const goListResp = `// Echo — paginated list
+type PaginatedBooks struct {
+    Data  []BookResponse \`json:"data"\`
+    Total int            \`json:"total"\`
+    Page  int            \`json:"page"\`
+    Limit int            \`json:"limit"\`
+}
+
+return c.JSON(http.StatusOK, PaginatedBooks{
+    Data:  responses,
+    Total: total,
+    Page:  page,
+    Limit: limit,
+})`;
+
+<TsGo client:visible ts={tsListResp} go={goListResp} />
+
+<GoOnly title="Response แบบไม่มี content">
+
+สำหรับ DELETE handler ที่ไม่ return อะไร ใช้ `c.NoContent(http.StatusNoContent)` เทียบเท่า `res.status(204).send()`:
+
+```go
+func deleteBook(c echo.Context) error {
+    id := c.Param("id")
+    if err := store.Delete(c.Request().Context(), id); err != nil {
+        return echo.NewHTTPError(http.StatusNotFound, err.Error())
+    }
+    return c.NoContent(http.StatusNoContent)
+}
+```
+
+</GoOnly>
+
+export const quizQuestionsJson = [
+  {
+    q: 'c.JSON(http.StatusOK, payload) ใน Echo ทำอะไร?',
+    options: [
+      'คืนค่า string ของ payload',
+      'ตั้ง Content-Type และเขียน JSON-encoded payload พร้อม status 200',
+      'Bind incoming JSON เข้า payload',
+      'Log payload และคืน 200',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'เมธอดใดของ Echo ที่ส่ง response ไม่มี body และ status 204?',
+    options: ['c.Empty()', 'c.NoContent(204)', 'c.Send(204)', 'c.JSON(204, nil)'],
+    answer: 1,
+  },
+  {
+    q: 'ทำไม list endpoint ควรห่อ array ด้วย object เช่น { data: [...] }?',
+    options: [
+      'JSON array ไม่ valid ที่ top level',
+      'Echo marshal array ไม่ได้',
+      'สามารถเพิ่ม metadata (total, page) ทีหลังโดยไม่ทำลาย API',
+      'HTTP spec กำหนดให้ทำ',
+    ],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="api-echo/json-responses" questions={quizQuestionsJson} />
+
+<ProgressTracker client:visible id="api-echo/json-responses" />

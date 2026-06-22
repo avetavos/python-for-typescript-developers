@@ -1,0 +1,174 @@
+---
+title: Control Flow
+description: Go's if, for (the only loop), switch, and range — compared to TypeScript's control structures.
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## Control flow: mostly familiar, one surprise
+
+TypeScript has `if`, `for`, `for...of`, `for...in`, `while`, `do...while`, and `switch`. Go has `if`, `for`, and `switch` — and **`for` does the job of all loop types**. There is no `while` keyword. Once you see it, you'll appreciate the simplicity.
+
+## if / else
+
+Go's `if` is close to TypeScript's, but there are no parentheses around the condition, and the braces are always required.
+
+export const tsIfCode = `if (score > 90) {
+    console.log("A");
+} else if (score > 70) {
+    console.log("B");
+} else {
+    console.log("C");
+}`;
+
+export const goIfCode = `if score > 90 {
+    fmt.Println("A")
+} else if score > 70 {
+    fmt.Println("B")
+} else {
+    fmt.Println("C")
+}`;
+
+<TsGo client:visible ts={tsIfCode} go={goIfCode} />
+
+## The single for loop
+
+Go's `for` covers every looping pattern:
+
+export const tsLoopCode = `// C-style
+for (let i = 0; i < 5; i++) { ... }
+
+// while
+while (condition) { ... }
+
+// infinite
+while (true) { ... }
+
+// for...of
+for (const item of items) { ... }`;
+
+export const goLoopCode = `// C-style
+for i := 0; i < 5; i++ { ... }
+
+// while (drop init and post)
+for condition { ... }
+
+// infinite
+for { ... }
+
+// range (like for...of)
+for i, item := range items { ... }`;
+
+<TsGo client:visible ts={tsLoopCode} go={goLoopCode} />
+
+## switch
+
+Go's `switch` does **not** fall through by default (unlike JavaScript/TypeScript where you need `break`). Each case is independent. You can use `fallthrough` explicitly if you want the old behaviour.
+
+export const tsSwitchCode = `switch (day) {
+    case "Mon":
+    case "Tue":
+        console.log("Weekday");
+        break;       // required!
+    case "Sat":
+    case "Sun":
+        console.log("Weekend");
+        break;
+    default:
+        console.log("Unknown");
+}`;
+
+export const goSwitchCode = `switch day {
+case "Mon", "Tue", "Wed", "Thu", "Fri":
+    fmt.Println("Weekday")  // no break needed
+case "Sat", "Sun":
+    fmt.Println("Weekend")
+default:
+    fmt.Println("Unknown")
+}`;
+
+<TsGo client:visible ts={tsSwitchCode} go={goSwitchCode} />
+
+## range
+
+`range` iterates over slices, maps, strings, and channels. For a slice it gives you the index and value; use `_` to discard either.
+
+export const tsRangeCode = `const nums = [10, 20, 30];
+
+// index + value
+nums.forEach((v, i) => console.log(i, v));
+
+// value only
+for (const v of nums) { console.log(v); }`;
+
+export const goRangeCode = `nums := []int{10, 20, 30}
+
+// index + value
+for i, v := range nums {
+    fmt.Println(i, v)
+}
+
+// value only (discard index)
+for _, v := range nums {
+    fmt.Println(v)
+}`;
+
+<TsGo client:visible ts={tsRangeCode} go={goRangeCode} />
+
+## Try it
+
+export const playgroundCFCode = `package main
+
+import "fmt"
+
+func classify(n int) string {
+	switch {
+	case n < 0:
+		return "negative"
+	case n == 0:
+		return "zero"
+	case n < 10:
+		return "small"
+	default:
+		return "large"
+	}
+}
+
+func main() {
+	nums := []int{-3, 0, 7, 42}
+	for _, n := range nums {
+		fmt.Printf("%d is %s\\n", n, classify(n))
+	}
+}`;
+
+<Playground client:visible code={playgroundCFCode} />
+
+<GoOnly title="if with an init statement">
+
+Go's `if` can include a short init statement before the condition, separated by a semicolon. This is idiomatic for scoping an error variable to the `if` block:
+
+```go
+if err := doSomething(); err != nil {
+    fmt.Println("error:", err)
+}
+// err is not in scope here
+```
+
+This keeps error variables tightly scoped and is a Go idiom you'll see constantly.
+
+</GoOnly>
+
+export const quizQuestionsFlow = [
+  { q: 'In Go, which keyword replaces while, do...while, and for...of?', options: ['loop', 'while', 'for', 'each'], answer: 2 },
+  { q: 'Does Go switch fall through by default?', options: ['Yes, like JavaScript', 'No, each case is independent', 'Only for integers', 'Only with break'], answer: 1 },
+  { q: 'What does _ mean when used with range?', options: ['A pointer dereference', 'A blank identifier — discard this value', 'A default value', 'An index reset'], answer: 1 },
+  { q: 'Which is valid Go — parentheses around the if condition?', options: ['Required', 'Optional', 'Not allowed (no parens)', 'Only for complex conditions'], answer: 2 },
+];
+
+<Quiz client:visible id="go-101/control-flow" questions={quizQuestionsFlow} />
+
+<ProgressTracker client:visible id="go-101/control-flow" />

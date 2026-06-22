@@ -1,0 +1,197 @@
+---
+title: Reflection
+description: The reflect package, struct tags at runtime, use cases and caveats — compared to TypeScript's reflect-metadata and decorators.
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## Runtime types: TypeScript vs Go
+
+In TypeScript you can inspect type metadata at runtime via `reflect-metadata` and decorators — but this is opt-in, requires `experimentalDecorators` and `emitDecoratorMetadata` in `tsconfig.json`, and the metadata is attached manually by decorator functions. JavaScript erases almost all type information at runtime; decorators are a workaround, not a language primitive.
+
+Go is compiled, but unlike TypeScript it retains full type information at runtime through the `reflect` package. Every value in Go knows its own type at runtime — no annotations, no build flags needed.
+
+export const tsReflectCode = `// TypeScript — needs reflect-metadata + decorator compiler flags
+import 'reflect-metadata';
+
+function Column(target: any, key: string) {
+  const type = Reflect.getMetadata('design:type', target, key);
+  console.log(\`\${key}: \${type.name}\`);
+}
+
+class User {
+  @Column name: string = '';
+  @Column age: number = 0;
+}`;
+
+export const goReflectCode = `// Go — built-in, no flags needed
+import "reflect"
+
+type User struct {
+    Name string
+    Age  int
+}
+
+u := User{Name: "Alice", Age: 30}
+t := reflect.TypeOf(u)
+
+for i := 0; i < t.NumField(); i++ {
+    f := t.Field(i)
+    fmt.Printf("%s: %s\\n", f.Name, f.Type)
+}
+// Name: string
+// Age: int`;
+
+<TsGo client:visible ts={tsReflectCode} go={goReflectCode} />
+
+## Struct tags
+
+Struct tags are string literals embedded in field declarations. They are invisible at compile time and only readable at runtime via `reflect`. This is how `encoding/json`, `database/sql` scanners, and validation libraries like `go-playground/validator` know which JSON key maps to which field.
+
+export const tsTagCode = `// TypeScript — class-validator uses decorators
+import { IsEmail, IsString, Min } from 'class-validator';
+
+class CreateUserDto {
+  @IsString()
+  name: string;
+
+  @IsEmail()
+  email: string;
+
+  @Min(0)
+  age: number;
+}`;
+
+export const goTagCode = `// Go — struct tags (plain strings, read via reflect)
+type CreateUserDTO struct {
+    Name  string \`json:"name"  validate:"required"\`
+    Email string \`json:"email" validate:"required,email"\`
+    Age   int    \`json:"age"   validate:"min=0"\`
+}
+
+// encoding/json uses the "json" tag automatically.
+// Validator libraries read "validate" at runtime.`;
+
+<TsGo client:visible ts={tsTagCode} go={goTagCode} />
+
+## Reading struct tags at runtime
+
+The canonical pattern for reading tags is `reflect.Type.Field(i).Tag.Get("key")`:
+
+```go
+func printJSONTags(v any) {
+    t := reflect.TypeOf(v)
+    if t.Kind() == reflect.Ptr {
+        t = t.Elem() // dereference pointer
+    }
+    for i := 0; i < t.NumField(); i++ {
+        f := t.Field(i)
+        jsonKey := f.Tag.Get("json")
+        fmt.Printf("Field: %-10s  json=%q\n", f.Name, jsonKey)
+    }
+}
+```
+
+## reflect.Value vs reflect.Type
+
+`reflect.TypeOf` gives you the **type descriptor** (kind, fields, methods). `reflect.ValueOf` gives you a **boxed value** you can inspect and — carefully — mutate.
+
+```go
+u := User{Name: "Alice", Age: 30}
+
+// Type introspection
+t := reflect.TypeOf(u)
+fmt.Println(t.Kind())       // struct
+fmt.Println(t.NumField())   // 2
+
+// Value introspection
+v := reflect.ValueOf(u)
+fmt.Println(v.Field(0))     // Alice
+fmt.Println(v.Field(1))     // 30
+
+// Mutation requires a pointer and CanSet()
+vp := reflect.ValueOf(&u).Elem()
+vp.Field(0).SetString("Bob")
+fmt.Println(u.Name) // Bob
+```
+
+<GoOnly title="When NOT to use reflect">
+
+Reflection in Go is powerful but carries real costs:
+
+- **Performance:** `reflect` calls are significantly slower than direct field access. Never use reflection in hot loops.
+- **Type safety lost at boundary:** Code using `reflect.Value.Set*` bypasses the compiler. Panics replace compile errors.
+- **Readability:** Reflection-heavy code is harder to follow and refactor.
+
+**Use reflection when:**
+- Writing framework-level code (ORMs, JSON codecs, validators, dependency injection)
+- Implementing generic serializers that must handle unknown struct shapes at runtime
+
+**Do NOT use reflection when:**
+- You know the types at compile time — use generics or interfaces instead
+- The function is called in a tight loop — benchmark first
+
+</GoOnly>
+
+## Try it
+
+export const playgroundReflectCode = `package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+type User struct {
+	Name  string \`json:"name"  validate:"required"\`
+	Email string \`json:"email" validate:"required,email"\`
+	Age   int    \`json:"age"\`
+}
+
+func printStructTags(v any) {
+	t := reflect.TypeOf(v)
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	fmt.Println("--- Struct tags ---")
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+		fmt.Printf("%-8s  json=%q  validate=%q\\n",
+			f.Name,
+			f.Tag.Get("json"),
+			f.Tag.Get("validate"),
+		)
+	}
+}
+
+func printValues(v any) {
+	rv := reflect.ValueOf(v)
+	rt := rv.Type()
+	fmt.Println("--- Values ---")
+	for i := 0; i < rv.NumField(); i++ {
+		fmt.Printf("%-8s = %v\\n", rt.Field(i).Name, rv.Field(i))
+	}
+}
+
+func main() {
+	u := User{Name: "Alice", Email: "alice@example.com", Age: 30}
+	printStructTags(u)
+	printValues(u)
+}`;
+
+<Playground client:visible code={playgroundReflectCode} />
+
+export const quizQuestionsReflection = [
+  { q: 'Which function returns the runtime type descriptor of a Go value?', options: ['reflect.ValueOf', 'reflect.TypeOf', 'reflect.KindOf', 'reflect.MetaOf'], answer: 1 },
+  { q: 'What must you do before calling SetString() on a reflect.Value field?', options: ['Cast to interface{}', 'Get a pointer and call .Elem()', 'Call reflect.New()', 'Nothing — it works on any value'], answer: 1 },
+  { q: 'Where are Go struct tags stored and read from?', options: ['A separate metadata file', 'The struct field declaration string, read via reflect at runtime', 'A compiler annotation registry', 'The go.mod file'], answer: 1 },
+  { q: 'When should you prefer generics over reflect for a new utility function?', options: ['When the types are unknown at compile time', 'When you are writing an ORM', 'When the types are known at compile time and you just need type safety', 'When performance does not matter'], answer: 2 },
+];
+
+<Quiz client:visible id="advanced/reflection" questions={quizQuestionsReflection} />
+
+<ProgressTracker client:visible id="advanced/reflection" />

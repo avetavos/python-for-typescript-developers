@@ -1,0 +1,122 @@
+---
+title: Concurrency — Overview
+description: An overview of Go's concurrency model vs JavaScript's single-threaded event loop, and the intuition behind "concurrency is not parallelism."
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## JavaScript is single-threaded — Go is genuinely multi-threaded
+
+As a TypeScript/Node.js developer you live inside the **event loop**: all your JS code runs on one thread, and the "concurrency" you see is context-switching between callbacks, Promises, and async/await — not true parallelism.
+
+Go is fundamentally different. **Goroutines** are scheduled by the Go runtime across real OS threads. Multiple goroutines can genuinely execute at the same time on different CPU cores — no Worker Threads required.
+
+## Concurrency ≠ Parallelism
+
+Rob Pike (one of Go's creators) put it precisely:
+
+- **Concurrency** is *dealing with* many things at once — a structural property.
+- **Parallelism** is *doing* many things at once — an execution property.
+
+A chef who chops vegetables while water boils is concurrent (managing multiple things). Two chefs working side by side in the same kitchen are parallel (actually doing multiple things simultaneously).
+
+Node.js excels at concurrency (non-blocking I/O), but cannot be truly parallel without Worker Threads or multiple processes. Go handles both naturally.
+
+## Concurrency models compared
+
+export const tsEventLoopCode = `// JavaScript: single-threaded event loop
+// "concurrency" through callbacks / Promises
+async function fetchData(url: string) {
+  const res = await fetch(url);   // yields to event loop
+  return res.json();
+}
+
+// setTimeout / setInterval schedule callbacks on the loop
+setTimeout(() => console.log("later"), 0);
+console.log("first"); // always prints before "later"`;
+
+export const goConcurrencyOverviewCode = `// Go: real concurrent goroutines
+// Each 'go' spawns a lightweight thread managed by the Go runtime
+package main
+
+import (
+    "fmt"
+    "sync"
+)
+
+func fetchData(url string, wg *sync.WaitGroup) {
+    defer wg.Done()
+    fmt.Println("Fetching:", url) // runs concurrently
+}
+
+func main() {
+    var wg sync.WaitGroup
+    urls := []string{"api/users", "api/orders", "api/products"}
+    for _, url := range urls {
+        wg.Add(1)
+        go fetchData(url, &wg)
+    }
+    wg.Wait() // block until all goroutines finish
+}`;
+
+<TsGo client:visible ts={tsEventLoopCode} go={goConcurrencyOverviewCode} />
+
+## What you will learn in this module
+
+- **Goroutines** — `go f()` launches a goroutine instantly; compare to async functions
+- **Channels** — typed pipes between goroutines; compare to Promises/callbacks
+- **Select** — choose from multiple channels; compare to `Promise.race`
+- **Sync** — `WaitGroup`, `Mutex`, `RWMutex` for shared-state safety
+- **Context** — cancellation and deadlines; compare to `AbortController`
+- **Worker Pools** — a pattern for bounded concurrent work
+
+export const playgroundIndexCode = `package main
+
+import (
+	"fmt"
+	"sync"
+)
+
+func task(name string, wg *sync.WaitGroup) {
+	defer wg.Done()
+	fmt.Printf("Task %s running\\n", name)
+}
+
+func main() {
+	var wg sync.WaitGroup
+	tasks := []string{"A", "B", "C"}
+	for _, t := range tasks {
+		wg.Add(1)
+		go task(t, &wg)
+	}
+	wg.Wait()
+	fmt.Println("All tasks complete")
+}`;
+
+<Playground client:visible code={playgroundIndexCode} />
+
+<GoOnly title="Why Go is concurrent by design">
+
+Go was designed from day one around **CSP (Communicating Sequential Processes)**, a formal model by Tony Hoare. The Go team's guiding principle is:
+
+> "Don't communicate by sharing memory; share memory by communicating."
+
+Instead of using locks to protect shared data, you send data between goroutines through channels. The channel is the synchronization mechanism.
+
+Goroutines are extraordinarily lightweight — a stack that starts at just **2 KB** and grows dynamically, compared to ~1 MB for a typical OS thread. A single Go program can run hundreds of thousands of goroutines concurrently.
+
+</GoOnly>
+
+export const quizQuestionsIndex = [
+  { q: 'What is the key difference between concurrency and parallelism?', options: ['There is no difference', 'Concurrency is dealing with many things at once; parallelism is doing many things at once', 'Parallelism requires async/await', 'Concurrency requires multiple CPU cores'], answer: 1 },
+  { q: 'How many threads does JavaScript run on by default?', options: ['Many threads', 'A single thread', '4 threads', 'Depends on the OS'], answer: 1 },
+  { q: 'What is the initial stack size of a goroutine?', options: ['1 MB', '512 KB', '2 KB', '64 KB'], answer: 2 },
+];
+
+<Quiz client:visible id="concurrency/index" questions={quizQuestionsIndex} />
+
+<ProgressTracker client:visible id="concurrency/index" />

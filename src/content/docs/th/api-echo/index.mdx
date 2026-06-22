@@ -1,0 +1,116 @@
+---
+title: การสร้าง API ด้วย Echo
+description: แนะนำ Echo — เฟรมเวิร์ก HTTP ของ Go ที่คล้าย Express/Fastify — และภาพรวมของสิ่งที่เราจะสร้างในบทนี้
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## ทำไมต้อง Echo?
+
+ถ้าคุณมาจาก Node.js คุณคงคุ้นเคยกับแนวคิดของ HTTP framework แบบเบา: ฟังก์ชันที่แมป path + verb ไปยัง handler, pipeline ของ middleware และวิธี serialize JSON ให้ **Echo** คือ framework แบบนั้นสำหรับ Go
+
+| สิ่งที่ต้องการ | Node.js / Express | Go / Echo |
+|---|---|---|
+| หน่วยหลัก | `(req, res, next)` functions | `func(c echo.Context) error` |
+| Routing | `app.get('/path', handler)` | `e.GET("/path", handler)` |
+| Middleware | `app.use(fn)` | `e.Use(fn)` |
+| ตอบกลับ JSON | `res.json({ … })` | `c.JSON(200, payload)` |
+| ส่งต่อ error | `next(err)` | `return err` |
+
+Echo แข่งขันกับ Fastify และ NestJS ในแง่แนวคิด แต่เป็น binary ที่ compile แล้วเพียงตัวเดียว ไม่มี runtime, ไม่มี VM และไม่มี `node_modules` เวลา cold-start คือไมโครวินาที ไม่ใช่วินาที
+
+## Echo vs ระบบนิเวศ Go
+
+Go มีหลาย web framework (Gin, Chi, Fiber, stdlib `net/http`) Echo อยู่ในจุดที่พอดี:
+
+- **พื้นที่ผิวขนาดเล็ก** — อ่าน source code ทั้งหมดได้ในสุดสัปดาห์เดียว
+- **Idiomatic** — handler คืนค่า `error` ตรงกับ pattern errors-as-values ของ Go
+- **มี built-in ครบ** — Logger, Recover, CORS, GZIP, BasicAuth มาพร้อมกัน
+- **เสถียร** — Echo v4 ผ่านการใช้งาน production มาหลายปี
+
+export const tsBootstrap = `// Express (Node.js)
+import express from 'express';
+const app = express();
+app.use(express.json());
+
+app.get('/ping', (req, res) => {
+  res.json({ message: 'pong' });
+});
+
+app.listen(1323, () => console.log('listening'));`;
+
+export const goBootstrap = `// Echo (Go)
+package main
+
+import (
+    "net/http"
+    "github.com/labstack/echo/v4"
+)
+
+func main() {
+    e := echo.New()
+
+    e.GET("/ping", func(c echo.Context) error {
+        return c.JSON(http.StatusOK, map[string]string{
+            "message": "pong",
+        })
+    })
+
+    e.Logger.Fatal(e.Start(":1323"))
+}`;
+
+<TsGo client:visible ts={tsBootstrap} go={goBootstrap} />
+
+## สิ่งที่เราจะสร้าง
+
+ตลอดบทนี้เราจะสร้าง **Books REST API** — สร้าง อ่าน อัปเดต และลบหนังสือ — ทีละขั้นตอน:
+
+1. สร้างโปรเจกต์ด้วย `go.mod` และ `main.go`
+2. กำหนด route และฟังก์ชัน handler
+3. เพิ่ม middleware (logging, recovery, CORS)
+4. Bind request body และ validate ด้วย struct tag
+5. จัดรูปแบบ JSON response พร้อม status code
+6. จัดการ error แบบรวมศูนย์ — วิธีแบบ Go
+7. เชื่อมต่อฐานข้อมูลผ่าน `database/sql`
+8. เขียน handler test ด้วย `httptest`
+
+แต่ละบทสามารถอ่านได้แยกกัน แต่โปรเจกต์จะเติบโตขึ้นเรื่อย ๆ
+
+<GoOnly title="รันโค้ดนี้บนเครื่องของคุณ">
+
+Echo ต้องการ network port และ Go module พร้อม dependency จากภายนอก browser playground ไม่สามารถรัน Echo ได้ ดังนั้นตัวอย่างทั้งหมดในบทนี้ต้องรันบนเครื่องของคุณเอง:
+
+```bash
+mkdir books-api && cd books-api
+go mod init github.com/you/books-api
+go get github.com/labstack/echo/v4
+```
+
+จากนั้น `go run main.go` จะเริ่มเซิร์ฟเวอร์บน `:1323`
+
+</GoOnly>
+
+export const quizQuestionsIndex = [
+  {
+    q: 'ฟังก์ชันใดที่ใช้สร้าง Echo instance ใหม่?',
+    options: ['echo.Create()', 'echo.New()', 'echo.Init()', 'echo.Start()'],
+    answer: 1,
+  },
+  {
+    q: 'ฟังก์ชัน handler ของ Echo คืนค่าชนิดใด?',
+    options: ['void', 'http.Response', 'error', 'string'],
+    answer: 2,
+  },
+  {
+    q: 'เมธอดใดที่ใช้เริ่มเซิร์ฟเวอร์ Echo บน address ที่กำหนด?',
+    options: ['e.Run()', 'e.Listen()', 'e.Start()', 'e.Serve()'],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="api-echo/index" questions={quizQuestionsIndex} />
+
+<ProgressTracker client:visible id="api-echo/index" />

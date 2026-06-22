@@ -1,0 +1,142 @@
+---
+title: Arrays, Slices และ Maps
+description: arrays แบบขนาดคงที่, slices แบบไดนามิก และ maps ของ Go เทียบกับ array, object และ Map ของ JavaScript
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## Collections: จาก array ของ JS สู่ slice ของ Go
+
+ใน JavaScript/TypeScript array เป็นแบบไดนามิกโดยปริยาย และ object ทำหน้าที่เป็น map ส่วน Go แยกเรื่องเหล่านี้ออกจากกัน: **arrays** ขนาดคงที่, **slices** แบบไดนามิก (ตัวที่คุณจะใช้ทุกวัน) และ **maps**
+
+## Arrays เทียบกับ Slices
+
+array ของ Go มีขนาดคงที่ฝังอยู่ใน type เลย คุณจะแทบไม่ได้ใช้มันตรงๆ **Slices** คือเวอร์ชันไดนามิกที่ยืดหยุ่น — มี array รองรับอยู่เบื้องหลังแต่มี length และ capacity ที่ขยายได้ตามต้องการ
+
+export const tsArrayCode = `// TypeScript — always dynamic
+const nums: number[] = [1, 2, 3];
+nums.push(4);
+console.log(nums.length);   // 4`;
+
+export const goSliceCode = `// Go — slice (dynamic)
+nums := []int{1, 2, 3}
+nums = append(nums, 4)
+fmt.Println(len(nums))  // 4`;
+
+<TsGo client:visible ts={tsArrayCode} go={goSliceCode} />
+
+## การดำเนินการกับ Slice
+
+export const tsSliceOpsCode = `const letters = ["a", "b", "c", "d"];
+
+// slice (non-mutating)
+letters.slice(1, 3)  // ["b", "c"]
+
+// length
+letters.length       // 4`;
+
+export const goSliceOpsCode = `letters := []string{"a", "b", "c", "d"}
+
+// slice expression
+letters[1:3]         // ["b", "c"]
+
+// length
+len(letters)         // 4`;
+
+<TsGo client:visible ts={tsSliceOpsCode} go={goSliceOpsCode} />
+
+## Maps
+
+maps ของ Go เหมือนกับ `Record<K,V>` หรือ `Map<K,V>` ของ TypeScript คีย์สามารถเป็น type ใดก็ได้ที่เปรียบเทียบกันได้ (comparable)
+
+export const tsMapCode = `// TypeScript
+const scores: Record<string, number> = {
+    alice: 95,
+    bob: 87,
+};
+scores["carol"] = 91;
+delete scores["bob"];
+console.log(scores["alice"]);`;
+
+export const goMapCode = `// Go
+scores := map[string]int{
+    "alice": 95,
+    "bob":   87,
+}
+scores["carol"] = 91
+delete(scores, "bob")
+fmt.Println(scores["alice"])`;
+
+<TsGo client:visible ts={tsMapCode} go={goMapCode} />
+
+## ลองเล่นดู
+
+export const playgroundCollCode = `package main
+
+import (
+	"fmt"
+	"sort"
+)
+
+func main() {
+	// Slice
+	fruits := []string{"banana", "apple", "cherry"}
+	fruits = append(fruits, "date")
+	sort.Strings(fruits)
+	fmt.Println("Fruits:", fruits)
+
+	// Map
+	count := map[string]int{}
+	words := []string{"go", "is", "fun", "go", "is", "great", "go"}
+	for _, w := range words {
+		count[w]++
+	}
+	fmt.Println("Word counts:", count)
+}`;
+
+<Playground client:visible code={playgroundCollCode} />
+
+<GoOnly title="การตรวจสอบการมีอยู่ของคีย์ใน map">
+
+ใน TypeScript การเข้าถึงคีย์ที่ไม่มีอยู่จะคืนค่า `undefined` แต่ใน Go การเข้าถึงคีย์ที่ไม่มีอยู่ใน map จะคืน **zero value** ของ type ของค่านั้น ในการแยกแยะระหว่าง "คีย์มีอยู่แต่ค่าเป็น zero value" กับ "คีย์ไม่มีอยู่" ให้ใช้รูปแบบสองค่า:
+
+```go
+scores := map[string]int{"alice": 0}
+
+val := scores["bob"]         // val == 0, but is bob in the map?
+val, ok := scores["alice"]   // val == 0, ok == true  (present!)
+val, ok  = scores["bob"]     // val == 0, ok == false (absent)
+```
+
+สำนวน `ok` เป็น idiomatic ของ Go — คุณจะเห็นมันกับ type assertion และการรับค่าจาก channel ด้วย
+
+</GoOnly>
+
+<GoOnly title="make() สำหรับ slice และ map ที่จองหน่วยความจำล่วงหน้า">
+
+เมื่อคุณรู้ขนาดล่วงหน้า ให้จองหน่วยความจำล่วงหน้าด้วย `make` เพื่อหลีกเลี่ยงการจัดสรรหน่วยความจำใหม่ซ้ำๆ:
+
+```go
+// slice of 10 ints, all zero
+s := make([]int, 10)
+
+// map pre-allocated for ~100 entries
+m := make(map[string]int, 100)
+```
+
+</GoOnly>
+
+export const quizQuestionsColl = [
+  { q: 'collection type ใดของ Go ที่ขยายตัวได้แบบไดนามิก (เหมือน array ของ JS)?', options: ['Array', 'Slice', 'Map', 'Channel'], answer: 1 },
+  { q: 'คุณ append เข้าไปใน slice ใน Go อย่างไร?', options: ['slice.push(val)', 'slice + val', 'append(slice, val)', 'slice.append(val)'], answer: 2 },
+  { q: 'การ lookup map แบบสองค่า (val, ok := m[key]) บอกอะไรคุณ?', options: ['ค่าและ type ของมัน', 'ค่าและว่าคีย์มีอยู่หรือไม่', 'ค่าและ index ของมัน', 'ไม่มีอะไรเพิ่มเติม'], answer: 1 },
+  { q: 'zero value ที่คืนมาเมื่อเข้าถึงคีย์ int ที่ไม่มีอยู่ใน map คืออะไร?', options: ['null', 'undefined', '-1', '0'], answer: 3 },
+];
+
+<Quiz client:visible id="go-101/collections" questions={quizQuestionsColl} />
+
+<ProgressTracker client:visible id="go-101/collections" />

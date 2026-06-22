@@ -1,0 +1,199 @@
+---
+title: Connecting to a Database
+description: Wire a database connection into an Echo handler using database/sql or an ORM — compared to TypeORM, Prisma, or Drizzle in Node.
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## The Node.js ORM landscape vs Go
+
+TypeScript developers are used to choosing between Prisma, TypeORM, Drizzle, Knex, or Sequelize. Go has similar options — GORM, sqlc, Bun, Ent — but the stdlib `database/sql` package is a first-class option that is well worth knowing.
+
+| Concern | Node.js options | Go options |
+|---|---|---|
+| Low-level | `pg`, `mysql2` (raw drivers) | `database/sql` + driver (e.g. `lib/pq`, `pgx`) |
+| Query builder | `knex` | `squirrel`, raw `database/sql` |
+| Full ORM | `TypeORM`, `Drizzle`, `Sequelize` | `GORM`, `ent`, `bun` |
+| Codegen from SQL | — | `sqlc` (SQL → type-safe Go) |
+
+This lesson uses `database/sql` with the `lib/pq` driver for PostgreSQL — the most transferable baseline.
+
+## Opening a connection pool
+
+export const tsDbConnect = `// Node.js — pg connection pool
+import { Pool } from 'pg';
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+
+export default pool;`;
+
+export const goDbConnect = `// Go — database/sql + lib/pq
+import (
+    "database/sql"
+    "log"
+    "os"
+
+    _ "github.com/lib/pq" // register driver via side-effect import
+)
+
+func NewDB() *sql.DB {
+    dsn := os.Getenv("DATABASE_URL")
+    db, err := sql.Open("postgres", dsn)
+    if err != nil {
+        log.Fatalf("sql.Open: %v", err)
+    }
+    if err := db.Ping(); err != nil {
+        log.Fatalf("db.Ping: %v", err)
+    }
+    db.SetMaxOpenConns(25)
+    db.SetMaxIdleConns(5)
+    return db
+}`;
+
+<TsGo client:visible ts={tsDbConnect} go={goDbConnect} />
+
+## A store layer — the repository pattern
+
+Rather than calling `db` directly from handlers, wrap database logic in a store struct. This mirrors the Repository pattern in NestJS and keeps handlers thin.
+
+export const tsRepo = `// NestJS — repository injection
+@Injectable()
+export class BooksRepository {
+  constructor(
+    @InjectRepository(Book)
+    private readonly repo: Repository<Book>,
+  ) {}
+
+  async findById(id: string): Promise<Book | null> {
+    return this.repo.findOneBy({ id });
+  }
+}`;
+
+export const goStore = `// Go — store struct (manual DI)
+type BookStore struct {
+    db *sql.DB
+}
+
+func NewBookStore(db *sql.DB) *BookStore {
+    return &BookStore{db: db}
+}
+
+func (s *BookStore) FindByID(ctx context.Context, id string) (Book, error) {
+    const q = \`SELECT id, title, author, year FROM books WHERE id = $1\`
+    var b Book
+    err := s.db.QueryRowContext(ctx, q, id).Scan(
+        &b.ID, &b.Title, &b.Author, &b.Year,
+    )
+    if errors.Is(err, sql.ErrNoRows) {
+        return Book{}, fmt.Errorf("FindByID: %w", ErrNotFound)
+    }
+    if err != nil {
+        return Book{}, fmt.Errorf("FindByID: %w", err)
+    }
+    return b, nil
+}`;
+
+<TsGo client:visible ts={tsRepo} go={goStore} />
+
+## Inserting a row
+
+Always use parameterized queries (`$1`, `$2`, …). Never interpolate values into SQL strings — that is a SQL injection vulnerability.
+
+export const tsInsert = `// Prisma insert
+const book = await prisma.book.create({
+  data: { title, author, year },
+});`;
+
+export const goInsert = `// database/sql insert — parameterized query
+func (s *BookStore) Insert(ctx context.Context, req CreateBookRequest) (Book, error) {
+    const q = \`
+        INSERT INTO books (title, author, year)
+        VALUES ($1, $2, $3)
+        RETURNING id, title, author, year
+    \`
+    var b Book
+    err := s.db.QueryRowContext(ctx, q,
+        req.Title, req.Author, req.Year,
+    ).Scan(&b.ID, &b.Title, &b.Author, &b.Year)
+    if err != nil {
+        return Book{}, fmt.Errorf("Insert: %w", err)
+    }
+    return b, nil
+}`;
+
+<TsGo client:visible ts={tsInsert} go={goInsert} />
+
+## Wiring the store into a handler via main.go
+
+```go
+// main.go
+db := NewDB()
+
+bookStore   := store.NewBookStore(db)
+bookHandler := handler.NewBookHandler(bookStore)
+
+api := e.Group("/api")
+api.GET("/books/:id", bookHandler.Get)
+api.POST("/books",    bookHandler.Create)
+```
+
+No DI container is needed — Go's type system and constructor functions handle it explicitly.
+
+## Brief mentions of higher-level options
+
+- **sqlc** — write plain SQL files, run `sqlc generate`, get type-safe Go functions. Zero reflection overhead. Best for teams that want SQL control.
+- **GORM** — ActiveRecord-style ORM; familiar if you come from Sequelize. Costs some query transparency.
+- **pgx/pgxpool** — a high-performance PostgreSQL driver (over `database/sql`). Recommended for production (see Go memory file). Same `QueryRowContext` / `Scan` pattern, better throughput.
+
+<GoOnly title="Always pass context to every DB call">
+
+Every `database/sql` method has a `Context` variant: `QueryContext`, `QueryRowContext`, `ExecContext`. **Always use the context variant** and pass `c.Request().Context()` from your handler. This allows the database query to be cancelled if the client disconnects or if a deadline fires — preventing wasted work in your connection pool.
+
+```go
+// Good
+rows, err := s.db.QueryContext(ctx, query, args...)
+
+// Bad — ignores cancellation
+rows, err := s.db.Query(query, args...)
+```
+
+</GoOnly>
+
+> Run this locally — it needs a live PostgreSQL database, the `lib/pq` driver module, and a network port.
+
+export const quizQuestionsDatabase = [
+  {
+    q: 'Why must you use parameterized queries ($1, $2) instead of string interpolation in SQL?',
+    options: [
+      'Parameterized queries are faster in all cases',
+      'String interpolation is invalid Go syntax',
+      'Parameterized queries prevent SQL injection',
+      'database/sql only supports parameterized queries',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'What error does sql.QueryRowContext return when no rows match?',
+    options: ['nil', 'io.EOF', 'sql.ErrNoRows', 'sql.ErrEmpty'],
+    answer: 2,
+  },
+  {
+    q: 'Why use the Context variant of database/sql methods (e.g. QueryContext)?',
+    options: [
+      'The non-context variants are deprecated',
+      'To allow cancellation and timeout propagation from the HTTP request',
+      'Context variants return typed results',
+      'Only context variants support parameterized queries',
+    ],
+    answer: 1,
+  },
+];
+
+<Quiz client:visible id="api-echo/database" questions={quizQuestionsDatabase} />
+
+<ProgressTracker client:visible id="api-echo/database" />

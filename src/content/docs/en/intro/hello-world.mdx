@@ -1,0 +1,156 @@
+---
+title: Hello, World!
+description: Write your first Go program — understand package main, func main, and fmt.Println compared to a TypeScript hello world.
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## Your first Go program
+
+In TypeScript/Node.js you create a file, export or run code at the top level, and `node` executes it. Go requires every executable program to follow a specific structure: a `package main` declaration and a `func main()` entry point. Let's compare.
+
+export const tsHelloCode = `// hello.ts
+console.log("Hello, World!");
+
+// run with: npx ts-node hello.ts
+// or compile: tsc hello.ts && node hello.js`;
+
+export const goHelloCode = `// hello.go
+package main
+
+import "fmt"
+
+func main() {
+    fmt.Println("Hello, World!")
+}
+
+// run with: go run hello.go`;
+
+<TsGo client:visible ts={tsHelloCode} go={goHelloCode} />
+
+## Breaking it down line by line
+
+**`package main`**
+
+Every Go file starts with a `package` declaration. The package named `main` is special — it marks an executable program (not a library). Think of it as the Go equivalent of a file being the `"main"` entry in `package.json`.
+
+**`import "fmt"`**
+
+Go imports are explicit and per-file. `fmt` is the standard library package for formatted I/O — the Go equivalent of `console`. You import by the full package path string (quoted). Unused imports are a compile error.
+
+**`func main()`**
+
+The `main` function is the entry point. Every executable Go program must have exactly one `func main()` in the `main` package. There are no arguments — command-line arguments are accessed via `os.Args`.
+
+export const tsEntryCode = `// TypeScript: multiple entry styles
+// 1. Top-level code (scripts)
+console.log("runs immediately");
+
+// 2. "main" in package.json points here
+// 3. Exported function called by framework`;
+
+export const goEntryCode = `// Go: always one entry point
+package main
+
+import "fmt"
+
+func main() {
+    // Program starts here, always.
+    fmt.Println("Runs first.")
+}`;
+
+<TsGo client:visible ts={tsEntryCode} go={goEntryCode} />
+
+## fmt.Println vs console.log
+
+`fmt.Println` is the most direct equivalent of `console.log`. The `fmt` package also provides `fmt.Printf` for format strings (like `printf` in C or template literals in JS) and `fmt.Sprintf` to build a string without printing.
+
+export const tsLogCode = `// TypeScript logging
+console.log("Hello");                    // simple
+console.log("Name:", name);             // multiple args
+console.log(\`Score: \${score}\`);         // template literal
+const msg = \`Hello, \${name}!\`;          // build a string`;
+
+export const goFmtCode = `// Go fmt package
+fmt.Println("Hello")                    // simple
+fmt.Println("Name:", name)              // multiple args
+fmt.Printf("Score: %d\\n", score)        // format verb
+msg := fmt.Sprintf("Hello, %s!", name)  // build a string`;
+
+<TsGo client:visible ts={tsLogCode} go={goFmtCode} />
+
+## Format verbs
+
+`fmt.Printf` uses format verbs instead of template literals. The most common ones:
+
+| Verb | Meaning | TypeScript equivalent |
+|------|---------|----------------------|
+| `%s` | string | `${str}` |
+| `%d` | integer | `${num}` |
+| `%f` | float | `${num.toFixed(6)}` |
+| `%.2f` | float, 2 decimal places | `${num.toFixed(2)}` |
+| `%v` | any value (default format) | `${JSON.stringify(val)}` |
+| `%T` | type name | `typeof val` |
+| `%+v` | struct with field names | `JSON.stringify(val, null, 2)` |
+
+<GoOnly title="Unused imports are a compile error">
+
+In TypeScript, unused imports generate a warning (or nothing, depending on your tsconfig). In Go, an unused import is a **compile error**. This keeps Go files clean but can trip you up when you are exploring code.
+
+```go
+import (
+    "fmt"
+    "os"   // ERROR: imported and not used
+)
+
+func main() {
+    fmt.Println("hello")
+    // os is imported but never used — won't compile
+}
+```
+
+The fix: remove the import or use the blank identifier `_` as a side-effect import (rare, used for `init()` side effects only):
+
+```go
+import _ "github.com/lib/pq" // side-effect: registers the pq driver
+```
+
+Most Go editors (VS Code + gopls) remove unused imports automatically on save.
+
+</GoOnly>
+
+## Try it — run your first Go program
+
+export const playgroundHelloCode = `package main
+
+import "fmt"
+
+func main() {
+	fmt.Println("Hello, World!")
+
+	// fmt.Printf uses format verbs — like template literals
+	name := "Gopher"
+	age := 3
+	fmt.Printf("Name: %s, Age: %d\\n", name, age)
+
+	// fmt.Sprintf builds a string without printing
+	greeting := fmt.Sprintf("Welcome, %s!", name)
+	fmt.Println(greeting)
+}`;
+
+<Playground client:visible code={playgroundHelloCode} />
+
+export const quizQuestionsHello = [
+  { q: 'What must every executable Go program have?', options: ['A file named main.go', 'A func main() in package main', 'A package.json with "main" field', 'An exported Main function'], answer: 1 },
+  { q: 'What happens if you import a package but do not use it in Go?', options: ['A runtime warning is printed', 'The import is silently ignored', 'The program compiles but is slower', 'It is a compile error'], answer: 3 },
+  { q: 'Which fmt function builds a formatted string WITHOUT printing it?', options: ['fmt.Print', 'fmt.Println', 'fmt.Printf', 'fmt.Sprintf'], answer: 3 },
+  { q: 'What is the Go format verb for printing an integer?', options: ['%s', '%i', '%d', '%n'], answer: 2 },
+];
+
+<Quiz client:visible id="intro/hello-world" questions={quizQuestionsHello} />
+
+<ProgressTracker client:visible id="intro/hello-world" />

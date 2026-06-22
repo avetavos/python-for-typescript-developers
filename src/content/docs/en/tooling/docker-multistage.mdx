@@ -1,0 +1,151 @@
+---
+title: Docker Multi-Stage Builds
+description: Build a tiny, secure Go container image using multi-stage Docker builds — compared to a typical Node.js Docker image with node_modules.
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## The node_modules problem in Docker
+
+When you containerise a Node/TypeScript application, the final image must include:
+
+1. A full Node.js runtime (100+ MB)
+2. `node_modules/` (can easily be 300–600 MB for a typical NestJS app)
+3. Your compiled `.js` output
+
+The result is often a 500 MB–1 GB image that ships your entire development dependency tree into production. You mitigate this with `.dockerignore`, `--omit=dev`, and multi-stage builds — but the Node runtime itself never goes away.
+
+Go compiles to a **single statically-linked binary** with no runtime dependency. The final Docker image can be built `FROM scratch` — a literally empty base image — containing only your binary. A typical Go production image is **5–20 MB**.
+
+## The Go multi-stage Dockerfile
+
+A multi-stage build uses a full Go builder image to compile, then copies only the resulting binary into a minimal final image.
+
+```dockerfile
+# ---- Stage 1: Build ----
+FROM golang:1.22-alpine AS builder
+
+WORKDIR /app
+
+# Copy dependency manifests first for layer caching
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source and build a static binary
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /app/server ./cmd/server
+
+# ---- Stage 2: Run ----
+FROM gcr.io/distroless/static-debian12
+
+WORKDIR /app
+
+# Copy only the binary from the builder stage
+COPY --from=builder /app/server .
+
+EXPOSE 8080
+
+ENTRYPOINT ["/app/server"]
+```
+
+`CGO_ENABLED=0` disables C bindings so the binary is fully self-contained. `-ldflags="-s -w"` strips debug symbols, shaving ~30% off binary size. `distroless/static` is a Google-maintained minimal image that contains only CA certificates and timezone data — useful for HTTPS calls — but no shell, no package manager, no attack surface.
+
+If you need a shell for debugging, swap `distroless/static-debian12` with `alpine:3.20` (still only ~7 MB) and add `apk add --no-cache ca-certificates`.
+
+## The Node multi-stage Dockerfile (for comparison)
+
+```dockerfile
+# ---- Stage 1: Build ----
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci
+
+COPY . .
+RUN npm run build      # tsc output → dist/
+
+# Prune dev dependencies
+RUN npm prune --omit=dev
+
+# ---- Stage 2: Run ----
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Must copy node_modules — runtime still needs them
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/package.json .
+
+EXPOSE 3000
+
+CMD ["node", "dist/main.js"]
+```
+
+Even after pruning dev deps, the Node runtime and remaining `node_modules` make this image 150–300 MB.
+
+export const tsDockerCode = `# Final Node image size: ~150-300 MB
+# Includes: node runtime + node_modules + dist/
+
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+RUN npm prune --omit=dev
+
+FROM node:20-alpine
+WORKDIR /app
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/dist ./dist
+EXPOSE 3000
+CMD ["node", "dist/main.js"]`;
+
+export const goDockerCode = `# Final Go image size: ~5-20 MB
+# Includes: your binary only (no runtime)
+
+FROM golang:1.22-alpine AS builder
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux \\
+    go build -ldflags="-s -w" \\
+    -o /app/server ./cmd/server
+
+FROM gcr.io/distroless/static-debian12
+WORKDIR /app
+COPY --from=builder /app/server .
+EXPOSE 8080
+ENTRYPOINT ["/app/server"]`;
+
+<TsGo client:visible ts={tsDockerCode} go={goDockerCode} />
+
+> These are Dockerfile examples — run them in your terminal with `docker build -t myapp .` and then `docker images myapp` to compare sizes. No browser playground is applicable here.
+
+<GoOnly title="FROM scratch — an empty image">
+
+You can go one step further than `distroless` and use `FROM scratch`, which is a completely empty Docker image. Your binary is the only file in the container.
+
+This works because Go binaries are statically linked — they carry everything they need inside the single ELF/Mach-O/PE file. No dynamic linker, no libc, no shared libraries.
+
+The trade-off: `scratch` has no shell and no CA certificates, so you need to `COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/` if your app makes outbound HTTPS calls. `distroless/static` handles this for you, which is why it is the more practical choice for most services.
+
+</GoOnly>
+
+export const quizQuestionsDocker = [
+  { q: 'What does `CGO_ENABLED=0` do when building a Go binary for Docker?', options: ['Enables C extensions for better performance', 'Disables C bindings to produce a fully static binary', 'Sets the target OS to Linux', 'Strips debug symbols from the binary'], answer: 1 },
+  { q: 'Why can a Go Docker image use `FROM scratch` while a Node image cannot?', options: ['Go images are compressed better', 'Go binaries are statically linked and need no runtime', 'scratch is only supported on Linux', 'Node images require a database driver'], answer: 1 },
+  { q: 'What is the purpose of `-ldflags="-s -w"` in the Go build command?', options: ['Enable link-time optimization for speed', 'Strip debug symbols to reduce binary size', 'Set the output binary name', 'Force static linking on Windows'], answer: 1 },
+  { q: 'Which multi-stage Docker image is recommended for Go production services that need CA certificates?', options: ['FROM scratch', 'FROM ubuntu:latest', 'FROM gcr.io/distroless/static-debian12', 'FROM golang:1.22'], answer: 2 },
+];
+
+<Quiz client:visible id="tooling/docker-multistage" questions={quizQuestionsDocker} />
+
+<ProgressTracker client:visible id="tooling/docker-multistage" />

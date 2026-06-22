@@ -1,0 +1,148 @@
+---
+title: Cross-Compilation
+description: Compile a Go binary for any OS and architecture with two environment variables — no runtime needed on the target machine.
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## The Node deployment problem
+
+When you deploy a Node.js or TypeScript application to a server, you must ensure the target machine has:
+
+1. The correct version of Node.js installed
+2. All `node_modules/` dependencies present (or bundled)
+3. The correct native addon binaries for the target OS/CPU (e.g., `bcrypt`, `sharp`)
+
+Deploying to a different architecture — say, compiling on an `x86_64` Mac and deploying to an ARM-based AWS Graviton server — requires either a matching local environment or a Docker build that targets the right platform.
+
+## Go cross-compilation in two environment variables
+
+Go has first-class support for cross-compilation. You set two environment variables before `go build` and the compiler produces a binary for the target platform — no Docker, no cross-compiler toolchain, no emulation layer required.
+
+```bash
+# The two magic variables
+GOOS=<target-os>    GOARCH=<target-arch>
+
+# Common values
+GOOS:   linux   darwin   windows   freebsd
+GOARCH: amd64   arm64    386       arm
+```
+
+### Practical examples
+
+```bash
+# Build for Linux AMD64 (most AWS EC2, typical server)
+GOOS=linux GOARCH=amd64 go build -o bin/app-linux-amd64 ./cmd/app
+
+# Build for Linux ARM64 (AWS Graviton, Apple Silicon EC2)
+GOOS=linux GOARCH=arm64 go build -o bin/app-linux-arm64 ./cmd/app
+
+# Build for Windows from macOS or Linux
+GOOS=windows GOARCH=amd64 go build -o bin/app.exe ./cmd/app
+
+# Build for macOS Apple Silicon from any platform
+GOOS=darwin GOARCH=arm64 go build -o bin/app-darwin-arm64 ./cmd/app
+```
+
+Run these in your terminal. You will see the binary appear in `bin/` immediately, cross-compiled from your host machine with no extra tools.
+
+### Release script: build for multiple targets
+
+A simple shell script to produce release binaries for all common platforms:
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP="myapp"
+VERSION=$(git describe --tags --always)
+OUTDIR="dist/${VERSION}"
+mkdir -p "${OUTDIR}"
+
+targets=(
+  "linux/amd64"
+  "linux/arm64"
+  "darwin/amd64"
+  "darwin/arm64"
+  "windows/amd64"
+)
+
+for target in "${targets[@]}"; do
+  GOOS="${target%/*}"
+  GOARCH="${target#*/}"
+  ext=""
+  [[ "$GOOS" == "windows" ]] && ext=".exe"
+
+  output="${OUTDIR}/${APP}-${GOOS}-${GOARCH}${ext}"
+  echo "Building ${output}..."
+  CGO_ENABLED=0 GOOS="${GOOS}" GOARCH="${GOARCH}" \
+    go build -ldflags="-s -w -X main.version=${VERSION}" \
+    -o "${output}" ./cmd/${APP}
+done
+
+echo "Done. Binaries in ${OUTDIR}/"
+```
+
+export const tsDeployCode = `# TypeScript/Node deployment checklist
+# (target machine must have all of these)
+
+1. Install Node.js v20 on the server
+   curl -fsSL https://deb.nodesource.com/setup_20.x | sudo bash
+   sudo apt-get install -y nodejs
+
+2. Upload your build artifact + package.json
+   scp -r dist/ package.json server:/app/
+
+3. Install production deps on the server
+   ssh server "cd /app && npm ci --omit=dev"
+
+4. Rebuild native addons for target platform
+   npm rebuild bcrypt sharp   # if you use them
+
+5. Start the process
+   node dist/main.js`;
+
+export const goCrossCode = `# Go cross-compilation — build on dev, deploy anywhere
+# Target machine needs: NOTHING. Just copy the binary.
+
+# From your Mac, build for a Linux server:
+GOOS=linux GOARCH=amd64 \\
+  CGO_ENABLED=0 \\
+  go build -o app-linux ./cmd/app
+
+# Upload the single binary
+scp app-linux server:/usr/local/bin/myapp
+
+# On the server — just run it:
+ssh server "/usr/local/bin/myapp"`;
+
+<TsGo client:visible ts={tsDeployCode} go={goCrossCode} />
+
+<GoOnly title="No runtime — the binary IS the application">
+
+A compiled Go binary is entirely self-contained. It includes the Go runtime (goroutine scheduler, garbage collector) statically linked inside the binary itself. There is nothing to install on the target machine.
+
+This has practical consequences:
+
+- **Lambda / serverless:** Upload the binary as a zip. No layers, no runtime config beyond selecting `provided.al2023`.
+- **Edge devices / IoT:** Copy one file via `scp`. No package manager, no connectivity to npm needed at deploy time.
+- **Air-gapped environments:** The binary runs offline. No `npm install` that reaches out to the internet.
+- **Containers:** As shown in the Docker lesson, the image can be `FROM scratch` — 5–15 MB total.
+
+The only time cross-compilation gets complicated is when your code uses `CGO` (calling C libraries). `CGO_ENABLED=0` disables CGO and forces pure Go, which is why you see it in almost every production build script.
+
+</GoOnly>
+
+export const quizQuestionsCrossCompile = [
+  { q: 'Which environment variable specifies the target operating system for a Go cross-compile?', options: ['GOARCH', 'GOOS', 'GO_TARGET_OS', 'GOPLATFORM'], answer: 1 },
+  { q: 'What does `CGO_ENABLED=0` do in the context of cross-compilation?', options: ['Disables garbage collection', 'Forces pure Go with no C library dependencies', 'Enables additional CPU optimizations', 'Sets the minimum OS version'], answer: 1 },
+  { q: 'After cross-compiling a Go binary for Linux, what does the target Linux server need installed to run it?', options: ['Go runtime', 'glibc and libpthread', 'Nothing — the binary is self-contained', 'The same Go version used to compile it'], answer: 2 },
+  { q: 'Which GOOS value would you use to build a Go binary that runs on Apple Silicon Macs?', options: ['macos', 'osx', 'darwin', 'apple'], answer: 2 },
+];
+
+<Quiz client:visible id="tooling/cross-compile" questions={quizQuestionsCrossCompile} />
+
+<ProgressTracker client:visible id="tooling/cross-compile" />

@@ -1,0 +1,218 @@
+---
+title: Value vs Reference Semantics
+description: เข้าใจว่า Go struct และ array ถูก copy (value type) ในขณะที่ slice และ map แชร์ข้อมูลพื้นฐาน (reference type) — ความแตกต่างสำคัญจาก JavaScript ที่ object เป็น reference เสมอ
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## JavaScript: ทุก object เป็น reference
+
+ใน JavaScript และ TypeScript ค่าทุกอย่างที่ไม่ใช่ primitive (object, array, function) ถูกส่งเป็น reference การ assign object ให้ตัวแปรใหม่ไม่ได้ copy มัน — ทั้งสองตัวแปรชี้ไปยังข้อมูลเดิม
+
+```ts
+// TypeScript — object แชร์กันเสมอ
+const a = { x: 1 };
+const b = a;        // b ชี้ไปยัง object เดิม
+b.x = 99;
+console.log(a.x);   // 99 — a ถูก mutate ด้วย
+```
+
+ใน Go กฎมีความละเอียดกว่า: **บาง type copy บาง type แชร์** การรู้ว่าอะไรเป็นอะไรป้องกัน bug ที่มองไม่เห็น
+
+## Struct และ Array เป็น value type
+
+การ assign struct หรือ fixed-size array ให้ตัวแปรใหม่จะสร้าง **copy** เต็มรูปแบบ การแก้ไข copy ไม่กระทบต้นฉบับ
+
+export const tsStructCode = `// TypeScript — object แชร์กัน (reference)
+interface Point { x: number; y: number; }
+const a: Point = { x: 1, y: 2 };
+const b = a;      // b คือ object เดิม
+b.x = 99;
+console.log(a.x); // 99 — ถูก mutate!
+
+// Array ก็แชร์เช่นกัน:
+const arr1 = [1, 2, 3];
+const arr2 = arr1;
+arr2[0] = 99;
+console.log(arr1[0]); // 99`;
+
+export const goStructCode = `// Go — struct copy เมื่อ assign
+type Point struct{ X, Y int }
+
+a := Point{X: 1, Y: 2}
+b := a          // b คือ COPY เต็มรูปแบบ
+b.X = 99
+fmt.Println(a.X) // 1 — a ไม่เปลี่ยน
+
+// Fixed-size array ก็ copy เช่นกัน
+arr1 := [3]int{1, 2, 3}
+arr2 := arr1    // copy
+arr2[0] = 99
+fmt.Println(arr1[0]) // 1 — ไม่เปลี่ยน`;
+
+<TsGo client:visible ts={tsStructCode} go={goStructCode} />
+
+## Slice และ Map เป็น reference type
+
+Slice และ map เก็บ pointer ภายในไปยังข้อมูลพื้นฐาน การ assign ให้ตัวแปรใหม่จะ **แชร์** pointer นั้น — ทั้งสองตัวแปรอ้างถึง array หรือ hash table เดิม
+
+export const tsSliceCode = `// TypeScript — array (เหมือน object ทั้งหมด) เป็น reference
+const s1 = [1, 2, 3];
+const s2 = s1;    // array เดิม
+s2[0] = 99;
+console.log(s1[0]); // 99
+
+// Map ก็เช่นกัน:
+const m1 = new Map([["a", 1]]);
+const m2 = m1;
+m2.set("a", 99);
+console.log(m1.get("a")); // 99`;
+
+export const goSliceCode = `// Go — slice แชร์ underlying array
+s1 := []int{1, 2, 3}
+s2 := s1        // s2 แชร์ underlying array ของ s1
+s2[0] = 99
+fmt.Println(s1[0]) // 99 — แชร์กัน!
+
+// Map แชร์เสมอ
+m1 := map[string]int{"a": 1}
+m2 := m1
+m2["a"] = 99
+fmt.Println(m1["a"]) // 99 — แชร์กัน!
+
+// หาก copy จริงๆ ต้องใช้ copy() สำหรับ slice:
+s3 := make([]int, len(s1))
+copy(s3, s1)
+s3[0] = 0
+fmt.Println(s1[0]) // 99 — s1 ไม่เปลี่ยน`;
+
+<TsGo client:visible ts={tsSliceCode} go={goSliceCode} />
+
+## ส่งให้ function
+
+กฎเดิมใช้ได้เมื่อส่งค่าให้ function argument ของ struct มาเป็น copy ส่วน argument ของ slice/map แชร์ header
+
+export const tsFuncCode = `// TypeScript — object ส่งเป็น reference เสมอ
+function mutate(obj: { x: number }) {
+  obj.x = 99;    // mutate object ของ caller
+}
+const p = { x: 1 };
+mutate(p);
+console.log(p.x); // 99`;
+
+export const goFuncCode = `// Go — struct ส่งเป็น copy; mutation ไม่กระทบ caller
+func mutateStruct(p Point) {
+    p.X = 99    // แก้ไข LOCAL copy เท่านั้น
+}
+
+// Slice ส่ง header (pointer + len + cap) — แชร์ข้อมูล
+func mutateSlice(s []int) {
+    s[0] = 99   // แก้ไข underlying array ที่แชร์กัน
+}
+
+func main() {
+    pt := Point{X: 1}
+    mutateStruct(pt)
+    fmt.Println(pt.X) // 1 — ไม่เปลี่ยน
+
+    sl := []int{1, 2, 3}
+    mutateSlice(sl)
+    fmt.Println(sl[0]) // 99 — ข้อมูลที่แชร์ถูกแก้ไข
+}`;
+
+<TsGo client:visible ts={tsFuncCode} go={goFuncCode} />
+
+## ลองทำ
+
+export const playgroundValueRefCode = `package main
+
+import "fmt"
+
+type Point struct{ X, Y int }
+
+func tryMutateStruct(p Point) {
+	p.X = 999
+}
+
+func tryMutateSlice(s []int) {
+	s[0] = 999
+}
+
+func main() {
+	// Struct: value copy
+	pt := Point{X: 1, Y: 2}
+	tryMutateStruct(pt)
+	fmt.Println("struct after func:", pt.X) // 1 — ไม่เปลี่ยน
+
+	// Slice: reference semantics
+	sl := []int{1, 2, 3}
+	tryMutateSlice(sl)
+	fmt.Println("slice after func:", sl[0]) // 999 — ถูก mutate
+
+	// Array (fixed size): value copy
+	arr := [3]int{10, 20, 30}
+	arr2 := arr
+	arr2[0] = 999
+	fmt.Println("array original:", arr[0]) // 10 — ไม่เปลี่ยน
+
+	// Deep copy ของ slice อย่างชัดเจน
+	original := []int{1, 2, 3}
+	clone := make([]int, len(original))
+	copy(clone, original)
+	clone[0] = 999
+	fmt.Println("original after clone mutation:", original[0]) // 1
+}`;
+
+<Playground client:visible code={playgroundValueRefCode} />
+
+<GoOnly title="Slice Header — สามฟิลด์ภายใน">
+
+Slice ไม่ใช่แค่ pointer ธรรมดา ภายในมันเป็น struct เล็กๆ ที่มีสามฟิลด์:
+
+```
+type sliceHeader struct {
+    Data *[N]T  // pointer ไปยัง underlying array
+    Len  int    // จำนวน element
+    Cap  int    // ความจุของ underlying array
+}
+```
+
+เมื่อคุณ assign slice ให้ตัวแปรอื่น Go จะ copy header นี้ — ดังนั้นทั้งสองตัวแปรแชร์ `Data` pointer เดิม นั่นคือเหตุผลที่การ mutate element มองเห็นได้ผ่านทั้งสอง แต่ `append` อาจ allocate underlying array ใหม่เมื่อ capacity หมด ซึ่งทำให้ header สองตัวแยกออกจากกันและการแก้ไขหยุดแชร์ นี่คือความแตกต่างที่ละเอียดแต่สำคัญ
+
+```go
+a := []int{1, 2, 3}
+b := a
+b = append(b, 4, 5, 6, 7) // อาจ allocate array ใหม่
+b[0] = 99
+fmt.Println(a[0]) // อาจยังเป็น 1 — b อาจมี backing array ใหม่
+```
+
+</GoOnly>
+
+<GoOnly title="nil Slice vs Empty Slice">
+
+nil slice (`var s []int`) และ empty slice (`s := []int{}`) ทำงานเหมือนกันสำหรับ operation ส่วนใหญ่ — `len(s)` เป็น 0 ทั้งคู่, `range s` วนซ้ำศูนย์ครั้ง — แต่ไม่เท่ากัน nil slice มี nil Data pointer ส่วน empty slice มี non-nil Data pointer ไปยัง zero-length array เมื่อ marshal เป็น JSON นั้น `json.Marshal` encode nil slice เป็น `null` และ empty slice เป็น `[]` ความแตกต่างนี้สำคัญใน API response
+
+```go
+var nilSlice []int
+emptySlice := []int{}
+fmt.Println(nilSlice == nil)   // true
+fmt.Println(emptySlice == nil) // false
+```
+
+</GoOnly>
+
+export const quizQuestionsValueRef = [
+  { q: 'คุณ assign Go struct ให้ตัวแปรใหม่แล้วแก้ไข field จะเกิดอะไรกับต้นฉบับ?', options: ['มันถูกแก้ไขด้วย — struct แชร์กัน', 'มันไม่เปลี่ยน — struct copy', 'ขึ้นอยู่กับขนาด struct', 'Compile error'], answer: 1 },
+  { q: 'built-in function ใดสร้าง deep copy จริงๆ ของ slice?', options: ['clone()', 'dup()', 'copy()', 'make()'], answer: 2 },
+  { q: 'คุณส่ง map ให้ function แล้ว function เพิ่ม key caller เห็นอะไร?', options: ['ไม่เห็นอะไร — map copy', 'เห็น key ใหม่ — map เป็น reference type', 'Compile error', 'Runtime panic'], answer: 1 },
+  { q: 'json.Marshal สร้างอะไรสำหรับ nil slice ใน Go?', options: ['[]', '{}', 'null', '"nil"'], answer: 2 },
+];
+
+<Quiz client:visible id="go-only/value-vs-reference" questions={quizQuestionsValueRef} />
+
+<ProgressTracker client:visible id="go-only/value-vs-reference" />

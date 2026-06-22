@@ -1,0 +1,138 @@
+---
+title: Why Go for TypeScript Developers
+description: Discover why Go is a compelling next language for TypeScript developers — compiled, statically typed, fast, single binary, and built for concurrency.
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## You already think in types — Go rewards that
+
+If you write TypeScript today, you already understand the value of static types, compiler errors, and deliberate interfaces. Go takes those instincts and pushes them even further: there is no runtime type-stripping, no separate compile step that you "skip" in development, and no `node_modules` folder with thousands of transitive dependencies.
+
+This course assumes you are comfortable with TypeScript and Node.js. Every concept is introduced by comparison — what you already know, and how Go does the same thing (or why it does it differently).
+
+## Why Go?
+
+### Compiled to a single binary
+
+TypeScript compiles to JavaScript, which still needs a Node.js runtime to execute. Go compiles directly to a native machine-code binary. You ship one file. No runtime required on the target machine.
+
+export const tsDistCode = `// ship: node dist/index.js
+// needs: Node.js runtime installed
+// size: node_modules/ can be 200+ MB`;
+
+export const goDistCode = `// ship: ./myapp (single binary, ~5 MB)
+// needs: nothing on the server
+// $ go build -o myapp .`;
+
+<TsGo client:visible ts={tsDistCode} go={goDistCode} />
+
+### Statically typed — no runtime surprises
+
+TypeScript's types exist at development time only; they are erased before your code runs. Go's types are enforced by the compiler and present at runtime. A program that compiles in Go is type-safe all the way through execution.
+
+### Blazing-fast startup and throughput
+
+Node.js (V8) is fast, but it has JIT warm-up time and a garbage collector tuned for long-running servers. Go starts in milliseconds, handles hundreds of thousands of concurrent connections via goroutines, and its GC has sub-millisecond pauses. For CLIs, microservices, and system tools, Go's performance profile is hard to beat.
+
+### First-class concurrency with goroutines
+
+Node.js is single-threaded and uses an event loop for async I/O. Go uses goroutines — lightweight threads that the Go runtime multiplexes across real OS threads. You write sequential-looking code and the runtime handles parallelism. We preview this in the mental model lesson; it is covered in depth later.
+
+export const tsConcurrentCode = `// TypeScript: async/await + event loop
+async function fetchAll(urls: string[]) {
+  const results = await Promise.all(
+    urls.map(url => fetch(url).then(r => r.json()))
+  );
+  return results;
+}`;
+
+export const goConcurrentCode = `// Go: goroutines + channels
+func fetchAll(urls []string) []any {
+    results := make([]any, len(urls))
+    var wg sync.WaitGroup
+    for i, url := range urls {
+        wg.Add(1)
+        go func(i int, url string) {
+            defer wg.Done()
+            // fetch logic here
+            _ = i; _ = url
+        }(i, url)
+    }
+    wg.Wait()
+    return results
+}`;
+
+<TsGo client:visible ts={tsConcurrentCode} go={goConcurrentCode} />
+
+### Explicit errors, not exceptions
+
+TypeScript throws exceptions. You wrap code in `try/catch` and hope nothing slips through. Go returns errors as plain values. Every function that can fail says so in its return type, and you handle the error immediately at the call site — there is nothing to "forget".
+
+export const tsErrorCode = `// TypeScript: exceptions can bubble silently
+try {
+  const data = JSON.parse(input);
+  processData(data);
+} catch (err) {
+  console.error("something went wrong", err);
+}`;
+
+export const goErrorCode = `// Go: errors are return values, handled explicitly
+data, err := parseInput(input)
+if err != nil {
+    return fmt.Errorf("failed to parse input: %w", err)
+}
+processData(data)`;
+
+<TsGo client:visible ts={tsErrorCode} go={goErrorCode} />
+
+## What this course covers
+
+This course takes you from zero Go knowledge to writing idiomatic, production-ready Go — using your TypeScript experience as a bridge. Here is what we cover:
+
+| Module | Topics |
+|--------|--------|
+| **Intro** (this module) | Why Go, mindset shifts, setup, hello world, project layout |
+| **Go 101** | Variables, functions, control flow, errors, structs, interfaces, collections, packages |
+| *(coming soon)* | Goroutines, channels, HTTP servers, databases, testing |
+
+## What to expect
+
+- Every concept is shown as a TypeScript vs Go side-by-side comparison.
+- Runnable playgrounds let you experiment directly in the browser.
+- Quizzes reinforce the key ideas.
+- Go-only concepts (no TypeScript equivalent) are clearly called out.
+
+You do not need to install anything to follow along — the playground runs Go in the browser. When you are ready to set up a local environment, the next lesson walks you through it.
+
+export const playgroundIndexCode = `package main
+
+import "fmt"
+
+func main() {
+	// Welcome to Go! This is your first program.
+	// Click Run to execute it.
+	message := "Hello from Go!"
+	fmt.Println(message)
+
+	// Go infers the type — just like TypeScript's let
+	year := 2024
+	fmt.Printf("Year: %d\\n", year)
+}`;
+
+<Playground client:visible code={playgroundIndexCode} />
+
+export const quizQuestionsIndex = [
+  { q: 'What does Go compile to, unlike TypeScript?', options: ['JavaScript (CommonJS)', 'WebAssembly only', 'A native binary requiring no runtime', 'A Docker image'], answer: 2 },
+  { q: 'How does Go handle errors compared to TypeScript?', options: ['Via try/catch blocks', 'By returning errors as plain values', 'By throwing Error objects', 'Using Promise.reject()'], answer: 1 },
+  { q: 'What are goroutines?', options: ['Go\'s version of npm packages', 'Lightweight threads managed by the Go runtime', 'Async/await sugar for the event loop', 'Go\'s class constructors'], answer: 1 },
+  { q: 'When do TypeScript types exist compared to Go types?', options: ['Both exist at runtime', 'TypeScript types are erased before runtime; Go types persist', 'Go types are erased before runtime; TypeScript types persist', 'Neither exists at runtime'], answer: 1 },
+];
+
+<Quiz client:visible id="intro/index" questions={quizQuestionsIndex} />
+
+<ProgressTracker client:visible id="intro/index" />

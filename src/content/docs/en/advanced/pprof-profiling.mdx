@@ -1,0 +1,209 @@
+---
+title: pprof Profiling
+description: runtime/pprof and net/http/pprof for CPU and heap profiles, reading flame graphs — compared to node --prof and clinic.js.
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## Node.js profiling vs Go pprof
+
+In Node.js you have `node --prof` (V8 CPU profiler), `node --inspect` (Chrome DevTools), and tools like `clinic.js` (clinic doctor, clinic flame) for heap and event-loop analysis. All are out-of-process or require wrapping your start command.
+
+Go ships with `runtime/pprof` in the standard library and `net/http/pprof` for live HTTP-based profiling — no external tools needed for collection, and the `go tool pprof` command handles analysis.
+
+> Playground note: pprof requires writing profile files to disk and running `go tool pprof`. The code blocks below are real files — run them locally.
+
+## Two ways to collect profiles
+
+### 1. File-based (for scripts or benchmarks)
+
+```go
+// main.go
+package main
+
+import (
+    "os"
+    "runtime/pprof"
+    "log"
+)
+
+func main() {
+    // --- CPU profile ---
+    cpuFile, err := os.Create("cpu.out")
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer cpuFile.Close()
+
+    if err := pprof.StartCPUProfile(cpuFile); err != nil {
+        log.Fatal(err)
+    }
+    defer pprof.StopCPUProfile()
+
+    // ... your code under test ...
+    doWork()
+
+    // --- Heap profile (write at the end) ---
+    heapFile, err := os.Create("mem.out")
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer heapFile.Close()
+
+    pprof.WriteHeapProfile(heapFile)
+}
+```
+
+### 2. HTTP endpoint (for long-running servers)
+
+```go
+// main.go
+package main
+
+import (
+    "net/http"
+    _ "net/http/pprof" // blank import registers /debug/pprof/ routes
+    "log"
+)
+
+func main() {
+    // Your application server
+    go func() {
+        log.Println(http.ListenAndServe(":6060", nil))
+    }()
+
+    // ... rest of app ...
+}
+```
+
+Available endpoints:
+- `http://localhost:6060/debug/pprof/` — index
+- `http://localhost:6060/debug/pprof/profile?seconds=30` — 30-second CPU profile
+- `http://localhost:6060/debug/pprof/heap` — heap snapshot
+- `http://localhost:6060/debug/pprof/goroutine` — all goroutine stacks
+- `http://localhost:6060/debug/pprof/trace?seconds=5` — execution trace
+
+export const nodeProfilingCode = `// Node.js — several tools, all external
+// Option 1: built-in V8 profiler
+node --prof server.js
+node --prof-process isolate-*.log > report.txt
+
+// Option 2: clinic.js (npm install -g clinic)
+clinic doctor -- node server.js
+clinic flame  -- node server.js
+
+// Option 3: Chrome DevTools
+node --inspect server.js  // open chrome://inspect`;
+
+export const goProfilingCode = `// Go — single tool, ships with the toolchain
+// Collect a 30-second CPU profile from a live server:
+go tool pprof http://localhost:6060/debug/pprof/profile?seconds=30
+
+// Collect from a file written by runtime/pprof:
+go tool pprof cpu.out
+
+// Open an interactive web UI (needs Graphviz):
+go tool pprof -http=:8080 cpu.out`;
+
+<TsGo client:visible ts={nodeProfilingCode} go={goProfilingCode} />
+
+## Reading a CPU profile
+
+```bash
+# Start interactive pprof shell
+go tool pprof cpu.out
+
+# Inside the shell:
+(pprof) top10           # top 10 functions by CPU time
+(pprof) list myFunc     # annotated source for myFunc
+(pprof) web             # open SVG flame graph in browser
+(pprof) pdf             # save as PDF
+
+# Or open the web UI directly (nicer flame graphs)
+go tool pprof -http=:8080 cpu.out
+```
+
+Example `top10` output:
+
+```
+Showing nodes accounting for 2.40s, 96.77% of 2.48s total
+      flat  flat%   sum%        cum   cum%
+     1.20s 48.39% 48.39%      1.20s 48.39%  runtime.mallocgc
+     0.60s 24.19% 72.58%      0.60s 24.19%  strings.(*Builder).WriteString
+     0.30s 12.10% 84.68%      0.30s 12.10%  main.processItem
+```
+
+| Column | Meaning |
+|---|---|
+| `flat` | Time spent **in** this function (excluding callees) |
+| `flat%` | Percentage of total profile time |
+| `cum` | Cumulative time (this function + all functions it called) |
+| `cum%` | Cumulative percentage |
+
+## Heap profile
+
+```bash
+go tool pprof mem.out
+
+(pprof) top10 -cum    # top allocators by cumulative bytes
+(pprof) list myFunc   # line-level allocation counts
+```
+
+A heap profile shows:
+- **alloc_objects / alloc_space** — total allocations since program start
+- **inuse_objects / inuse_space** — objects/bytes currently in use (after GC)
+
+## Benchmarks + pprof together
+
+```bash
+# Write CPU + memory profiles during a benchmark run
+go test -bench=BenchmarkFoo -cpuprofile=cpu.out -memprofile=mem.out ./...
+
+# Then analyse
+go tool pprof cpu.out
+go tool pprof mem.out
+```
+
+<GoOnly title="Security warning: never expose pprof in production">
+
+`net/http/pprof` exposes a live goroutine dump, heap snapshot, and CPU profiles — enough to reconstruct internal data structures. **Never expose port 6060 (or whichever port serves pprof) on a public interface.**
+
+Safe patterns:
+- Bind only to `127.0.0.1:6060` and use an SSH tunnel to access it.
+- Put it behind your internal VPN or a separate management interface.
+- Conditionally register the handler only when `DEBUG=true` in the environment.
+
+```go
+if os.Getenv("DEBUG") == "true" {
+    go http.ListenAndServe("127.0.0.1:6060", nil)
+}
+```
+
+</GoOnly>
+
+## Goroutine and trace profiles
+
+```bash
+# Check for goroutine leaks (should stay flat over time)
+go tool pprof http://localhost:6060/debug/pprof/goroutine
+
+# Execution trace — shows scheduling, GC, goroutine lifecycle
+curl -s "http://localhost:6060/debug/pprof/trace?seconds=5" > trace.out
+go tool trace trace.out
+```
+
+The execution trace is the most detailed view: it shows every goroutine start/stop, GC pause, network block, and system call — similar to what `clinic doctor` does for Node's event loop.
+
+export const quizQuestionsPprof = [
+  { q: 'What blank import registers the /debug/pprof/ HTTP endpoints?', options: ['"runtime/pprof"', '"net/http/pprof"', '"debug/pprof"', '"os/pprof"'], answer: 1 },
+  { q: 'In pprof output, what does the "flat" column represent?', options: ['Time spent in this function plus all functions it called', 'Time spent in this function only, excluding callees', 'Total bytes allocated by this function', 'Number of times this function was called'], answer: 1 },
+  { q: 'Which command opens an interactive flame graph web UI for a profile file?', options: ['go pprof -ui cpu.out', 'go tool pprof -http=:8080 cpu.out', 'go tool trace cpu.out', 'go run pprof cpu.out'], answer: 1 },
+  { q: 'Why should you never expose pprof endpoints on a public interface?', options: ['They slow down the server under load', 'They expose heap snapshots and goroutine dumps that can leak sensitive internal data', 'They require root permissions to read', 'They disable the garbage collector'], answer: 1 },
+];
+
+<Quiz client:visible id="advanced/pprof-profiling" questions={quizQuestionsPprof} />
+
+<ProgressTracker client:visible id="advanced/pprof-profiling" />

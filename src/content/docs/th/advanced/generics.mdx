@@ -1,0 +1,237 @@
+---
+title: Generics
+description: Type parameters, constraint interfaces, comparable และเมื่อใดควรเลือก generics แทน plain interface — เปรียบเทียบกับ TypeScript generics
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## TypeScript generics vs Go generics
+
+TypeScript generics แพร่หลายมาก — คุณเขียน `Array<T>`, `Promise<T>`, `Record<K, V>` ทุกวัน Go เพิ่ม generics ใน 1.18 ด้วย syntax ที่คล้ายกันแต่มีโมเดล constraint ที่แตกต่าง
+
+ความแตกต่างหลัก: TypeScript ใช้ **structural typing** สำหรับ generics (`T extends { length: number }`) Go ใช้ **constraint interfaces** — interface ที่มีชื่อซึ่งแสดงรายการ type ที่อนุญาต (หรือ method sets) อย่างชัดเจน สิ่งนี้ทำให้ Go generics ชัดเจนขึ้นแต่ก็ verbose มากขึ้นด้วย
+
+export const tsGenericCode = `// TypeScript — structural constraint
+function identity<T>(value: T): T {
+  return value;
+}
+
+function first<T extends { length: number }>(arr: T[]): T {
+  return arr[0];
+}
+
+// Generic container
+class Stack<T> {
+  private items: T[] = [];
+  push(item: T) { this.items.push(item); }
+  pop(): T | undefined { return this.items.pop(); }
+}`;
+
+export const goGenericCode = `// Go — type parameter + constraint interface
+func Identity[T any](value T) T {
+    return value
+}
+
+func First[T any](slice []T) T {
+    return slice[0]
+}
+
+// Generic stack
+type Stack[T any] struct {
+    items []T
+}
+func (s *Stack[T]) Push(item T) {
+    s.items = append(s.items, item)
+}
+func (s *Stack[T]) Pop() (T, bool) {
+    var zero T
+    if len(s.items) == 0 {
+        return zero, false
+    }
+    last := s.items[len(s.items)-1]
+    s.items = s.items[:len(s.items)-1]
+    return last, true
+}`;
+
+<TsGo client:visible ts={tsGenericCode} go={goGenericCode} />
+
+## Constraint interfaces
+
+constraint `any` หมายถึง "type ใดก็ได้" — เทียบเท่า `interface{}` ใน generics แต่ Go ให้คุณเขียน constraints ที่ซับซ้อนกว่าโดยใช้ interface ที่ระบุ **underlying types** ด้วย operator `~`
+
+export const tsConstraintCode = `// TypeScript — union type constraint
+type Numeric = number | bigint;
+
+function add<T extends Numeric>(a: T, b: T): T {
+  return (a as any) + (b as any) as T;
+}`;
+
+export const goConstraintCode = `// Go — constraint interface พร้อม type union
+type Number interface {
+    ~int | ~int32 | ~int64 | ~float64
+}
+
+func Add[T Number](a, b T) T {
+    return a + b
+}
+
+// การใช้งาน
+x := Add(1, 2)         // int
+y := Add(1.5, 2.5)     // float64`;
+
+<TsGo client:visible ts={tsConstraintCode} go={goConstraintCode} />
+
+syntax `~int` หมายถึง "type ใดก็ตามที่มี **underlying type** เป็น `int`" — ดังนั้น custom type `type MyID int` ของคุณก็ตรงตาม `~int` หากไม่มี `~` เฉพาะ `int` เท่านั้นที่จะตรง
+
+## constraint `comparable`
+
+TypeScript เปรียบเทียบสิ่งใดก็ได้ด้วย `===` operator `==` ของ Go ใช้ได้เฉพาะกับ type ที่ **comparable** เท่านั้น (ไม่ใช่ slices, maps หรือ functions) constraint ในตัว `comparable` แสดงออกถึงสิ่งนี้:
+
+export const tsComparableCode = `// TypeScript — == ใช้ได้กับทุกอย่าง
+function contains<T>(arr: T[], val: T): boolean {
+  return arr.some(x => x === val);
+}`;
+
+export const goComparableCode = `// Go — ต้องใช้ comparable constraint สำหรับ ==
+func Contains[T comparable](slice []T, val T) bool {
+    for _, v := range slice {
+        if v == val {
+            return true
+        }
+    }
+    return false
+}
+
+// ใช้ได้กับ int, string, struct ที่มีฟิลด์ comparable — แต่ไม่ใช่ slices หรือ maps`;
+
+<TsGo client:visible ts={tsComparableCode} go={goComparableCode} />
+
+## รวม method sets กับ type unions
+
+constraint interface สามารถรวมทั้ง method requirements และ type unions:
+
+```go
+type Stringer interface {
+    String() string
+}
+
+// รับ type ใดก็ตามที่เป็น int หรือ float64 และมี String() method
+// (พบได้น้อยแต่ถูกต้องในโค้ดไลบรารี)
+type StringableNumber interface {
+    ~int | ~float64
+    String() string
+}
+```
+
+ในทางปฏิบัติ constraints ส่วนใหญ่เป็น pure method sets (classic interfaces) หรือ pure type unions (การดำเนินการตัวเลข/เรียงลำดับ)
+
+## ตัวอย่างในโลกจริง: Map และ Filter
+
+export const tsFpCode = `// TypeScript — stdlib มี built-in เหล่านี้
+const doubled = [1,2,3].map(x => x * 2);
+const evens   = [1,2,3,4].filter(x => x % 2 === 0);`;
+
+export const goFpCode = `// Go — ก่อน 1.21 คุณต้องเขียนเองเหล่านี้
+func Map[T, U any](s []T, fn func(T) U) []U {
+    out := make([]U, len(s))
+    for i, v := range s {
+        out[i] = fn(v)
+    }
+    return out
+}
+
+func Filter[T any](s []T, fn func(T) bool) []T {
+    var out []T
+    for _, v := range s {
+        if fn(v) {
+            out = append(out, v)
+        }
+    }
+    return out
+}
+
+// ตั้งแต่ Go 1.23 slices.Collect + iter package จัดการได้ idiomatic มากขึ้น`;
+
+<TsGo client:visible ts={tsFpCode} go={goFpCode} />
+
+## Generics vs interfaces — เมื่อใดควรใช้อะไร
+
+<GoOnly title="คู่มือการตัดสินใจ">
+
+| ใช้ **generics** เมื่อ… | ใช้ **plain interfaces** เมื่อ… |
+|---|---|
+| ต้องการ **type-safe containers** (stack, queue, cache) | พฤติกรรมแตกต่างกันตาม type (polymorphism) |
+| ต้องการ **รักษา concrete type** ในค่าที่ return | กำลังเขียน runtime-dispatched plugins |
+| ต้องการ operations เช่น `==` ข้าม unknown types | ชุด type เปิดกว้างและขยายได้ |
+| เขียน utility functions (Map, Filter, Min, Max) | ต้องการเพียง "รับอะไรก็ตามที่มี method X" |
+
+plain interface ง่ายกว่าเสมอ ใช้ generics เมื่อไม่อย่างนั้นคุณต้องใช้ `any` และทำ type assertions ที่ call site
+
+</GoOnly>
+
+## ลองดูเลย
+
+export const playgroundGenericsCode = `package main
+
+import "fmt"
+
+type Number interface {
+	~int | ~float64
+}
+
+func Sum[T Number](nums []T) T {
+	var total T
+	for _, n := range nums {
+		total += n
+	}
+	return total
+}
+
+func Map[T, U any](slice []T, fn func(T) U) []U {
+	result := make([]U, len(slice))
+	for i, v := range slice {
+		result[i] = fn(v)
+	}
+	return result
+}
+
+func Contains[T comparable](slice []T, val T) bool {
+	for _, v := range slice {
+		if v == val {
+			return true
+		}
+	}
+	return false
+}
+
+func main() {
+	ints := []int{1, 2, 3, 4, 5}
+	fmt.Println("Sum:", Sum(ints))
+	fmt.Println("Sum floats:", Sum([]float64{1.1, 2.2, 3.3}))
+
+	doubled := Map(ints, func(x int) int { return x * 2 })
+	fmt.Println("Doubled:", doubled)
+
+	labels := Map(ints, func(x int) string { return fmt.Sprintf("item-%d", x) })
+	fmt.Println("Labels:", labels)
+
+	fmt.Println("Contains 3?", Contains(ints, 3))
+	fmt.Println("Contains 9?", Contains(ints, 9))
+}`;
+
+<Playground client:visible code={playgroundGenericsCode} />
+
+export const quizQuestionsGenerics = [
+  { q: 'syntax `~int` ใน constraint interface ของ Go หมายความว่าอะไร?', options: ['เฉพาะ type int เท่านั้น', 'type ใดก็ตามที่มี underlying type เป็น int', 'int ที่เป็น nullable', 'alias สำหรับ int64'], answer: 1 },
+  { q: 'constraint ในตัวใดที่รับประกันว่า operator == สามารถใช้กับ type parameter ได้?', options: ['any', 'ordered', 'comparable', 'equatable'], answer: 2 },
+  { q: 'เมื่อใดควรเลือก plain interface แทน generics ใน Go?', options: ['เมื่อต้องการ type-safe containers', 'เมื่อชุด type เปิดกว้างและพฤติกรรมแตกต่างกัน (polymorphism)', 'เมื่อต้องการรักษา concrete return type', 'เมื่อใช้ operator == ข้าม unknown types'], answer: 1 },
+  { q: 'Generics ถูกเพิ่มใน Go เวอร์ชัน:', options: ['1.14', '1.16', '1.18', '1.21'], answer: 2 },
+];
+
+<Quiz client:visible id="advanced/generics" questions={quizQuestionsGenerics} />
+
+<ProgressTracker client:visible id="advanced/generics" />

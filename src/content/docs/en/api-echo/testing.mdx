@@ -1,0 +1,242 @@
+---
+title: Testing Echo Handlers
+description: Write handler tests using Go's httptest package and the testing standard library — compared to supertest/Jest in Node.
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## Testing philosophy comparison
+
+In Node you typically spin up a NestJS/Express app with Supertest and fire HTTP requests at it. In Go the `net/http/httptest` package lets you create an in-memory HTTP recorder (`httptest.ResponseRecorder`) without binding a network port. Tests are fast, deterministic, and need no cleanup.
+
+| Concern | Node.js / Jest + Supertest | Go / testing + httptest |
+|---|---|---|
+| Test runner | Jest | `go test` (stdlib) |
+| HTTP simulation | `supertest(app).get('/books')` | `httptest.NewRecorder()` + handler call |
+| Assertions | `expect(res.statusCode).toBe(200)` | `if res.Code != 200 { t.Errorf(...) }` |
+| Mocking deps | Jest `jest.fn()` | Interface + test double struct |
+
+## A basic handler test
+
+```go
+// handler/books_test.go
+package handler_test
+
+import (
+    "encoding/json"
+    "net/http"
+    "net/http/httptest"
+    "strings"
+    "testing"
+
+    "github.com/labstack/echo/v4"
+    "github.com/you/books-api/internal/handler"
+)
+
+func TestGetBook_OK(t *testing.T) {
+    e := echo.New()
+
+    req := httptest.NewRequest(http.MethodGet, "/books/1", nil)
+    rec := httptest.NewRecorder()
+    c   := e.NewContext(req, rec)
+    c.SetParamNames("id")
+    c.SetParamValues("1")
+
+    h := handler.NewBookHandler(&fakeBookStore{})
+    if err := h.Get(c); err != nil {
+        t.Fatalf("handler returned error: %v", err)
+    }
+
+    if rec.Code != http.StatusOK {
+        t.Errorf("expected 200, got %d", rec.Code)
+    }
+
+    var body map[string]any
+    if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+        t.Fatalf("could not decode body: %v", err)
+    }
+    if body["title"] != "Go in Action" {
+        t.Errorf("unexpected title: %v", body["title"])
+    }
+}
+```
+
+## Mocking the store with an interface
+
+Define a `BookStore` interface in your handler package. In tests, implement it with a struct that returns controlled data — no database needed.
+
+export const tsJestMock = `// Jest — mocking a service
+const mockBooksService = {
+  findById: jest.fn().mockResolvedValue({
+    id: '1',
+    title: 'Go in Action',
+  }),
+};
+
+const module = await Test.createTestingModule({
+  controllers: [BooksController],
+  providers: [{ provide: BooksService, useValue: mockBooksService }],
+}).compile();`;
+
+export const goInterfaceMock = `// Go — interface + test double (no mocking library needed)
+
+// handler/books.go — declare the interface the handler depends on
+type BookStore interface {
+    FindByID(ctx context.Context, id string) (model.Book, error)
+    Insert(ctx context.Context, req model.CreateBookRequest) (model.Book, error)
+}
+
+// handler/books_test.go — in-test implementation
+type fakeBookStore struct{}
+
+func (f *fakeBookStore) FindByID(_ context.Context, id string) (model.Book, error) {
+    return model.Book{ID: id, Title: "Go in Action", Author: "Kennedy"}, nil
+}
+
+func (f *fakeBookStore) Insert(_ context.Context, req model.CreateBookRequest) (model.Book, error) {
+    return model.Book{ID: "new-id", Title: req.Title, Author: req.Author}, nil
+}`;
+
+<TsGo client:visible ts={tsJestMock} go={goInterfaceMock} />
+
+## Testing a POST handler with a JSON body
+
+```go
+func TestCreateBook_Created(t *testing.T) {
+    e := echo.New()
+
+    body := `{"title":"Go in Action","author":"Kennedy","year":2015}`
+    req  := httptest.NewRequest(http.MethodPost, "/books",
+        strings.NewReader(body))
+    req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+
+    rec := httptest.NewRecorder()
+    c   := e.NewContext(req, rec)
+
+    h := handler.NewBookHandler(&fakeBookStore{})
+    if err := h.Create(c); err != nil {
+        t.Fatalf("handler error: %v", err)
+    }
+
+    if rec.Code != http.StatusCreated {
+        t.Errorf("expected 201, got %d: %s", rec.Code, rec.Body.String())
+    }
+}
+```
+
+## Testing error paths
+
+```go
+func TestGetBook_NotFound(t *testing.T) {
+    e   := echo.New()
+    req := httptest.NewRequest(http.MethodGet, "/books/999", nil)
+    rec := httptest.NewRecorder()
+    c   := e.NewContext(req, rec)
+    c.SetParamNames("id")
+    c.SetParamValues("999")
+
+    h := handler.NewBookHandler(&notFoundStore{})
+    err := h.Get(c)
+
+    // Echo handlers return HTTPError instead of writing to rec
+    var he *echo.HTTPError
+    if !errors.As(err, &he) {
+        t.Fatalf("expected HTTPError, got %T", err)
+    }
+    if he.Code != http.StatusNotFound {
+        t.Errorf("expected 404, got %d", he.Code)
+    }
+}
+
+type notFoundStore struct{}
+
+func (n *notFoundStore) FindByID(_ context.Context, _ string) (model.Book, error) {
+    return model.Book{}, store.ErrNotFound
+}
+
+func (n *notFoundStore) Insert(_ context.Context, _ model.CreateBookRequest) (model.Book, error) {
+    return model.Book{}, nil
+}
+```
+
+## Running tests
+
+```bash
+# Run all tests
+go test ./...
+
+# With coverage report
+go test -cover ./...
+
+# Race detector (important for concurrent handlers)
+go test -race ./...
+
+# Verbose output
+go test -v ./internal/handler/...
+```
+
+<GoOnly title="Table-driven tests">
+
+Go convention for testing multiple scenarios is a slice of test cases (table-driven tests). This avoids copy-pasting test functions:
+
+```go
+func TestGetBook(t *testing.T) {
+    tests := []struct {
+        name       string
+        id         string
+        store      BookStore
+        wantStatus int
+    }{
+        {"found",     "1",   &fakeBookStore{},  http.StatusOK},
+        {"not found", "999", &notFoundStore{},  http.StatusNotFound},
+    }
+
+    for _, tc := range tests {
+        t.Run(tc.name, func(t *testing.T) {
+            e := echo.New()
+            req := httptest.NewRequest(http.MethodGet, "/books/"+tc.id, nil)
+            rec := httptest.NewRecorder()
+            c   := e.NewContext(req, rec)
+            c.SetParamNames("id")
+            c.SetParamValues(tc.id)
+
+            h := NewBookHandler(tc.store)
+            h.Get(c) // ignore error — check rec.Code or the returned HTTPError
+        })
+    }
+}
+```
+
+</GoOnly>
+
+> Run this locally — tests need the Echo package. Use `go test ./...` from your project root.
+
+export const quizQuestionsTesting = [
+  {
+    q: 'Which stdlib package provides the in-memory HTTP recorder used to test Go handlers?',
+    options: ['net/http', 'testing/mock', 'net/http/httptest', 'echo/testing'],
+    answer: 2,
+  },
+  {
+    q: 'How do you mock a store dependency in Go without an external mocking library?',
+    options: [
+      'Use reflect.Mock',
+      'Define an interface and implement it with a test struct',
+      'Patch the global variable',
+      'Use build tags to swap packages',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'What flag enables the race detector when running Go tests?',
+    options: ['-race', '-concurrent', '-sync', '-detect'],
+    answer: 0,
+  },
+];
+
+<Quiz client:visible id="api-echo/testing" questions={quizQuestionsTesting} />
+
+<ProgressTracker client:visible id="api-echo/testing" />

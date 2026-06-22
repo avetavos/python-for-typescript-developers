@@ -1,0 +1,148 @@
+---
+title: Cross-Compilation
+description: คอมไพล์ Go binary สำหรับทุก OS และ architecture ด้วย environment variables สองตัว — ไม่ต้องติดตั้ง runtime บนเครื่องเป้าหมาย
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## ปัญหาการ deploy Node
+
+เมื่อ deploy แอปพลิเคชัน Node.js หรือ TypeScript ไปยัง server คุณต้องมั่นใจว่าเครื่องเป้าหมายมี:
+
+1. Node.js version ที่ถูกต้องติดตั้งไว้
+2. `node_modules/` dependencies ทั้งหมด (หรือ bundled ไว้)
+3. native addon binary ที่ถูกต้องสำหรับ target OS/CPU (เช่น `bcrypt`, `sharp`)
+
+การ deploy ไปยัง architecture ต่างกัน — เช่น คอมไพล์บน Mac `x86_64` แล้ว deploy ไปยัง AWS Graviton server แบบ ARM — ต้องการ environment ที่ตรงกันในเครื่อง หรือ Docker build ที่ target platform ที่ถูกต้อง
+
+## Go cross-compilation ด้วย environment variables สองตัว
+
+Go มี support สำหรับ cross-compilation แบบ first-class คุณตั้งค่า environment variables สองตัวก่อน `go build` และ compiler จะสร้าง binary สำหรับ platform เป้าหมาย — ไม่ต้องใช้ Docker, cross-compiler toolchain หรือ emulation layer
+
+```bash
+# สองตัวแปรวิเศษ
+GOOS=<target-os>    GOARCH=<target-arch>
+
+# ค่าที่ใช้บ่อย
+GOOS:   linux   darwin   windows   freebsd
+GOARCH: amd64   arm64    386       arm
+```
+
+### ตัวอย่างการใช้งานจริง
+
+```bash
+# Build สำหรับ Linux AMD64 (AWS EC2 ส่วนใหญ่, server ทั่วไป)
+GOOS=linux GOARCH=amd64 go build -o bin/app-linux-amd64 ./cmd/app
+
+# Build สำหรับ Linux ARM64 (AWS Graviton, Apple Silicon EC2)
+GOOS=linux GOARCH=arm64 go build -o bin/app-linux-arm64 ./cmd/app
+
+# Build สำหรับ Windows จาก macOS หรือ Linux
+GOOS=windows GOARCH=amd64 go build -o bin/app.exe ./cmd/app
+
+# Build สำหรับ macOS Apple Silicon จากทุก platform
+GOOS=darwin GOARCH=arm64 go build -o bin/app-darwin-arm64 ./cmd/app
+```
+
+รันสิ่งเหล่านี้ใน terminal คุณจะเห็น binary ปรากฏใน `bin/` ทันที cross-compiled จากเครื่อง host ของคุณโดยไม่ต้องใช้เครื่องมือเพิ่มเติม
+
+### Release script: build สำหรับหลาย target
+
+Shell script ง่าย ๆ เพื่อสร้าง release binary สำหรับทุก platform ที่ใช้บ่อย:
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP="myapp"
+VERSION=$(git describe --tags --always)
+OUTDIR="dist/${VERSION}"
+mkdir -p "${OUTDIR}"
+
+targets=(
+  "linux/amd64"
+  "linux/arm64"
+  "darwin/amd64"
+  "darwin/arm64"
+  "windows/amd64"
+)
+
+for target in "${targets[@]}"; do
+  GOOS="${target%/*}"
+  GOARCH="${target#*/}"
+  ext=""
+  [[ "$GOOS" == "windows" ]] && ext=".exe"
+
+  output="${OUTDIR}/${APP}-${GOOS}-${GOARCH}${ext}"
+  echo "Building ${output}..."
+  CGO_ENABLED=0 GOOS="${GOOS}" GOARCH="${GOARCH}" \
+    go build -ldflags="-s -w -X main.version=${VERSION}" \
+    -o "${output}" ./cmd/${APP}
+done
+
+echo "Done. Binaries in ${OUTDIR}/"
+```
+
+export const tsDeployCode = `# Checklist การ deploy TypeScript/Node
+# (เครื่องเป้าหมายต้องมีทั้งหมดนี้)
+
+1. ติดตั้ง Node.js v20 บน server
+   curl -fsSL https://deb.nodesource.com/setup_20.x | sudo bash
+   sudo apt-get install -y nodejs
+
+2. อัปโหลด build artifact + package.json
+   scp -r dist/ package.json server:/app/
+
+3. ติดตั้ง production deps บน server
+   ssh server "cd /app && npm ci --omit=dev"
+
+4. Rebuild native addons สำหรับ target platform
+   npm rebuild bcrypt sharp   # ถ้าใช้
+
+5. Start process
+   node dist/main.js`;
+
+export const goCrossCode = `# Go cross-compilation — build บน dev, deploy ที่ไหนก็ได้
+# เครื่องเป้าหมายต้องการ: ไม่มีอะไร เพียงแค่ copy binary
+
+# จาก Mac ของคุณ build สำหรับ Linux server:
+GOOS=linux GOARCH=amd64 \\
+  CGO_ENABLED=0 \\
+  go build -o app-linux ./cmd/app
+
+# อัปโหลด binary เดียว
+scp app-linux server:/usr/local/bin/myapp
+
+# บน server — แค่รัน:
+ssh server "/usr/local/bin/myapp"`;
+
+<TsGo client:visible ts={tsDeployCode} go={goCrossCode} />
+
+<GoOnly title="ไม่มี runtime — binary คือแอปพลิเคชัน">
+
+Go binary ที่คอมไพล์แล้วเป็น self-contained อย่างสมบูรณ์ มันรวม Go runtime (goroutine scheduler, garbage collector) ไว้แบบ statically linked ภายใน binary เอง ไม่มีอะไรต้องติดตั้งบนเครื่องเป้าหมาย
+
+สิ่งนี้มีผลในทางปฏิบัติ:
+
+- **Lambda / serverless:** อัปโหลด binary เป็น zip ไม่ต้องมี layer หรือ runtime config นอกจากเลือก `provided.al2023`
+- **Edge devices / IoT:** Copy ไฟล์เดียวผ่าน `scp` ไม่มี package manager ไม่ต้องการ connectivity ไปยัง npm ตอน deploy
+- **Air-gapped environments:** Binary รัน offline ได้ ไม่มี `npm install` ที่ต้องออกไปอินเทอร์เน็ต
+- **Containers:** ดังที่แสดงใน Docker lesson image สามารถเป็น `FROM scratch` — รวมแค่ 5–15 MB
+
+เวลาเดียวที่ cross-compilation ซับซ้อนขึ้นคือเมื่อโค้ดของคุณใช้ `CGO` (การเรียก C libraries) `CGO_ENABLED=0` ปิด CGO และบังคับ pure Go ซึ่งเป็นเหตุผลที่คุณเห็นมันในแทบทุก production build script
+
+</GoOnly>
+
+export const quizQuestionsCrossCompile = [
+  { q: 'Environment variable ไหนระบุ target operating system สำหรับ Go cross-compile?', options: ['GOARCH', 'GOOS', 'GO_TARGET_OS', 'GOPLATFORM'], answer: 1 },
+  { q: '`CGO_ENABLED=0` ทำอะไรในบริบทของ cross-compilation?', options: ['ปิด garbage collection', 'บังคับ pure Go โดยไม่มี C library dependencies', 'เปิดใช้ CPU optimizations เพิ่มเติม', 'ตั้ง minimum OS version'], answer: 1 },
+  { q: 'หลัง cross-compile Go binary สำหรับ Linux แล้ว Linux server เป้าหมายต้องติดตั้งอะไรเพื่อรันมัน?', options: ['Go runtime', 'glibc และ libpthread', 'ไม่มีอะไร — binary เป็น self-contained', 'Go version เดียวกับที่ใช้คอมไพล์'], answer: 2 },
+  { q: 'ค่า GOOS ไหนที่จะใช้ build Go binary ที่รันบน Apple Silicon Mac?', options: ['macos', 'osx', 'darwin', 'apple'], answer: 2 },
+];
+
+<Quiz client:visible id="tooling/cross-compile" questions={quizQuestionsCrossCompile} />
+
+<ProgressTracker client:visible id="tooling/cross-compile" />

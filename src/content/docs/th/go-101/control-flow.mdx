@@ -1,0 +1,174 @@
+---
+title: Control Flow
+description: if, for (ลูปเดียว), switch และ range ของ Go เทียบกับโครงสร้างควบคุมการทำงานของ TypeScript
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## Control flow: ส่วนใหญ่คุ้นเคย มีหนึ่งเรื่องที่น่าแปลกใจ
+
+TypeScript มี `if`, `for`, `for...of`, `for...in`, `while`, `do...while` และ `switch` ส่วน Go มี `if`, `for` และ `switch` — และ **`for` ทำหน้าที่ของลูปทุกประเภท** ไม่มีคีย์เวิร์ด `while` พอคุณได้เห็นแล้ว คุณจะชื่นชอบความเรียบง่ายของมัน
+
+## if / else
+
+`if` ของ Go คล้ายกับของ TypeScript แต่ไม่มีวงเล็บล้อมรอบเงื่อนไข และต้องมีปีกกาเสมอ
+
+export const tsIfCode = `if (score > 90) {
+    console.log("A");
+} else if (score > 70) {
+    console.log("B");
+} else {
+    console.log("C");
+}`;
+
+export const goIfCode = `if score > 90 {
+    fmt.Println("A")
+} else if score > 70 {
+    fmt.Println("B")
+} else {
+    fmt.Println("C")
+}`;
+
+<TsGo client:visible ts={tsIfCode} go={goIfCode} />
+
+## ลูป for หนึ่งเดียว
+
+`for` ของ Go ครอบคลุมรูปแบบการวนลูปทุกแบบ:
+
+export const tsLoopCode = `// C-style
+for (let i = 0; i < 5; i++) { ... }
+
+// while
+while (condition) { ... }
+
+// infinite
+while (true) { ... }
+
+// for...of
+for (const item of items) { ... }`;
+
+export const goLoopCode = `// C-style
+for i := 0; i < 5; i++ { ... }
+
+// while (drop init and post)
+for condition { ... }
+
+// infinite
+for { ... }
+
+// range (like for...of)
+for i, item := range items { ... }`;
+
+<TsGo client:visible ts={tsLoopCode} go={goLoopCode} />
+
+## switch
+
+`switch` ของ Go **ไม่** fall through โดยอัตโนมัติ (ต่างจาก JavaScript/TypeScript ที่ต้องใส่ `break`) แต่ละ case เป็นอิสระต่อกัน คุณสามารถใช้ `fallthrough` อย่างชัดเจนได้ถ้าต้องการพฤติกรรมแบบเดิม
+
+export const tsSwitchCode = `switch (day) {
+    case "Mon":
+    case "Tue":
+        console.log("Weekday");
+        break;       // required!
+    case "Sat":
+    case "Sun":
+        console.log("Weekend");
+        break;
+    default:
+        console.log("Unknown");
+}`;
+
+export const goSwitchCode = `switch day {
+case "Mon", "Tue", "Wed", "Thu", "Fri":
+    fmt.Println("Weekday")  // no break needed
+case "Sat", "Sun":
+    fmt.Println("Weekend")
+default:
+    fmt.Println("Unknown")
+}`;
+
+<TsGo client:visible ts={tsSwitchCode} go={goSwitchCode} />
+
+## range
+
+`range` วนซ้ำผ่าน slices, maps, strings และ channels สำหรับ slice มันจะให้ทั้ง index และ value ใช้ `_` เพื่อทิ้งค่าใดค่าหนึ่งได้
+
+export const tsRangeCode = `const nums = [10, 20, 30];
+
+// index + value
+nums.forEach((v, i) => console.log(i, v));
+
+// value only
+for (const v of nums) { console.log(v); }`;
+
+export const goRangeCode = `nums := []int{10, 20, 30}
+
+// index + value
+for i, v := range nums {
+    fmt.Println(i, v)
+}
+
+// value only (discard index)
+for _, v := range nums {
+    fmt.Println(v)
+}`;
+
+<TsGo client:visible ts={tsRangeCode} go={goRangeCode} />
+
+## ลองเล่นดู
+
+export const playgroundCFCode = `package main
+
+import "fmt"
+
+func classify(n int) string {
+	switch {
+	case n < 0:
+		return "negative"
+	case n == 0:
+		return "zero"
+	case n < 10:
+		return "small"
+	default:
+		return "large"
+	}
+}
+
+func main() {
+	nums := []int{-3, 0, 7, 42}
+	for _, n := range nums {
+		fmt.Printf("%d is %s\\n", n, classify(n))
+	}
+}`;
+
+<Playground client:visible code={playgroundCFCode} />
+
+<GoOnly title="if พร้อม init statement">
+
+`if` ของ Go สามารถมี init statement สั้นๆ ก่อนเงื่อนไขได้ โดยคั่นด้วยเซมิโคลอน ซึ่งเป็นแนวทางที่ idiomatic สำหรับการจำกัดขอบเขตของตัวแปร error ให้อยู่ในบล็อก `if`:
+
+```go
+if err := doSomething(); err != nil {
+    fmt.Println("error:", err)
+}
+// err is not in scope here
+```
+
+วิธีนี้ทำให้ตัวแปร error มีขอบเขตที่จำกัดอย่างรัดกุม และเป็นสำนวนของ Go ที่คุณจะเห็นได้บ่อยมาก
+
+</GoOnly>
+
+export const quizQuestionsFlow = [
+  { q: 'ใน Go คีย์เวิร์ดใดที่มาแทน while, do...while และ for...of?', options: ['loop', 'while', 'for', 'each'], answer: 2 },
+  { q: 'switch ของ Go fall through โดยอัตโนมัติหรือไม่?', options: ['ใช่ เหมือน JavaScript', 'ไม่ แต่ละ case เป็นอิสระต่อกัน', 'เฉพาะกับ integer', 'เฉพาะเมื่อมี break'], answer: 1 },
+  { q: '_ หมายถึงอะไรเมื่อใช้กับ range?', options: ['การ dereference pointer', 'blank identifier — ทิ้งค่านี้', 'ค่าเริ่มต้น', 'การรีเซ็ต index'], answer: 1 },
+  { q: 'ข้อใดถูกต้องสำหรับ Go — วงเล็บล้อมรอบเงื่อนไข if?', options: ['จำเป็นต้องมี', 'มีหรือไม่มีก็ได้', 'ห้ามใส่ (ไม่มีวงเล็บ)', 'เฉพาะสำหรับเงื่อนไขที่ซับซ้อน'], answer: 2 },
+];
+
+<Quiz client:visible id="go-101/control-flow" questions={quizQuestionsFlow} />
+
+<ProgressTracker client:visible id="go-101/control-flow" />

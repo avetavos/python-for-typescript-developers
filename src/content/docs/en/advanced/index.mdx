@@ -1,0 +1,61 @@
+---
+title: Advanced Go — Overview
+description: A tour of the advanced Go toolkit — generics, reflection, table-driven tests, benchmarks, module management, and profiling.
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## What "advanced" means in Go
+
+If you are coming from TypeScript you already know how to think in types, handle async flows, and compose behaviour through interfaces. The Go-101 module covered the foundations. This module covers the parts of Go that unlock production-level code quality: type-safe generic algorithms, runtime reflection for framework-grade code, disciplined testing and benchmarking idioms, deep module management, and performance profiling.
+
+None of these topics requires exotic libraries. Everything here lives in the Go standard library or the `go` toolchain itself.
+
+## Module map
+
+| Lesson | What you will learn | TS parallel |
+|---|---|---|
+| **Generics** | Type parameters, constraint interfaces, `comparable`, when generics beat plain interfaces | TS generics (deeper comparison) |
+| **Reflection** | `reflect` package, struct tags at runtime, safe reflection patterns | `reflect-metadata` / decorators |
+| **Table-driven tests** | `testing.T`, subtests with `t.Run`, shared fixture tables | `jest` `it.each` / `describe.each` |
+| **Benchmarks** | `testing.B`, `go test -bench`, profiling intuition | `benchmark.js`, `console.time` |
+| **Modules deep dive** | Semantic versioning, `go.mod`/`go.sum`, `replace`, vendoring, workspaces | npm + `package-lock.json` + npm workspaces |
+| **pprof profiling** | CPU/heap profiles, `net/http/pprof`, reading flame graphs | `node --prof`, clinic.js |
+
+## The philosophy
+
+Go's toolchain is intentionally batteries-included. You do not reach for an external benchmark runner, a profiler plugin, or a third-party test framework. The same `go test` command runs unit tests, integration tests, benchmarks, and fuzz tests. This is a deliberate design choice: one workflow, one command, zero framework lock-in.
+
+export const tsBatteriesCode = `// TypeScript needs separate tools:
+import { describe, it, expect } from 'vitest';
+import Benchmark from 'benchmark';
+import { Profile } from 'clinic';`;
+
+export const goBatteriesCode = `// Go: one command rules them all
+// go test ./...         — runs tests
+// go test -bench=.      — runs benchmarks
+// go test -fuzz=Fuzz    — runs fuzz tests
+// go tool pprof cpu.out — opens profiler`;
+
+<TsGo client:visible ts={tsBatteriesCode} go={goBatteriesCode} />
+
+<GoOnly title="Prerequisite: Go 1.21+">
+
+All code in this module targets **Go 1.21 or later**. Generics landed in 1.18; the `slices` and `maps` stdlib packages in 1.21. If you are on an older version, `go get golang.org/x/exp` provides backports of those packages.
+
+Check your version: `go version`
+
+</GoOnly>
+
+export const quizQuestionsIndex = [
+  { q: 'Which Go command runs both unit tests and benchmarks?', options: ['go run', 'go test', 'go bench', 'go check'], answer: 1 },
+  { q: 'Generics were added to Go in which version?', options: ['1.14', '1.16', '1.18', '1.21'], answer: 2 },
+  { q: 'Which package provides runtime reflection in Go?', options: ['runtime', 'reflect', 'unsafe', 'meta'], answer: 1 },
+];
+
+<Quiz client:visible id="advanced/index" questions={quizQuestionsIndex} />
+
+<ProgressTracker client:visible id="advanced/index" />

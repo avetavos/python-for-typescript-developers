@@ -1,0 +1,161 @@
+---
+title: การจัดการ Error
+description: error เป็น value, error interface, errors.Is/As และการ wrap ของ Go เทียบกับ try/catch ของ TypeScript
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## Error เป็น value ไม่ใช่ exception
+
+TypeScript (และ JavaScript) ใช้ `throw`/`try`/`catch` ในการจัดการ error — exception จะส่งต่อขึ้นไปตาม call stack แบบมองไม่เห็น Go ใช้แนวทางที่ต่างออกไป: **error เป็นเพียง value** ฟังก์ชันที่อาจล้มเหลวจะคืน `error` เป็นค่าสุดท้ายที่คืนกลับมา ผู้เรียกเป็นคนตัดสินใจว่าจะทำอย่างไรกับมันทันที
+
+ตอนแรกมันอาจรู้สึกเยิ่นเย้อ แต่หลังจากผ่านไปสักพักคุณจะชื่นชมว่าทุกเส้นทางที่อาจล้มเหลวนั้นชัดเจนและตามรอยได้
+
+## รูปแบบพื้นฐาน
+
+export const tsTryCatchCode = `// TypeScript: exceptions
+async function readConfig(path: string): Promise<Config> {
+    try {
+        const data = await fs.readFile(path, "utf-8");
+        return JSON.parse(data);
+    } catch (err) {
+        throw new Error(\`failed to read config: \${err}\`);
+    }
+}`;
+
+export const goErrorCode = `// Go: errors as return values
+func readConfig(path string) (Config, error) {
+    data, err := os.ReadFile(path)
+    if err != nil {
+        return Config{}, fmt.Errorf("failed to read config: %w", err)
+    }
+    var cfg Config
+    if err := json.Unmarshal(data, &cfg); err != nil {
+        return Config{}, fmt.Errorf("failed to parse config: %w", err)
+    }
+    return cfg, nil
+}`;
+
+<TsGo client:visible ts={tsTryCatchCode} go={goErrorCode} />
+
+## การสร้าง error
+
+export const tsErrorCreateCode = `// TypeScript
+throw new Error("something went wrong");
+
+class NotFoundError extends Error {
+    constructor(public id: string) {
+        super(\`item \${id} not found\`);
+    }
+}`;
+
+export const goErrorCreateCode = `// Go
+import "errors"
+import "fmt"
+
+err := errors.New("something went wrong")
+
+// Sentinel error (comparable with errors.Is)
+var ErrNotFound = errors.New("not found")
+
+// Custom error type
+type NotFoundError struct{ ID string }
+func (e *NotFoundError) Error() string {
+    return fmt.Sprintf("item %s not found", e.ID)
+}`;
+
+<TsGo client:visible ts={tsErrorCreateCode} go={goErrorCreateCode} />
+
+## การ wrap และ unwrap ด้วย %w
+
+export const playgroundErrCode = `package main
+
+import (
+	"errors"
+	"fmt"
+)
+
+var ErrNotFound = errors.New("not found")
+
+type ValidationError struct {
+	Field   string
+	Message string
+}
+
+func (e *ValidationError) Error() string {
+	return fmt.Sprintf("validation error on %s: %s", e.Field, e.Message)
+}
+
+func findUser(id int) error {
+	if id <= 0 {
+		return &ValidationError{Field: "id", Message: "must be positive"}
+	}
+	if id > 100 {
+		return fmt.Errorf("findUser: %w", ErrNotFound)
+	}
+	return nil
+}
+
+func main() {
+	// errors.Is unwraps the chain
+	err := findUser(999)
+	if errors.Is(err, ErrNotFound) {
+		fmt.Println("user not found (sentinel matched)")
+	}
+
+	// errors.As extracts the concrete type
+	err = findUser(-1)
+	var ve *ValidationError
+	if errors.As(err, &ve) {
+		fmt.Printf("bad field: %s — %s\\n", ve.Field, ve.Message)
+	}
+}`;
+
+<Playground client:visible code={playgroundErrCode} />
+
+<GoOnly title="การ wrap error ด้วย %w">
+
+verb `%w` ใน `fmt.Errorf` จะ **wrap** error โดยเก็บตัวต้นฉบับไว้ เพื่อให้ผู้เรียกสามารถ unwrap มันได้ด้วย `errors.Is` และ `errors.As`
+
+```go
+original := errors.New("connection refused")
+wrapped  := fmt.Errorf("dial db: %w", original)
+
+errors.Is(wrapped, original) // true — unwraps the chain
+```
+
+เปรียบเทียบกับ TypeScript ที่โดยทั่วไปคุณจะสูญเสีย type ของ error ต้นฉบับเมื่อ rethrow: `throw new Error("outer: " + err.message)` — class ต้นฉบับหายไปแล้ว
+
+ควร wrap error ด้วย `%w` เสมอเมื่อส่งต่อขึ้นไปตาม stack นี่เป็นหนึ่งใน best practice สำคัญของการจัดการ error ใน Go
+
+</GoOnly>
+
+<GoOnly title="panic / recover — ทางเลือกสุดท้ายของ Go">
+
+Go มีกลไก `panic` สำหรับสถานการณ์ที่กู้คืนไม่ได้จริงๆ (เช่น index out of bounds) การเรียก `recover()` ภายในฟังก์ชันที่ถูก defer สามารถดักจับ panic ได้ แต่ต่างจาก exception ของ TypeScript ตรงที่ **panic ไม่ได้มีไว้สำหรับ error flow ปกติ** — ให้ใช้การคืน `error` สำหรับความล้มเหลวที่คาดการณ์ได้
+
+```go
+defer func() {
+    if r := recover(); r != nil {
+        fmt.Println("recovered from panic:", r)
+    }
+}()
+panic("something catastrophic")
+```
+
+</GoOnly>
+
+export const quizQuestionsErrors = [
+  { q: 'Go ส่งสัญญาณความล้มเหลวของฟังก์ชันไปยังผู้เรียกอย่างไร?', options: ['throw exception', 'คืน error เป็นค่าสุดท้ายที่คืนกลับมา', 'ตั้งค่าตัวแปร error แบบ global', 'คืนค่า null'], answer: 1 },
+  { q: 'fmt.Errorf("context: %w", err) ทำอะไร?', options: ['จัดรูปแบบและ log error', 'สร้าง error ใหม่โดยทิ้งตัวต้นฉบับ', 'wrap err เพื่อให้ errors.Is/As สามารถ unwrap ได้', 'panic ด้วยข้อความ error'], answer: 2 },
+  { q: 'errors.Is(err, target) คืนค่า true เมื่อ:', options: ['err มีข้อความเดียวกับ target', 'err == target หรือ err wrap target ไว้ใน chain', 'err เป็น subclass ของ target', 'target เป็น nil'], answer: 1 },
+  { q: 'คุณควรใช้ panic ใน Go เมื่อไหร่?', options: ['สำหรับทุก error ที่ไม่คาดคิด', 'ใช้แทน throw', 'เฉพาะสถานะของโปรแกรมที่กู้คืนไม่ได้จริงๆ เท่านั้น', 'ใน HTTP handlers'], answer: 2 },
+];
+
+<Quiz client:visible id="go-101/errors" questions={quizQuestionsErrors} />
+
+<ProgressTracker client:visible id="go-101/errors" />

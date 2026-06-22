@@ -1,0 +1,202 @@
+---
+title: Mental Model ของ Go
+description: การเปลี่ยน mindset สำคัญที่นักพัฒนา TypeScript ต้องรู้เมื่อย้ายมาใช้ Go — compiled binary, ไม่มี node_modules, goroutine, error แบบ explicit, และความเรียบง่าย
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## ปรับ gear จาก TypeScript มา Go
+
+ก่อนจะเขียน Go แม้แต่บรรทัดเดียว มันช่วยได้มากถ้าจะ "ลืม" นิสัย Node/TypeScript บางอย่าง Go ไม่ใช่ "TypeScript ที่ไม่มีเบราว์เซอร์" — มันเป็นชุดของ trade-off ที่แตกต่างกันและถูกเลือกมาอย่างจงใจ บทนี้จะพาคุณผ่านการเปลี่ยนแปลง mindset 5 อย่างที่สำคัญที่สุด
+
+## 1. Compiled vs Interpreted (ไม่มี `node` ที่ runtime)
+
+TypeScript คือ source → JS → runtime (Node.js) คุณเกือบจะรัน TypeScript ผ่าน runtime process เสมอ Go คอมไพล์เป็น native binary เมื่อ build แล้ว `./myapp` รันตรงบน OS โดยไม่ต้องพึ่ง runtime
+
+export const tsRuntimeCode = `// TypeScript workflow
+// tsc src/index.ts --outDir dist
+// node dist/index.js
+// (Node.js ต้องติดตั้งบน server)`;
+
+export const goRuntimeCode = `// Go workflow
+// go build -o myapp .
+// ./myapp
+// (ไม่ต้องการอะไรอื่นบน server)`;
+
+<TsGo client:visible ts={tsRuntimeCode} go={goRuntimeCode} />
+
+สิ่งนี้สำคัญสำหรับ Docker image (Go image สามารถเป็น `FROM scratch`), Lambda cold start, และการแจกจ่าย CLI — คุณส่งไฟล์เดียว
+
+## 2. Static Binary vs `node_modules`
+
+โปรเจกต์ TypeScript มี `package.json` และโฟลเดอร์ `node_modules` ที่อาจหนักหลายร้อย megabyte Go ใช้ระบบ module (`go.mod`) โดย dependency จะถูกดาวน์โหลดตอน build time และคอมไพล์รวม *เข้าไปใน* binary ไม่มีสิ่งเทียบเท่า `node_modules` บน server
+
+export const tsDepsCode = `// package.json
+{
+  "dependencies": {
+    "express": "^4.18.2",
+    "zod": "^3.22.0"
+  }
+}
+// node_modules/ → ส่งแยกหรือติดตั้งใหม่`;
+
+export const goDepsCode = `// go.mod
+module github.com/yourname/myapp
+
+go 1.22
+
+require (
+    github.com/gin-gonic/gin v1.9.1
+)
+// dependency คอมไพล์รวมเข้า binary — ไม่ต้องส่งแยก`;
+
+<TsGo client:visible ts={tsDepsCode} go={goDepsCode} />
+
+## 3. Goroutine vs Event Loop
+
+Node.js ทำงานแบบ single-threaded ความสามารถ concurrency ของมันมาจาก event loop: async operation ถูกส่งออกไปให้ libuv และ callback (หรือ Promise) จะรันเมื่อมันเสร็จ คุณไม่เคยรัน JavaScript callback สองตัวพร้อมกัน
+
+Go ใช้ goroutine — lightweight concurrent function Go runtime จะ multiplex goroutine หลายพันตัวบน OS thread จริงๆ (GOMAXPROCS) Goroutine สองตัวสามารถรันแบบ parallel จริงๆ บนเครื่อง multi-core
+
+export const tsEventLoopCode = `// TypeScript: async/await, single thread
+async function doWork() {
+  const a = await stepOne(); // event loop yields
+  const b = await stepTwo(); // event loop yields
+  return a + b;
+}`;
+
+export const goGoroutineCode = `// Go: goroutine, parallelism จริงๆ
+func doWork(ch chan int) {
+    a := stepOne() // รันบน goroutine
+    b := stepTwo() // รันบน goroutine
+    ch <- a + b    // ส่งผลลัพธ์ผ่าน channel
+}
+// เรียกใช้ด้วย: go doWork(ch)`;
+
+<TsGo client:visible ts={tsEventLoopCode} go={goGoroutineCode} />
+
+Goroutine และ channel จะครอบคลุมเชิงลึกในบทต่อไป สำหรับตอนนี้ mental model คือ: Go concurrency เป็น parallel โดยค่าเริ่มต้น ไม่ใช่แค่ async
+
+## 4. Error แบบ Explicit vs Exception
+
+นี่คือนิสัยที่ยากที่สุดที่ต้องเลิก ใน TypeScript/JavaScript ทุกอย่างสามารถ throw ได้ คุณป้องกันด้วย `try/catch` แต่คุณไม่สามารถบอกได้จาก signature ของ function ว่ามันจะ throw หรือไม่ ใน Go error คือ return value — เป็นส่วนหนึ่งของ contract ของ function
+
+export const tsThrowCode = `// TypeScript: function ใดๆ ก็ throw ได้
+function parseConfig(raw: string): Config {
+  // อาจ throw SyntaxError — ไม่อยู่ใน signature!
+  return JSON.parse(raw);
+}
+
+try {
+  const cfg = parseConfig(raw);
+} catch (e) {
+  // จัดการ
+}`;
+
+export const goReturnErrCode = `// Go: error อยู่ใน return type — ไม่สามารถ ignore ได้
+func parseConfig(raw string) (Config, error) {
+    var cfg Config
+    if err := json.Unmarshal([]byte(raw), &cfg); err != nil {
+        return Config{}, fmt.Errorf("parseConfig: %w", err)
+    }
+    return cfg, nil
+}
+
+cfg, err := parseConfig(raw)
+if err != nil {
+    // ต้องจัดการ — compiler เตือนถ้าไม่ใช้ err
+}`;
+
+<TsGo client:visible ts={tsThrowCode} go={goReturnErrCode} />
+
+## 5. ความเรียบง่าย — วิธีเดียวที่ idiomatic
+
+TypeScript มีหลายวิธีในการทำสิ่งเดียวกัน: class, prototype, function, decorator, หลาย module format ชุมชนถกเถียงเรื่อง pattern ตลอดเวลา วัฒนธรรมของ Go คิดตรงข้าม: มักมีวิธีเดียวที่ idiomatic บังคับโดย `gofmt` (automatic formatting), `go vet` (static analysis), และ convention ของชุมชน ถ้านักพัฒนา Go สองคนเขียน function เดียวกันโดยอิสระ โค้ดของพวกเขาจะดูเกือบเหมือนกัน
+
+export const tsStyleCode = `// TypeScript: หลาย style ที่ valid
+class UserService {
+  constructor(private db: DB) {}
+  async getUser(id: string) { ... }
+}
+// หรือ plain function
+const getUser = async (db: DB, id: string) => { ... }
+// หรือ factory function, namespace, ...`;
+
+export const goStyleCode = `// Go: style idiomatic ที่ชัดเจนแบบเดียว
+type UserService struct {
+    db *DB
+}
+
+func NewUserService(db *DB) *UserService {
+    return &UserService{db: db}
+}
+
+func (s *UserService) GetUser(ctx context.Context, id string) (User, error) {
+    // ...
+    return User{}, nil
+}`;
+
+<TsGo client:visible ts={tsStyleCode} go={goStyleCode} />
+
+<GoOnly title="gofmt — การ format โค้ดไม่ใช่ตัวเลือก">
+
+ใน TypeScript คุณเลือกระหว่าง Prettier, ESLint, StandardJS, หรือไม่มี formatter เลย ใน Go นั้น `gofmt` มาพร้อมกับ toolchain และเป็น formatter อย่างเป็นทางการตัวเดียว ไม่มีการเถียงเรื่อง style — โค้ดของทุกคนดูเหมือนกัน editor ส่วนใหญ่รัน `gofmt` เมื่อ save อัตโนมัติ
+
+```go
+// ก่อน gofmt
+func  add(a int,b   int)int{return a+b}
+
+// หลัง gofmt (อัตโนมัติ)
+func add(a int, b int) int { return a + b }
+```
+
+รัน `gofmt -w .` เพื่อ format ทั้งโปรเจกต์ คุณจะไม่มีวันเถียงเรื่อง tab vs space อีกต่อไป — Go ใช้ tab เสมอ
+
+</GoOnly>
+
+## Playground: error เป็นค่า
+
+export const playgroundMentalCode = `package main
+
+import (
+	"errors"
+	"fmt"
+)
+
+func divide(a, b float64) (float64, error) {
+	if b == 0 {
+		return 0, errors.New("division by zero")
+	}
+	return a / b, nil
+}
+
+func main() {
+	result, err := divide(10, 2)
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+	fmt.Printf("10 / 2 = %.1f\\n", result)
+
+	_, err = divide(5, 0)
+	if err != nil {
+		fmt.Println("Caught error:", err)
+	}
+}`;
+
+<Playground client:visible code={playgroundMentalCode} />
+
+export const quizQuestionsMental = [
+  { q: 'Go ใช้อะไรแทน Node.js event loop สำหรับ concurrency?', options: ['Async/await', 'Worker threads', 'Goroutine และ channel', 'Promise'], answer: 2 },
+  { q: 'ใน Go error ถูกสื่อสารจาก function อย่างไร?', options: ['โดยการโยน Error object', 'เป็นส่วนหนึ่งของ return value', 'ผ่าน global error handler', 'ใช้ callback'], answer: 1 },
+  { q: 'Go dependency เกิดอะไรขึ้นตอน build time?', options: ['ถูกวางในสิ่งที่เทียบเท่า node_modules', 'ถูกคอมไพล์รวมเข้าใน binary', 'ถูกดาวน์โหลดตอน runtime', 'ถูก link เป็น shared library'], answer: 1 },
+  { q: 'gofmt คืออะไร?', options: ['Go linter สำหรับตรวจ security', 'Package manager', 'Official Go code formatter ที่มาพร้อมกับ toolchain', 'Build cache tool'], answer: 2 },
+];
+
+<Quiz client:visible id="intro/mental-model" questions={quizQuestionsMental} />
+
+<ProgressTracker client:visible id="intro/mental-model" />

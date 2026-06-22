@@ -1,0 +1,202 @@
+---
+title: The Go Mental Model
+description: The key mindset shifts TypeScript developers need when moving to Go — compiled binary, no node_modules, goroutines, explicit errors, and simplicity.
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## Shifting gears from TypeScript to Go
+
+Before writing a single line of Go, it helps to unlearn a few Node/TypeScript habits. Go is not a "TypeScript without the browser" — it is a different set of trade-offs, deliberately chosen. This lesson walks through the five biggest mindset shifts.
+
+## 1. Compiled vs interpreted (no `node` at runtime)
+
+TypeScript is source → JS → runtime (Node.js). You almost always run TypeScript through a runtime process. Go compiles to a native binary. Once built, `./myapp` runs directly on the OS — no runtime dependency.
+
+export const tsRuntimeCode = `// TypeScript workflow
+// tsc src/index.ts --outDir dist
+// node dist/index.js
+// (Node.js must be installed on the server)`;
+
+export const goRuntimeCode = `// Go workflow
+// go build -o myapp .
+// ./myapp
+// (nothing else needed on the server)`;
+
+<TsGo client:visible ts={tsRuntimeCode} go={goRuntimeCode} />
+
+This matters for Docker images (Go images can be `FROM scratch`), Lambda cold starts, and CLI distribution — you ship one file.
+
+## 2. Static binary vs `node_modules`
+
+TypeScript projects have a `package.json` and a `node_modules` directory that can reach hundreds of megabytes. Go uses a module system (`go.mod`) where dependencies are downloaded at build time and compiled *into* the binary. There is no `node_modules` equivalent on the server.
+
+export const tsDepsCode = `// package.json
+{
+  "dependencies": {
+    "express": "^4.18.2",
+    "zod": "^3.22.0"
+  }
+}
+// node_modules/ → shipped separately or re-installed`;
+
+export const goDepsCode = `// go.mod
+module github.com/yourname/myapp
+
+go 1.22
+
+require (
+    github.com/gin-gonic/gin v1.9.1
+)
+// dependencies compiled into the binary — nothing to ship separately`;
+
+<TsGo client:visible ts={tsDepsCode} go={goDepsCode} />
+
+## 3. Goroutines vs the event loop
+
+Node.js is single-threaded. Its concurrency comes from the event loop: async operations are offloaded to libuv and a callback (or Promise) runs when they complete. You never run two JavaScript callbacks at the same time.
+
+Go uses goroutines — lightweight concurrent functions. The Go runtime multiplexes thousands of goroutines across real OS threads (GOMAXPROCS). Two goroutines genuinely run in parallel on multi-core machines.
+
+export const tsEventLoopCode = `// TypeScript: async/await, single thread
+async function doWork() {
+  const a = await stepOne(); // event loop yields
+  const b = await stepTwo(); // event loop yields
+  return a + b;
+}`;
+
+export const goGoroutineCode = `// Go: goroutines, real parallelism
+func doWork(ch chan int) {
+    a := stepOne() // runs on goroutine
+    b := stepTwo() // runs on goroutine
+    ch <- a + b    // send result on channel
+}
+// launch with: go doWork(ch)`;
+
+<TsGo client:visible ts={tsEventLoopCode} go={goGoroutineCode} />
+
+Goroutines and channels are covered in depth in a later module. For now, the mental model is: Go concurrency is parallel by default, not just async.
+
+## 4. Explicit errors vs exceptions
+
+This is the biggest habit to break. In TypeScript/JavaScript, anything can throw. You guard with `try/catch`, but you cannot tell from a function's signature whether it throws. In Go, errors are return values — part of the function contract.
+
+export const tsThrowCode = `// TypeScript: any function can throw
+function parseConfig(raw: string): Config {
+  // might throw SyntaxError — not in the signature!
+  return JSON.parse(raw);
+}
+
+try {
+  const cfg = parseConfig(raw);
+} catch (e) {
+  // handle
+}`;
+
+export const goReturnErrCode = `// Go: error is in the return type — impossible to ignore
+func parseConfig(raw string) (Config, error) {
+    var cfg Config
+    if err := json.Unmarshal([]byte(raw), &cfg); err != nil {
+        return Config{}, fmt.Errorf("parseConfig: %w", err)
+    }
+    return cfg, nil
+}
+
+cfg, err := parseConfig(raw)
+if err != nil {
+    // must handle — compiler warns if you don't use err
+}`;
+
+<TsGo client:visible ts={tsThrowCode} go={goReturnErrCode} />
+
+## 5. Simplicity — one idiomatic way
+
+TypeScript has many ways to do the same thing: classes, prototypes, functions, decorators, multiple module formats. The community debates patterns constantly. Go's culture values the opposite: there is usually one idiomatic way, enforced by `gofmt` (automatic formatting), `go vet` (static analysis), and community convention. If two Go developers write the same function independently, their code will look nearly identical.
+
+export const tsStyleCode = `// TypeScript: many valid styles
+class UserService {
+  constructor(private db: DB) {}
+  async getUser(id: string) { ... }
+}
+// OR a plain function
+const getUser = async (db: DB, id: string) => { ... }
+// OR a factory function, OR a namespace, OR...`;
+
+export const goStyleCode = `// Go: one clear idiomatic style
+type UserService struct {
+    db *DB
+}
+
+func NewUserService(db *DB) *UserService {
+    return &UserService{db: db}
+}
+
+func (s *UserService) GetUser(ctx context.Context, id string) (User, error) {
+    // ...
+    return User{}, nil
+}`;
+
+<TsGo client:visible ts={tsStyleCode} go={goStyleCode} />
+
+<GoOnly title="gofmt — Formatting is Not Optional">
+
+In TypeScript you choose between Prettier, ESLint, StandardJS, or no formatter. In Go, `gofmt` ships with the toolchain and is the single official formatter. There are no style arguments — everyone's code looks the same. Most editors run `gofmt` on save automatically.
+
+```go
+// Before gofmt
+func  add(a int,b   int)int{return a+b}
+
+// After gofmt (automatic)
+func add(a int, b int) int { return a + b }
+```
+
+Running `gofmt -w .` formats your entire project in place. You will never bikeshed over tabs vs spaces — Go uses tabs, always.
+
+</GoOnly>
+
+## Playground: errors as values
+
+export const playgroundMentalCode = `package main
+
+import (
+	"errors"
+	"fmt"
+)
+
+func divide(a, b float64) (float64, error) {
+	if b == 0 {
+		return 0, errors.New("division by zero")
+	}
+	return a / b, nil
+}
+
+func main() {
+	result, err := divide(10, 2)
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+	fmt.Printf("10 / 2 = %.1f\\n", result)
+
+	_, err = divide(5, 0)
+	if err != nil {
+		fmt.Println("Caught error:", err)
+	}
+}`;
+
+<Playground client:visible code={playgroundMentalCode} />
+
+export const quizQuestionsMental = [
+  { q: 'What does Go use instead of the Node.js event loop for concurrency?', options: ['Async/await', 'Worker threads', 'Goroutines and channels', 'Promises'], answer: 2 },
+  { q: 'In Go, how are errors communicated from functions?', options: ['By throwing Error objects', 'As part of the return values', 'Via a global error handler', 'Using callbacks'], answer: 1 },
+  { q: 'What happens to Go dependencies at build time?', options: ['They are placed in a node_modules equivalent', 'They are compiled into the binary', 'They are downloaded at runtime', 'They are linked as shared libraries'], answer: 1 },
+  { q: 'What is gofmt?', options: ['A Go linter for security issues', 'A package manager', 'The official Go code formatter, shipped with the toolchain', 'A build cache tool'], answer: 2 },
+];
+
+<Quiz client:visible id="intro/mental-model" questions={quizQuestionsMental} />
+
+<ProgressTracker client:visible id="intro/mental-model" />

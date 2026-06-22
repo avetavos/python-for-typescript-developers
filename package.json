@@ -1,0 +1,28 @@
+{
+  "name": "go-for-typescript-developers",
+  "type": "module",
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro",
+    "test": "vitest run",
+    "build:wasm": "cd wasm-runner && go mod tidy && GOOS=js GOARCH=wasm go build -ldflags=\"-s -w\" -o ../public/go-runner.wasm . && cp \"$(go env GOROOT)/lib/wasm/wasm_exec.js\" ../public/wasm_exec.js",
+    "prebuild": "test -f public/go-runner.wasm || npm run build:wasm"
+  },
+  "dependencies": {
+    "@astrojs/preact": "^5.1.5",
+    "@astrojs/starlight": "^0.40.0",
+    "astro": "^6.4.5",
+    "preact": "^10.29.2",
+    "sharp": "^0.34.5"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.10.5",
+    "@testing-library/preact": "^3.2.4",
+    "jsdom": "^29.1.1",
+    "vitest": "^4.1.9"
+  }
+}

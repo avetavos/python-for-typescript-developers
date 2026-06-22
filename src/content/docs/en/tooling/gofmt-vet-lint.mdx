@@ -1,0 +1,149 @@
+---
+title: gofmt, go vet & Linting
+description: Go's built-in formatter and static analysis tools — the zero-config alternative to Prettier, ESLint, and tsc.
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## Prettier + ESLint + tsc → gofmt + go vet + staticcheck
+
+In the TypeScript world you need three separate tools to cover formatting, bug-prone patterns, and type errors:
+
+- **Prettier** reformats code to a consistent style
+- **ESLint** catches suspicious patterns and enforces conventions
+- **tsc** (type-checker) reports type errors
+
+Go collapses this into tools that are all part of the standard Go installation, with a third-party linter (`staticcheck` or `golangci-lint`) that is universally adopted.
+
+## gofmt — the opinionated formatter
+
+`gofmt` (or its alias `go fmt`) rewrites your source files in-place to match the one true Go style. Unlike Prettier, it has **zero configuration**. There is no `.gofmtrc`, no `printWidth`, no `singleQuote` option.
+
+```bash
+# Format all packages in the module
+go fmt ./...
+
+# Preview what would change (dry-run)
+gofmt -d .
+
+# Write changes in-place
+gofmt -w .
+```
+
+Most editors run `gofmt` on save automatically. If your editor is VS Code, install the official Go extension and it happens without any extra config.
+
+export const tsFmtCode = `// .prettierrc
+{
+  "semi": true,
+  "singleQuote": false,
+  "printWidth": 100,
+  "tabWidth": 2,
+  "trailingComma": "es5"
+}
+
+// Run:
+// npx prettier --write src/`;
+
+export const goFmtCode = `# No config file needed.
+# Run:
+go fmt ./...
+
+# Or wire it into your editor's "format on save".
+# The result is always the same regardless of who runs it.`;
+
+<TsGo client:visible ts={tsFmtCode} go={goFmtCode} />
+
+## go vet — the bug detector
+
+`go vet` is a static analyser that ships with Go. It finds real bugs — not style issues — such as:
+
+- Passing the wrong type to `fmt.Printf` format strings
+- Unreachable code after a `return`
+- Struct tags that are malformed
+- Mutexes copied by value
+
+```bash
+go vet ./...
+```
+
+Think of it as the subset of ESLint rules that catch actual mistakes, not style preferences.
+
+export const tsVetCode = `// ESLint (partial .eslintrc.json)
+{
+  "rules": {
+    "no-unreachable": "error",
+    "no-unused-vars": "error",
+    "@typescript-eslint/no-explicit-any": "warn"
+  }
+}
+
+// Run:
+// npx eslint src --ext .ts`;
+
+export const goVetCode = `# No config needed.
+go vet ./...
+
+# Example output when something is wrong:
+# ./main.go:12:2: Printf format %d has arg name of wrong type string`;
+
+<TsGo client:visible ts={tsVetCode} go={goVetCode} />
+
+## staticcheck and golangci-lint
+
+`go vet` catches the most obvious bugs. For a richer set of checks — unused exports, deprecated API usage, simplifiable code — the community relies on:
+
+- **staticcheck** (`honnef.co/go/tools`) — a focused, high-signal linter
+- **golangci-lint** — a meta-linter that runs many linters in parallel, including `staticcheck`, `errcheck`, `gosimple`, and more
+
+```bash
+# Install staticcheck
+go install honnef.co/go/tools/cmd/staticcheck@latest
+
+# Run it
+staticcheck ./...
+
+# Or use golangci-lint (recommended for CI)
+# Install: https://golangci-lint.run/usage/install/
+golangci-lint run ./...
+```
+
+A minimal `.golangci.yml` to start with:
+
+```yaml
+linters:
+  enable:
+    - staticcheck
+    - errcheck
+    - gosimple
+    - unused
+
+linters-settings:
+  staticcheck:
+    go: "1.22"
+```
+
+> Run this in your terminal after installing golangci-lint. There is no browser-runnable equivalent for a linter.
+
+<GoOnly title="One canonical style — no more style wars">
+
+The most significant cultural effect of `gofmt` is that **Go codebases everywhere look the same**. When you open an unfamiliar Go repo on GitHub you can read it immediately because the formatting is identical to your own project.
+
+In TypeScript, each project has its own Prettier config, ESLint config, and sometimes a custom mix of both. Onboarding friction rises with every extra config file a new developer has to learn.
+
+Go sidesteps this entirely. The style is the language. Pull requests are never blocked on formatting nitpicks.
+
+</GoOnly>
+
+export const quizQuestionsGofmt = [
+  { q: 'What file do you create to configure gofmt\'s style?', options: ['.gofmtrc', '.go-style.json', 'gofmt.config.js', 'No file — gofmt has no configuration'], answer: 3 },
+  { q: 'Which tool is the Go equivalent of ESLint\'s bug-detection rules (not style)?', options: ['gofmt', 'go vet', 'go mod', 'go doc'], answer: 1 },
+  { q: 'What does `go fmt ./...` do?', options: ['Runs tests on all packages', 'Formats all Go source files in the module', 'Checks for unused imports only', 'Compiles every package'], answer: 1 },
+  { q: 'golangci-lint is best described as:', options: ['A replacement for go vet', 'A meta-linter that runs many linters in parallel', 'Go\'s built-in type checker', 'A dependency manager'], answer: 1 },
+];
+
+<Quiz client:visible id="tooling/gofmt-vet-lint" questions={quizQuestionsGofmt} />
+
+<ProgressTracker client:visible id="tooling/gofmt-vet-lint" />

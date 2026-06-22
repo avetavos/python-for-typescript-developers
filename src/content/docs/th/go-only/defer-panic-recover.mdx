@@ -1,0 +1,247 @@
+---
+title: Defer, Panic และ Recover
+description: เรียนรู้ defer สำหรับ cleanup แบบ deterministic, panic สำหรับ error ที่กู้คืนไม่ได้, และ recover เพื่อดัก panic — เทียบกับ try/finally/throw ของ JavaScript
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## JavaScript: try / finally / throw
+
+TypeScript จัดการ cleanup และ error ด้วยสิ่งที่คุณคุ้นเคย: `try/finally` เพื่อรัน cleanup code ไม่ว่าจะเกิด error หรือไม่ และ `throw`/`catch` สำหรับการส่งต่อ error
+
+Go มีคู่ขนานสำหรับทั้งสาม แต่หน้าตาต่างกันและมีความแตกต่างพฤติกรรมที่สำคัญ
+
+## defer — cleanup ที่รันเสมอ
+
+`defer` กำหนดการเรียก function ให้รันเมื่อ **function ที่ครอบคลุมมัน return** — ไม่ว่าจะ return อย่างไร (ปกติ, ผ่าน `return`, หรือหลัง `panic`) สิ่งนี้แทนที่ pattern `try/finally` cleanup ทั่วไป
+
+export const tsFinallyCode = `// TypeScript — try/finally สำหรับ cleanup
+async function readFile(path: string): Promise<string> {
+  const fd = await openFile(path);
+  try {
+    return await fd.read();
+  } finally {
+    fd.close(); // รันเสมอ
+  }
+}`;
+
+export const goDeferCode = `// Go — defer แทน try/finally
+func readFile(path string) (string, error) {
+    f, err := os.Open(path)
+    if err != nil {
+        return "", err
+    }
+    defer f.Close()    // จะรันเมื่อ readFile return
+
+    data, err := io.ReadAll(f)
+    if err != nil {
+        return "", err
+    }
+    return string(data), nil
+}`;
+
+<TsGo client:visible ts={tsFinallyCode} go={goDeferCode} />
+
+## defer รันตาม LIFO
+
+การเรียก defer หลายครั้งจะ stack ขึ้นและรัน **last-in, first-out** — ย้อนกลับจากลำดับที่ register ไว้ ซึ่งสะท้อนวิธีที่คุณมักต้องการ undo ขั้นตอน setup
+
+export const tsLifoCode = `// TypeScript — ต้องระบุลำดับใน finally อย่างชัดเจน
+try {
+  connectDB();
+  startTransaction();
+  doWork();
+} finally {
+  rollbackTransaction(); // ต้องระบุเอง
+  disconnectDB();
+}`;
+
+export const goLifoCode = `func doWork() {
+    connectDB()
+    defer disconnectDB()     // register ที่ 1, รันที่ 2
+
+    startTransaction()
+    defer rollbackTransaction() // register ที่ 2, รันที่ 1
+
+    // ถ้าขั้นตอนใด panic ทั้งสอง defer ก็ยังรัน (LIFO)
+    processRows()
+}`;
+
+<TsGo client:visible ts={tsLifoCode} go={goLifoCode} />
+
+## panic — เหมือน throw แต่สำหรับ error ที่กู้คืนไม่ได้
+
+`panic` หยุด goroutine ปัจจุบัน unwind stack (รัน deferred function ทั้งหมดระหว่างทาง) และ crash โปรแกรมหากไม่มีอะไรดักมัน ใช้เฉพาะสำหรับ **programming error** ที่ไม่ควรเกิดขึ้นในโค้ดที่ถูกต้อง ไม่ใช่สำหรับ error ที่คาดการณ์ได้ที่คุณต้องการส่งต่อให้ caller
+
+export const tsThrowCode = `// TypeScript — throw สำหรับ error ทุกประเภท
+function divide(a: number, b: number): number {
+  if (b === 0) throw new Error("division by zero");
+  return a / b;
+}
+try {
+  divide(10, 0);
+} catch (e) {
+  console.error(e.message);
+}`;
+
+export const goPanicCode = `// Go — return error สำหรับกรณีที่คาดการณ์ได้; panic สำหรับสถานะที่เป็นไปไม่ได้
+func divide(a, b float64) float64 {
+    if b == 0 {
+        panic("หารด้วยศูนย์ — นี่คือ programming error")
+    }
+    return a / b
+}
+
+// สำหรับ error ที่คาดการณ์ได้ ให้ return (T, error) แทน:
+func safeDivide(a, b float64) (float64, error) {
+    if b == 0 {
+        return 0, fmt.Errorf("ไม่สามารถหาร %v ด้วยศูนย์", a)
+    }
+    return a / b, nil
+}`;
+
+<TsGo client:visible ts={tsThrowCode} go={goPanicCode} />
+
+## recover — ดัก panic
+
+`recover` หยุด panic จากการแพร่กระจาย ต้องเรียกใน **deferred function** เท่านั้นจึงจะทำงาน นี่คือวิธีที่ Go library (และ HTTP server) ป้องกันไม่ให้ request เดียวที่มีปัญหา crash โปรแกรมทั้งหมด
+
+export const tsCatchCode = `// TypeScript — catch ครอบ throw
+function safe(fn: () => void) {
+  try {
+    fn();
+  } catch (err) {
+    console.error("caught:", err);
+  }
+}`;
+
+export const goRecoverCode = `// Go — recover ใน defer
+func safeRun(fn func()) (err error) {
+    defer func() {
+        if r := recover(); r != nil {
+            err = fmt.Errorf("panic recovered: %v", r)
+        }
+    }()
+    fn()
+    return nil
+}
+
+func main() {
+    err := safeRun(func() {
+        panic("oh no!")
+    })
+    fmt.Println(err) // panic recovered: oh no!
+}`;
+
+<TsGo client:visible ts={tsCatchCode} go={goRecoverCode} />
+
+## ลองทำ
+
+export const playgroundDeferCode = `package main
+
+import "fmt"
+
+func divide(a, b float64) (result float64, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("recovered from panic: %v", r)
+		}
+	}()
+	if b == 0 {
+		panic("division by zero")
+	}
+	return a / b, nil
+}
+
+func withCleanup() {
+	fmt.Println("1. start")
+	defer fmt.Println("3. cleanup (deferred)")
+	fmt.Println("2. work")
+}
+
+func multiDefer() {
+	for i := 1; i <= 3; i++ {
+		defer fmt.Printf("deferred %d\\n", i) // LIFO: 3, 2, 1
+	}
+}
+
+func main() {
+	withCleanup()
+	fmt.Println("---")
+
+	multiDefer()
+	fmt.Println("---")
+
+	r1, err := divide(10, 2)
+	fmt.Printf("10/2 = %.1f err=%v\\n", r1, err)
+
+	r2, err := divide(5, 0)
+	fmt.Printf("5/0  = %.1f err=%v\\n", r2, err)
+}`;
+
+<Playground client:visible code={playgroundDeferCode} />
+
+<GoOnly title="defer Argument ถูก Evaluate ทันที">
+
+เมื่อคุณเขียน `defer f(x)` Go จะ evaluate `x` **ทันที** (ที่ defer statement) ไม่ใช่ตอนที่ deferred call รันจริง มีแค่การเรียก function เองที่ถูกเลื่อน
+
+```go
+x := 1
+defer fmt.Println("deferred value:", x) // จับ x=1 ตอนนี้
+x = 99
+fmt.Println("current value:", x)        // print 99 ก่อน
+// จากนั้น deferred print: deferred value: 1
+```
+
+เพื่อจับค่าตอนที่รันจริงแทน ให้ใช้ closure:
+
+```go
+defer func() { fmt.Println("late value:", x) }() // จับ x by reference
+```
+
+</GoOnly>
+
+<GoOnly title="panic vs error — ใช้เมื่อไหร่">
+
+นี่คือหนึ่งใน Go idiom ที่สำคัญที่สุด กฎเป็นเรื่องง่าย:
+
+- Return `error` สำหรับ **failure mode ที่คาดการณ์ได้** — network timeout, file not found, invalid user input caller ต้องจัดการ
+- ใช้ `panic` เฉพาะสำหรับ **invariant violation** — index out of range, nil pointer dereference, หรือ logic bug ที่หมายความว่าโปรแกรมอยู่ในสถานะที่เป็นไปไม่ได้ อย่าใช้ panic สำหรับการจัดการ error ปกติ
+
+Go standard library ใช้ convention นี้อย่างเคร่งครัด ตัวอย่างเช่น `json.Unmarshal` return error; `json.Marshal` panic เฉพาะเมื่อคุณส่ง type ที่ encode ไม่ได้ (programming mistake ไม่ใช่ user error)
+
+```go
+// ดี — expected error, return มัน
+func parseAge(s string) (int, error) {
+    n, err := strconv.Atoi(s)
+    if err != nil {
+        return 0, fmt.Errorf("invalid age %q: %w", s, err)
+    }
+    return n, nil
+}
+
+// ดี — invariant violation, panic เหมาะสม
+func mustPositive(n int) int {
+    if n <= 0 {
+        panic(fmt.Sprintf("mustPositive ถูกเรียกด้วย %d", n))
+    }
+    return n
+}
+```
+
+</GoOnly>
+
+export const quizQuestionsDeferPanic = [
+  { q: 'deferred function รันเมื่อไหร่?', options: ['ทันทีหลัง defer statement', 'ท้ายไฟล์', 'เมื่อ function ที่ครอบคลุมมัน return (ทุกกรณี)', 'เฉพาะเมื่อเกิด panic'], answer: 2 },
+  { q: 'defer หลายครั้งใน function เดียวรันในลำดับใด?', options: ['First-in first-out (FIFO)', 'Last-in first-out (LIFO)', 'ตามตัวอักษร', 'สุ่ม'], answer: 1 },
+  { q: 'ต้องเรียก recover() ที่ไหนเพื่อหยุด panic?', options: ['ใน main function', 'ตอนต้นของ function ที่ panic', 'ใน deferred function', 'ใน goroutine แยก'], answer: 2 },
+  { q: 'ควรใช้ panic แทนการ return error เมื่อไหร่?', options: ['เมื่อใดก็ตามที่ operation ล้มเหลว', 'สำหรับ network timeout', 'สำหรับ invariant violation และ programming bug เท่านั้น', 'เมื่อต้องการโค้ดเร็ว'], answer: 2 },
+];
+
+<Quiz client:visible id="go-only/defer-panic-recover" questions={quizQuestionsDeferPanic} />
+
+<ProgressTracker client:visible id="go-only/defer-panic-recover" />

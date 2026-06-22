@@ -1,0 +1,151 @@
+---
+title: Functions
+description: Go functions, parameters, multiple return values, named returns, and variadics — compared to TypeScript functions and tuples.
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Playground from '../../../../components/Playground.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## Functions: familiar ground
+
+TypeScript functions are flexible — arrow functions, default params, rest params, tuple returns. Go functions are more explicit but similarly powerful. The main surprise for TypeScript developers: **Go functions can return multiple values natively**, without wrapping in a tuple or array.
+
+## Basic function syntax
+
+export const tsFuncCode = `function add(a: number, b: number): number {
+    return a + b;
+}
+
+// Arrow function
+const greet = (name: string): string => {
+    return \`Hello, \${name}!\`;
+};`;
+
+export const goFuncCode = `func add(a int, b int) int {
+    return a + b
+}
+
+// No arrow functions — just func
+func greet(name string) string {
+    return "Hello, " + name + "!"
+}`;
+
+<TsGo client:visible ts={tsFuncCode} go={goFuncCode} />
+
+## Multiple return values
+
+In TypeScript, returning two things means a tuple or an object. In Go, multiple returns are a first-class feature used everywhere — especially for returning a result alongside an error.
+
+export const tsTupleCode = `// TypeScript: tuple or object
+function divide(a: number, b: number): [number, Error | null] {
+    if (b === 0) return [0, new Error("division by zero")];
+    return [a / b, null];
+}
+const [result, err] = divide(10, 2);`;
+
+export const goMultiCode = `// Go: multiple return values
+func divide(a, b float64) (float64, error) {
+    if b == 0 {
+        return 0, fmt.Errorf("division by zero")
+    }
+    return a / b, nil
+}
+result, err := divide(10, 2)`;
+
+<TsGo client:visible ts={tsTupleCode} go={goMultiCode} />
+
+## Variadic functions
+
+Go variadics work exactly like TypeScript rest parameters. Use `...T` in the parameter list; inside the function it's a slice.
+
+export const tsVariadicCode = `function sum(...nums: number[]): number {
+    return nums.reduce((a, b) => a + b, 0);
+}
+sum(1, 2, 3, 4);`;
+
+export const goVariadicCode = `func sum(nums ...int) int {
+    total := 0
+    for _, n := range nums {
+        total += n
+    }
+    return total
+}
+sum(1, 2, 3, 4)`;
+
+<TsGo client:visible ts={tsVariadicCode} go={goVariadicCode} />
+
+## Try it
+
+export const playgroundFuncsCode = `package main
+
+import (
+	"errors"
+	"fmt"
+)
+
+func add(a, b int) int {
+	return a + b
+}
+
+func divide(a, b float64) (float64, error) {
+	if b == 0 {
+		return 0, errors.New("division by zero")
+	}
+	return a / b, nil
+}
+
+func sum(nums ...int) int {
+	total := 0
+	for _, n := range nums {
+		total += n
+	}
+	return total
+}
+
+func main() {
+	fmt.Println(add(3, 4))
+
+	result, err := divide(10, 3)
+	if err != nil {
+		fmt.Println("Error:", err)
+	} else {
+		fmt.Printf("10 / 3 = %.4f\\n", result)
+	}
+
+	fmt.Println(sum(1, 2, 3, 4, 5))
+}`;
+
+<Playground client:visible code={playgroundFuncsCode} />
+
+<GoOnly title="Named Return Values">
+
+Go lets you name the return variables in the function signature. The function body can then use a bare `return` to return whatever values those names currently hold. This is useful for documentation and for short functions where the meaning of each return is clear.
+
+```go
+func minMax(nums []int) (min, max int) {
+    min, max = nums[0], nums[0]
+    for _, n := range nums[1:] {
+        if n < min { min = n }
+        if n > max { max = n }
+    }
+    return // bare return — returns min and max
+}
+```
+
+Use named returns sparingly. They can reduce clarity in longer functions.
+
+</GoOnly>
+
+export const quizQuestionsFunc = [
+  { q: 'How does Go handle returning multiple values from a function?', options: ['Wrap in an array', 'Wrap in an object', 'Native multiple return values', 'Use a tuple type'], answer: 2 },
+  { q: 'What syntax declares a variadic parameter in Go?', options: ['*T', '[]T', '...T', '&T'], answer: 2 },
+  { q: 'In Go, what keyword defines a function?', options: ['function', 'fn', 'def', 'func'], answer: 3 },
+  { q: 'When can you use the := short declaration?', options: ['Anywhere in a file', 'Only inside functions', 'Only at package level', 'Only in init()'], answer: 1 },
+];
+
+<Quiz client:visible id="go-101/functions" questions={quizQuestionsFunc} />
+
+<ProgressTracker client:visible id="go-101/functions" />

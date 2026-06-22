@@ -1,0 +1,169 @@
+---
+title: โครงสร้างโปรเจกต์
+description: วิธีจัดโครงสร้างโปรเจกต์ Echo — go.mod, main.go และข้อตกลงเรื่อง directory — เปรียบกับโปรเจกต์ Express หรือ NestJS
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## เปรียบเทียบโครงสร้าง
+
+โปรเจกต์ TypeScript/Node มี `package.json`, build tool, โฟลเดอร์ `dist/` และ `node_modules` โปรเจกต์ Go เรียบง่ายกว่า: `go.mod` ประกาศ module และ dependency โดยไม่มีโฟลเดอร์ output แยกต่างหาก — `go build` สร้าง binary ไฟล์เดียว
+
+export const tsLayout = `// Express / NestJS project tree
+my-api/
+├── package.json
+├── tsconfig.json
+├── src/
+│   ├── main.ts
+│   ├── app.module.ts       ← NestJS root module
+│   ├── books/
+│   │   ├── books.controller.ts
+│   │   ├── books.service.ts
+│   │   └── books.dto.ts
+│   └── middleware/
+│       └── logger.middleware.ts
+└── node_modules/`;
+
+export const goLayout = `// Echo project tree
+books-api/
+├── go.mod
+├── go.sum
+├── main.go                 ← entry point; เชื่อมทุกอย่างที่นี่
+├── internal/
+│   ├── handler/
+│   │   └── books.go        ← HTTP handler (parse, validate, เรียก service)
+│   ├── service/
+│   │   └── books.go        ← business logic
+│   └── store/
+│       └── books.go        ← database query
+└── model/
+    └── book.go             ← struct / domain type ที่ใช้ร่วมกัน`;
+
+<TsGo client:visible ts={tsLayout} go={goLayout} />
+
+## go.mod — package.json ของ Go
+
+`go.mod` ประกาศ module path (ใช้เป็น prefix ของ import) และ Go version ขั้นต่ำ `go get` เพิ่ม dependency และ `go mod tidy` ลบอันที่ไม่ได้ใช้
+
+export const tsPackageJson = `// package.json
+{
+  "name": "books-api",
+  "version": "1.0.0",
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}`;
+
+export const goModFile = `// go.mod
+module github.com/you/books-api
+
+go 1.22
+
+require (
+    github.com/labstack/echo/v4 v4.12.0
+)`;
+
+<TsGo client:visible ts={tsPackageJson} go={goModFile} />
+
+## main.go — เชื่อมแอปพลิเคชัน
+
+ใน NestJS, `main.ts` เรียก `NestFactory.create` ใน Echo, `main.go` เรียก `echo.New()`, ลงทะเบียน middleware และ route แล้วเรียก `e.Start` ทุกอย่างเป็น Go code ที่ชัดเจน — ไม่มี decorator ไม่มี DI container
+
+export const tsMainTs = `// NestJS main.ts
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  app.setGlobalPrefix('api');
+  await app.listen(3000);
+}
+bootstrap();`;
+
+export const goMainGo = `// main.go
+package main
+
+import (
+    "net/http"
+
+    "github.com/labstack/echo/v4"
+    "github.com/labstack/echo/v4/middleware"
+
+    "github.com/you/books-api/internal/handler"
+    "github.com/you/books-api/internal/store"
+)
+
+func main() {
+    e := echo.New()
+
+    // Middleware
+    e.Use(middleware.Logger())
+    e.Use(middleware.Recover())
+
+    // Dependency wiring (manual, ไม่มี container)
+    bookStore := store.NewBookStore()
+    bookHandler := handler.NewBookHandler(bookStore)
+
+    // Route
+    api := e.Group("/api")
+    api.GET("/books", bookHandler.List)
+    api.POST("/books", bookHandler.Create)
+    api.GET("/books/:id", bookHandler.Get)
+    api.PUT("/books/:id", bookHandler.Update)
+    api.DELETE("/books/:id", bookHandler.Delete)
+
+    e.Logger.Fatal(e.Start(":1323"))
+}`;
+
+<TsGo client:visible ts={tsMainTs} go={goMainGo} />
+
+<GoOnly title="ทำไมต้องใช้ internal/?">
+
+โฟลเดอร์ `internal/` เป็น feature ของภาษา Go: package ที่อยู่ข้างในสามารถ import ได้เฉพาะโค้ดใน module เดียวกันเท่านั้น นี่คือวิธี idiomatic ที่ทำให้ handler, service และ store เป็น private — เทียบเท่ากับการ mark NestJS module เป็น non-exported หากพยายาม import `github.com/you/books-api/internal/handler` จากภายนอก module จะเกิด error ตอน compile
+
+</GoOnly>
+
+> รันบนเครื่องของคุณ — ต้องการ Echo module และ network port จาก project root ของคุณ: `go run main.go`
+
+export const quizQuestionsLayout = [
+  {
+    q: 'ไฟล์ใดใน Go ที่เทียบเท่า package.json สำหรับประกาศ dependency?',
+    options: ['go.lock', 'go.mod', 'Gopkg.toml', 'go.sum'],
+    answer: 1,
+  },
+  {
+    q: 'โฟลเดอร์ internal/ บังคับใช้อะไรใน Go?',
+    options: [
+      'ไฟล์จะ compile ในโหมด debug',
+      'Package นำเข้าได้เฉพาะใน module เดียวกันเท่านั้น',
+      'Package ถูกยกเว้นจากการทดสอบ',
+      'Dependency ถูกล็อคไว้ที่ version ที่แน่นอน',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'คำสั่งใดที่ลบ dependency ที่ไม่ได้ใช้ออกจาก go.mod?',
+    options: ['go clean', 'go mod tidy', 'go prune', 'go remove'],
+    answer: 1,
+  },
+  {
+    q: 'ใน Echo การลงทะเบียน route เกิดขึ้นที่ไหน?',
+    options: [
+      'โดยอัตโนมัติผ่าน decorator',
+      'ในไฟล์ config',
+      'ใน main.go หรือไฟล์ router แยก',
+      'ใน go.mod',
+    ],
+    answer: 2,
+  },
+];
+
+<Quiz client:visible id="api-echo/project-layout" questions={quizQuestionsLayout} />
+
+<ProgressTracker client:visible id="api-echo/project-layout" />

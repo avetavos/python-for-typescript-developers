@@ -1,0 +1,109 @@
+---
+title: Tooling, Testing & Deployment
+description: Go มาพร้อม toolchain ครบชุด เรียนรู้ว่ามันต่างจาก Node/TypeScript ที่ต้องประกอบเองอย่างไร
+---
+
+import TsGo from '../../../../components/TsGo.tsx';
+import Quiz from '../../../../components/Quiz.tsx';
+import ProgressTracker from '../../../../components/ProgressTracker.tsx';
+import GoOnly from '../../../../components/GoOnly.astro';
+
+## Node toolchain คือชุดของเครื่องมือ — ของ Go คือ binary เดียว
+
+ในฐานะนักพัฒนา TypeScript คุณคงคุ้นเคยกับการประกอบ toolchain จากส่วนประกอบหลายชิ้น:
+
+- **Formatting:** Prettier
+- **Linting:** ESLint พร้อม plugin ต่าง ๆ
+- **Type-checking:** `tsc`
+- **Testing:** Jest (หรือ Vitest)
+- **Bundling:** webpack / esbuild / Vite
+- **Running:** `ts-node` หรือ `tsx`
+- **Dependency management:** npm / yarn / pnpm
+
+แต่ละเครื่องมือมี config file ของตัวเอง มี release cycle ของตัวเอง และ breaking change surface ของตัวเอง เวลาส่วนไม่น้อยในการ setup project จึงหมดไปกับการเชื่อมสิ่งเหล่านี้เข้าด้วยกัน
+
+Go ติดตั้งมาพร้อมกับทุกอย่างข้างต้นในไบนารีเดียวชื่อ `go` ที่มาพร้อมกับภาษา:
+
+| TypeScript / Node | เทียบเท่าใน Go |
+|-------------------|--------------|
+| Prettier | `gofmt` / `go fmt` (built-in) |
+| ESLint | `go vet` + `staticcheck` / golangci-lint |
+| tsc | `go build` (type-checking เปิดตลอด) |
+| Jest / Vitest | `go test` (built-in) |
+| webpack / esbuild | `go build` (ได้ binary เดียวแบบ static) |
+| ts-node / tsx | `go run` |
+| npm / yarn | `go mod` |
+
+## ไม่มีการเถียงเรื่อง config
+
+สิ่งที่นักพัฒนา Go รักที่สุดอย่างหนึ่งคือ **ไม่มี config สำหรับ style** `gofmt` มีความเห็นเดียวเกี่ยวกับหน้าตาของโค้ด Go และนั่นคือจุดสิ้นสุดการสนทนา ไม่มี `.prettierrc` ไม่มี `.eslintrc` ไม่มีการเถียงเรื่อง tab width ใน pull request
+
+นี่คือการตัดสินใจเชิงวัฒนธรรมโดยเจตนาของชุมชน Go: style ถูกตกลงไว้แล้ว บทสนทนาจึงเน้นไปที่ architecture และ logic แทน
+
+## ภาพรวมของ module นี้
+
+module นี้จะพาคุณไปรู้จักกับแต่ละเครื่องมือหลักใน suite ของ Go และเชื่อมกับสิ่งที่คุณรู้อยู่แล้ว:
+
+- **gofmt, go vet, lint** — การจัดรูปแบบและ static analysis
+- **Project layout** — โค้ดอยู่ที่ไหนและทำไม `internal/` ถึงสำคัญ
+- **Docker multi-stage builds** — ส่ง Go image ขนาดเล็ก vs image ของ Node ที่มี node_modules
+- **Cross-compilation** — binary เดียวสำหรับทุก OS/arch โดยไม่ต้องมี runtime
+- **CI กับ GitHub Actions** — workflow ของ Go ที่ใช้งานได้จริง vs workflow ของ Node
+
+export const tsToolingCode = `// package.json (ส่วนหนึ่ง)
+{
+  "scripts": {
+    "lint":   "eslint src --ext .ts",
+    "format": "prettier --write src",
+    "test":   "jest",
+    "build":  "tsc && webpack",
+    "start":  "ts-node src/main.ts"
+  },
+  "devDependencies": {
+    "eslint": "^8",
+    "prettier": "^3",
+    "jest": "^29",
+    "ts-jest": "^29",
+    "webpack": "^5",
+    "ts-node": "^10",
+    "typescript": "^5"
+  }
+}`;
+
+export const goToolingCode = `# Makefile (wrapper สำหรับความสะดวก — optional)
+# ทุกอย่างด้านล่างอยู่ใน binary "go" อยู่แล้ว
+
+lint:
+    go vet ./...
+    staticcheck ./...
+
+fmt:
+    go fmt ./...
+
+test:
+    go test ./...
+
+build:
+    go build -o bin/app ./cmd/app
+
+run:
+    go run ./cmd/app`;
+
+<TsGo client:visible ts={tsToolingCode} go={goToolingCode} />
+
+<GoOnly title="go run vs ts-node">
+
+`go run ./cmd/app` คอมไพล์และรันในขั้นตอนเดียว — คล้ายกับ `ts-node src/main.ts` ความแตกต่างสำคัญคือ `go run` ยังคงสร้าง binary จริงอยู่ เพียงแต่วางไว้ใน temp directory และล้างทิ้งหลังจากนั้น ไม่มี interpreter ขณะ runtime
+
+</GoOnly>
+
+export const quizQuestionsToolingIndex = [
+  { q: 'คำสั่ง Go ไหนเทียบเท่ากับ `ts-node src/main.ts`?', options: ['go build', 'go run', 'go exec', 'go start'], answer: 1 },
+  { q: 'อะไรคือเทียบเท่าของ Prettier ใน Go สำหรับการจัดรูปแบบโค้ด?', options: ['go lint', 'gofmt', 'go style', 'go check'], answer: 1 },
+  { q: 'คำสั่ง Go ไหนจัดการ dependencies (เหมือน npm/yarn)?', options: ['go get เท่านั้น', 'go mod', 'go dep', 'go pkg'], answer: 1 },
+  { q: 'gofmt ของ Go สามารถกำหนดค่าได้ — จริงหรือเท็จ?', options: ['จริง — ผ่าน .gofmtrc', 'จริง — ผ่าน go.mod', 'เท็จ — มี style เดียว', 'เท็จ — ต้องใช้ golangci-lint แทน'], answer: 2 },
+];
+
+<Quiz client:visible id="tooling/index" questions={quizQuestionsToolingIndex} />
+
+<ProgressTracker client:visible id="tooling/index" />
