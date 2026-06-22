@@ -1,4 +1,4 @@
-const KEY = 'gfts:v1';
+const KEY = 'pyfts:v1';
 type State = { completed: string[]; quizzes: Record<string, { correct: number; total: number }> };
 
 function read(): State {
