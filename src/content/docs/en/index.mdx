@@ -1,6 +1,60 @@
 ---
 title: Python for TypeScript Developers
-description: Learn Python as a TypeScript developer.
+description: Learn Python the fast way — every concept compared to the TypeScript you already know.
 template: splash
+hero:
+  tagline: Learn Python by mapping it to the TypeScript you already know. Runnable examples, side-by-side comparisons, quizzes — all in your browser.
+  actions:
+    - text: Start with the Introduction
+      link: /python-for-typescript-developers/en/intro/
+      icon: right-arrow
+      variant: primary
+    - text: Jump to Python 101
+      link: /python-for-typescript-developers/en/python-101/
+      icon: open-book
 ---
-Coming soon.
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## What you'll learn
+
+<CardGrid>
+  <Card title="Introduction & Setup" icon="rocket">
+    Why Python for TS devs, the mental-model shifts, and the toolchain. [Start →](/python-for-typescript-developers/en/intro/)
+  </Card>
+  <Card title="Python 101 — Fundamentals" icon="open-book">
+    Variables, functions, classes, errors — TypeScript ↔ Python. [Learn →](/python-for-typescript-developers/en/python-101/)
+  </Card>
+  <Card title="Python You Won't Find in TypeScript" icon="puzzle">
+    Decorators, comprehensions, generators, dunder methods, context managers. [Explore →](/python-for-typescript-developers/en/py-only/)
+  </Card>
+  <Card title="Async & Concurrency" icon="random">
+    asyncio, tasks & gather, threads, multiprocessing — beyond the event loop. [Dive in →](/python-for-typescript-developers/en/concurrency/)
+  </Card>
+  <Card title="Building an API with FastAPI" icon="laptop">
+    Routing, Pydantic models, validation, DI — Express/Nest ↔ FastAPI. [Build →](/python-for-typescript-developers/en/api-fastapi/)
+  </Card>
+  <Card title="Advanced Python" icon="star">
+    Protocols vs structural typing, dataclasses, pattern matching, pytest. [Go deeper →](/python-for-typescript-developers/en/advanced/)
+  </Card>
+  <Card title="Tooling, Testing & Deployment" icon="setting">
+    ruff/black, mypy, pytest, venv/uv, Docker, CI. [Ship it →](/python-for-typescript-developers/en/tooling/)
+  </Card>
+</CardGrid>
+
+## How this course works
+
+<CardGrid>
+  <Card title="Comparison-first" icon="approve-check">
+    Every concept starts from the TypeScript you know, then shows the Python way.
+  </Card>
+  <Card title="Run Python in your browser" icon="rocket">
+    Runnable examples execute client-side via Pyodide (CPython compiled to WebAssembly) — no setup, no backend.
+  </Card>
+  <Card title="Quizzes & progress" icon="bars">
+    Check your understanding after each lesson; your progress is saved locally.
+  </Card>
+  <Card title="Bilingual" icon="translate">
+    Available in English and ไทย — switch anytime from the top bar.
+  </Card>
+</CardGrid>
