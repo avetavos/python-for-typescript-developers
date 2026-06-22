@@ -46,7 +46,7 @@ for (const item of items) {
 export const pyFeelIndex = `# Python: indentation defines blocks
 def greet(name: str) -> str:
     if name:
-        return f"Hello, \${name}!"
+        return f"Hello, {name}!"
     else:
         return "Hello, stranger!"
 
@@ -61,13 +61,13 @@ for item in items:
 export const playgroundIndex = `# A taste of Python's feel
 def describe(value):
     if isinstance(value, int):
-        print(f"\${value} is an integer")
+        print(f"{value} is an integer")
     elif isinstance(value, str):
-        print(f'"\${value}" is a string')
+        print(f'"{value}" is a string')
     elif isinstance(value, list):
-        print(f"\${value} is a list with \${len(value)} items")
+        print(f"{value} is a list with {len(value)} items")
     else:
-        print(f"\${value} is something else")
+        print(f"{value} is something else")
 
 describe(42)
 describe("hello")
@@ -77,7 +77,7 @@ describe(3.14)
 # Python reads like prose
 numbers = [1, 2, 3, 4, 5]
 evens = [n for n in numbers if n % 2 == 0]
-print(f"Even numbers: \${evens}")
+print(f"Even numbers: {evens}")
 `;
 
 <Playground client:visible code={playgroundIndex} />

@@ -102,7 +102,7 @@ def process_matrix(matrix: list[list[int]]) -> None:
 export const playgroundWhitespace = `# Python uses indentation — no curly braces needed
 def greet(name):
     if name:
-        print(f"Hello, \${name}!")
+        print(f"Hello, {name}!")
     else:
         print("Hello, stranger!")
 
@@ -111,9 +111,9 @@ greet("")
 
 for i in range(3):
     if i % 2 == 0:
-        print(f"\${i} is even")
+        print(f"{i} is even")
     else:
-        print(f"\${i} is odd")
+        print(f"{i} is odd")
 `;
 
 <Playground client:visible code={playgroundWhitespace} />

@@ -50,15 +50,15 @@ class ManagedResource:
         self.name = name
 
     def __enter__(self):
-        print(f"Acquiring \${self.name}")
+        print(f"Acquiring {self.name}")
         return self  # bound to the 'as' variable
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        print(f"Releasing \${self.name}")
+        print(f"Releasing {self.name}")
         return False  # do not suppress exceptions
 
 with ManagedResource("database connection") as resource:
-    print(f"Using \${resource.name}")
+    print(f"Using {resource.name}")
 # release is guaranteed even if an exception occurs`;
 
 <TsGo client:visible ts={tsCm} go={pyCm} />
@@ -90,9 +90,9 @@ export const pyCmContextlib = `from contextlib import contextmanager
 
 @contextmanager
 def timer(label):
-    print(f"[\${label}] starting")
+    print(f"[{label}] starting")
     yield          # execution of the with block happens here
-    print(f"[\${label}] done")
+    print(f"[{label}] done")
 
 with timer("my block"):
     total = sum(range(1000))
@@ -112,25 +112,25 @@ class ManagedResource:
         self.name = name
 
     def __enter__(self):
-        print(f"Acquiring \${self.name}")
+        print(f"Acquiring {self.name}")
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        print(f"Releasing \${self.name}")
+        print(f"Releasing {self.name}")
         return False
 
 with ManagedResource("database connection") as resource:
-    print(f"Using \${resource.name}")
+    print(f"Using {resource.name}")
 
 @contextmanager
 def timer(label):
-    print(f"[\${label}] starting")
+    print(f"[{label}] starting")
     yield
-    print(f"[\${label}] done")
+    print(f"[{label}] done")
 
 with timer("my block"):
     total = sum(range(1000))
-    print(f"sum = \${total}")
+    print(f"sum = {total}")
 `;
 
 <Playground client:visible code={playgroundCm} />
