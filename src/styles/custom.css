@@ -27,3 +27,6 @@ html.read-mode .sidebar, html.read-mode .sidebar-pane, html.read-mode .right-sid
 html.read-mode .main-frame { padding-inline-start: 0 !important; padding-top: 0 !important; }
 html.read-mode .main-pane { width: 100%; }
 html.read-mode .sl-container, html.read-mode .sl-markdown-content { max-width: 50rem; margin-inline: auto; }
+
+/* Runner toolbar buttons: cancel Starlight flow margin so buttons stay aligned */
+.sl-markdown-content :is([class*="__run"],[class*="__open"],[class*="__copy"],[class*="__btn"],[class*="__fork"]) { margin-top: 0; }
