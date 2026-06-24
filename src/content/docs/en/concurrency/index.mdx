@@ -7,6 +7,17 @@ import Playground from '../../../../components/Playground.tsx';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
+import Mermaid from '../../../../components/Mermaid.astro';
+
+export const toolChoiceDiagram = `flowchart TD
+  io{"Bottleneck is waiting on I/O? (network, disk, DB)"}
+  cpu{"Bottleneck is CPU computation? (math, image, ML)"}
+  simple{"Just want a simple high-level API?"}
+  io -- Yes --> asyncio["Use asyncio (preferred) or threading"]
+  io -- No --> cpu
+  cpu -- Yes --> mp["Use multiprocessing (bypasses the GIL)"]
+  cpu -- No --> simple
+  simple -- Yes --> cf["Use concurrent.futures (wraps threading and multiprocessing)"]`;
 
 ## Coming from JavaScript's single-threaded world
 
@@ -110,18 +121,7 @@ Python 3.13 introduced an **experimental no-GIL build** (PEP 703). It is not the
 
 ## Which tool should I reach for?
 
-```
-Is the bottleneck waiting on I/O (network, disk, DB)?
-    └─ Yes → Use asyncio (preferred) or threading
-           asyncio if you control the code (use async libraries)
-           threading if you're wrapping a blocking/legacy library
-
-Is the bottleneck CPU computation (math, image processing, ML)?
-    └─ Yes → Use multiprocessing (bypasses the GIL)
-
-Do you just want a simple high-level API?
-    └─ Yes → Use concurrent.futures (wraps both threading and multiprocessing)
-```
+<Mermaid code={toolChoiceDiagram} title="Choosing a concurrency tool" />
 
 The rest of this module covers each tool in depth.
 

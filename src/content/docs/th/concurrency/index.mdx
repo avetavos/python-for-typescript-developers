@@ -7,6 +7,17 @@ import Playground from '../../../../components/Playground.tsx';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
+import Mermaid from '../../../../components/Mermaid.astro';
+
+export const toolChoiceDiagram = `flowchart TD
+  io{"Bottleneck is waiting on I/O? (network, disk, DB)"}
+  cpu{"Bottleneck is CPU computation? (math, image, ML)"}
+  simple{"Just want a simple high-level API?"}
+  io -- Yes --> asyncio["Use asyncio (preferred) or threading"]
+  io -- No --> cpu
+  cpu -- Yes --> mp["Use multiprocessing (bypasses the GIL)"]
+  cpu -- No --> simple
+  simple -- Yes --> cf["Use concurrent.futures (wraps threading and multiprocessing)"]`;
 
 ## มาจากโลก JavaScript ที่เป็น single-thread
 
@@ -110,18 +121,7 @@ Python 3.13 เปิดตัว **experimental no-GIL build** (PEP 703) ยั
 
 ## ควรเลือกเครื่องมือไหน?
 
-```
-bottleneck คือการรอ I/O (network, disk, DB) ใช่ไหม?
-    └─ ใช่ → ใช้ asyncio (แนะนำ) หรือ threading
-           asyncio ถ้าคุณควบคุมโค้ดและใช้ async library ได้
-           threading ถ้าต้องการ wrap library แบบ blocking/legacy
-
-bottleneck คือการคำนวณ CPU (math, image processing, ML)?
-    └─ ใช่ → ใช้ multiprocessing (ข้าม GIL)
-
-ต้องการ API ระดับสูงที่ง่ายๆ?
-    └─ ใช่ → ใช้ concurrent.futures (ครอบทั้ง threading และ multiprocessing)
-```
+<Mermaid code={toolChoiceDiagram} title="Choosing a concurrency tool" />
 
 บทเรียนที่เหลือในโมดูลนี้จะครอบคลุมแต่ละเครื่องมืออย่างละเอียด
 

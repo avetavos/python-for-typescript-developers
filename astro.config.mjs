@@ -13,6 +13,9 @@ export default defineConfig({
   output: 'static',
   integrations: [starlight({
       title: 'Python for TypeScript Developers',
+      head: [
+        { tag: 'script', attrs: { type: 'module', src: '/python-for-typescript-developers/enhance.js' } },
+      ],
       defaultLocale: 'en',
       locales: {
         en: { label: 'English', lang: 'en' },
