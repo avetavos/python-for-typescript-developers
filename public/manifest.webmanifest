@@ -1,28 +1,28 @@
 {
-  "id": "/",
+  "id": "/python/",
   "name": "Python for TypeScript Developers",
   "short_name": "Python for TypeScript Developers",
-  "start_url": "/en/",
-  "scope": "/",
+  "start_url": "/python/en/",
+  "scope": "/python/",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#0d1117",
   "theme_color": "#FFD43B",
   "icons": [
     {
-      "src": "/icon-192.png",
+      "src": "/python/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icon-512.png",
+      "src": "/python/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icon-512.png",
+      "src": "/python/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
