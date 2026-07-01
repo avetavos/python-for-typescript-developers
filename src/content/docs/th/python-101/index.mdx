@@ -2,8 +2,8 @@
 title: Python 101 — พื้นฐาน
 description: ภาพรวมของโมดูลและตัวอย่างเปรียบเทียบ TypeScript↔Python แบบรวดเร็วสำหรับนักพัฒนา JS/TS ที่ทำงานจริง
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 
@@ -38,7 +38,7 @@ for name in short:
 # Hello, Bob!
 # Hello, Dave!`;
 
-<TsGo client:visible ts={tasterTs} go={tasterPy} />
+<TsGo ts={tasterTs} go={tasterPy} />
 
 ## ลองเล่นดู
 
@@ -50,7 +50,7 @@ for name in short:
     print(f"Hello, {name}!")
 `;
 
-<Playground client:visible code={tasterCode} />
+<Playground code={tasterCode} />
 
 ## สิ่งที่คุณจะได้เรียนรู้
 

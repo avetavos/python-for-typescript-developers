@@ -2,8 +2,8 @@
 title: Threading & GIL
 description: threading module ของ Python, Global Interpreter Lock, เมื่อไหร่ที่ thread ช่วยได้ (I/O-bound) และเมื่อไหร่ที่ไม่ช่วย (CPU-bound) — เทียบกับ JavaScript Web Workers
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -43,7 +43,7 @@ t.start()
 t.join()   # wait for thread to finish
 print(results)  # [15]`;
 
-<TsGo client:visible ts={threadingTs} go={threadingPy} />
+<TsGo ts={threadingTs} go={threadingPy} />
 
 ## Threading พื้นฐาน
 
@@ -159,7 +159,7 @@ export const whenThreadPy = `# Python — choose the right tool
 # Use multiprocessing when:
 #   - The task is CPU-bound (math, image processing, ML inference)`;
 
-<TsGo client:visible ts={whenThreadTs} go={whenThreadPy} />
+<TsGo ts={whenThreadTs} go={whenThreadPy} />
 
 ## Thread safety และ locks
 

@@ -2,8 +2,8 @@
 title: Pydantic Models
 description: การกำหนด request และ response schema ด้วย Pydantic BaseModel เปรียบเทียบกับ Zod schemas และ TypeScript interfaces
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -49,7 +49,7 @@ app = FastAPI()
 async def create_item(item: CreateItem):
     return item          # Pydantic serialize กลับเป็น JSON`;
 
-<TsGo client:visible ts={schemaTs} go={schemaPy} />
+<TsGo ts={schemaTs} go={schemaPy} />
 
 ## Nested models
 
@@ -82,7 +82,7 @@ class User(BaseModel):
 # FastAPI จะ parse nested JSON นี้อัตโนมัติ:
 # { "name": "Alice", "address": { "street": "1 Main St", ... } }`;
 
-<TsGo client:visible ts={nestedTs} go={nestedPy} />
+<TsGo ts={nestedTs} go={nestedPy} />
 
 ## Response models — แยก input จาก output
 
@@ -116,7 +116,7 @@ async def create_item(item: CreateItem):
     return ItemResponse(id=1, name=item.name, price=item.price,
                         created_at=datetime.utcnow())`;
 
-<TsGo client:visible ts={responseModelTs} go={responseModelPy} />
+<TsGo ts={responseModelTs} go={responseModelPy} />
 
 <PyOnly title="model_dump() และ model_validate() — Pydantic v2 methods">
 
@@ -172,7 +172,7 @@ line = OrderLine(item=item, quantity=3)
 print("\\nnested:", asdict(line))
 `;
 
-<Playground client:visible code={dataclassCode} />
+<Playground code={dataclassCode} />
 
 export const quizPydantic = [
   {

@@ -2,8 +2,8 @@
 title: Metaclasses & Descriptors
 description: Python's descriptor protocol (__get__/__set__/__delete__) and metaclass system — powerful runtime machinery with no direct TypeScript equivalent.
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -72,7 +72,7 @@ item = Product(9.99, 3)
 print(item.total())    # 29.97
 item.price = "free"    # TypeError: price must be numeric`;
 
-<TsGo client:visible ts={descTs} go={descPy} />
+<TsGo ts={descTs} go={descPy} />
 
 The key insight: the `Validated` descriptor can be reused on any number of classes and any number of attributes. TypeScript getters/setters are per-class and per-property — you cannot share one definition.
 
@@ -121,7 +121,7 @@ except TypeError as e:
     print(f"Caught: {e}")
 `;
 
-<Playground client:visible code={descriptorPlaygroundCode} />
+<Playground code={descriptorPlaygroundCode} />
 
 <PyOnly title="Metaclasses: classes that create classes">
 

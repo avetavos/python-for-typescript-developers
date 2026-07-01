@@ -2,7 +2,7 @@
 title: Setup — Installing Python and Creating a Project
 description: Install Python, create a virtual environment, and run your first script — mapped to the npm/Node workflow you already know.
 ---
-import TsGo from '../../../../components/TsGo.tsx';
+import TsGo from '../../../../components/TsGo.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -29,7 +29,7 @@ mypy/pyright → optional type checker (like tsc)
 pyproject.toml → project manifest (modern)
 venv/      → isolated dependency folder (per project)`;
 
-<TsGo client:visible ts={toolchainTs} go={toolchainPy} />
+<TsGo ts={toolchainTs} go={toolchainPy} />
 
 ## Installing Python
 
@@ -72,7 +72,7 @@ source venv/bin/activate  # macOS/Linux
 pip install fastapi        # installs into ./venv, not globally
 python3 script.py`;
 
-<TsGo client:visible ts={venvTs} go={venvPy} />
+<TsGo ts={venvTs} go={venvPy} />
 
 After running `source venv/bin/activate`, your prompt changes to show `(venv)`. Now `python` and `pip` point to the local venv. Run `deactivate` to exit.
 
@@ -96,7 +96,7 @@ python3 src/main.py              # run directly, no compile
 python3 -m module_name           # run a module as a script
 python3 -i src/main.py           # run then drop into REPL`;
 
-<TsGo client:visible ts={runScriptTs} go={runScriptPy} />
+<TsGo ts={runScriptTs} go={runScriptPy} />
 
 ## Installing and saving dependencies
 
@@ -114,7 +114,7 @@ pip install -r requirements.txt   # install from snapshot
 # Modern workflow with pyproject.toml
 pip install .                     # install project deps from pyproject.toml`;
 
-<TsGo client:visible ts={depsTs} go={depsPy} />
+<TsGo ts={depsTs} go={depsPy} />
 
 <PyOnly title="pip freeze vs package.json — a key difference">
 
@@ -148,7 +148,7 @@ uvicorn main:app --reload
 # Capture deps for teammates
 pip freeze > requirements.txt`;
 
-<TsGo client:visible ts={workflowTs} go={workflowPy} />
+<TsGo ts={workflowTs} go={workflowPy} />
 
 export const quizSetup = [
   {

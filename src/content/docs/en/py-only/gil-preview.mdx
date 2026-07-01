@@ -2,7 +2,7 @@
 title: "The GIL — Global Interpreter Lock"
 description: What Python's GIL is, why it matters for concurrency, and a preview of the concurrency module vs JavaScript's single-threaded event loop.
 ---
-import TsGo from '../../../../components/TsGo.tsx';
+import TsGo from '../../../../components/TsGo.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -56,7 +56,7 @@ t1.join();  t2.join()
 
 print(sum(results))  # correct answer, but not 2x faster`;
 
-<TsGo client:visible ts={tsGil} go={pyGil} />
+<TsGo ts={tsGil} go={pyGil} />
 
 ## When the GIL hurts and when it does not
 
@@ -112,7 +112,7 @@ if __name__ == "__main__":
         results = pool.map(cpu_work, [chunk] * cpus)
     print(sum(results))`;
 
-<TsGo client:visible ts={tsMp} go={pyMp} />
+<TsGo ts={tsMp} go={pyMp} />
 
 ## Python 3.13 Free-Threaded mode
 

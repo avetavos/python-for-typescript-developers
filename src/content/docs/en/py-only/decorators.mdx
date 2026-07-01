@@ -2,8 +2,8 @@
 title: "Decorators"
 description: Python decorators with @syntax, functions as first-class objects, wrapping behavior vs TypeScript decorators.
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -73,7 +73,7 @@ greet("Alice")
 # Hello, Alice!
 # greet finished.`;
 
-<TsGo client:visible ts={tsDecorators} go={pyDecorators} />
+<TsGo ts={tsDecorators} go={pyDecorators} />
 
 ## Decorators with arguments: decorator factories
 
@@ -133,7 +133,7 @@ def say_hi():
 say_hi()
 `;
 
-<Playground client:visible code={playgroundDecorators} />
+<Playground code={playgroundDecorators} />
 
 <PyOnly title="Decorators run at definition time, not call time">
 

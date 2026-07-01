@@ -2,8 +2,8 @@
 title: Error Handling
 description: try/except/else/finally, raise และ exception classes ใน Python เทียบกับ try/catch ของ TypeScript
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -45,7 +45,7 @@ except ValueError as e:
 finally:
     print("Always runs")`;
 
-<TsGo client:visible ts={basicErrTs} go={basicErrPy} />
+<TsGo ts={basicErrTs} go={basicErrPy} />
 
 ความต่างสำคัญ:
 - ใช้ `except` แทน `catch`
@@ -87,7 +87,7 @@ except Exception as e:
 # except (ValueError, TypeError) as e:
 #     print(f"Either error: {e}")`;
 
-<TsGo client:visible ts={multiExcTs} go={multiExcPy} />
+<TsGo ts={multiExcTs} go={multiExcPy} />
 
 ## คลาส exception ที่กำหนดเอง
 
@@ -121,7 +121,7 @@ try:
 except AppError as e:
     print(f"[{e.code}] {e}")`;
 
-<TsGo client:visible ts={customExcTs} go={customExcPy} />
+<TsGo ts={customExcTs} go={customExcPy} />
 
 ## ลองเล่นดู
 
@@ -154,7 +154,7 @@ finally:
     print("Finally again")
 `;
 
-<Playground client:visible code={errorsCode} />
+<Playground code={errorsCode} />
 
 <PyOnly title="ประโยค else บน try — ไม่มีสิ่งที่เทียบเท่าใน TypeScript">
 

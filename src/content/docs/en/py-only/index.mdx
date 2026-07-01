@@ -2,8 +2,8 @@
 title: Python You Won't Find in TypeScript
 description: Overview of Python-only concepts that have no direct TypeScript equivalent.
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -54,7 +54,7 @@ items: list[int] = [1, 2, 3]
 for item in items:
     print(item)`;
 
-<TsGo client:visible ts={tsFeelIndex} go={pyFeelIndex} />
+<TsGo ts={tsFeelIndex} go={pyFeelIndex} />
 
 ## Try it
 
@@ -80,7 +80,7 @@ evens = [n for n in numbers if n % 2 == 0]
 print(f"Even numbers: {evens}")
 `;
 
-<Playground client:visible code={playgroundIndex} />
+<Playground code={playgroundIndex} />
 
 <PyOnly title="Batteries included: Python's design philosophy">
 

@@ -2,8 +2,8 @@
 title: asyncio พื้นฐาน
 description: async def, await และ event loop ใน Python — เกือบเหมือนกับ async/await ของ JavaScript โดยมีข้อแตกต่างเล็กน้อยที่สำคัญ
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -40,7 +40,7 @@ async def greet(name: str) -> str:
 result = await greet("Alice")
 print(result)  # Hello, Alice!`;
 
-<TsGo client:visible ts={asyncDefTs} go={asyncDefPy} />
+<TsGo ts={asyncDefTs} go={asyncDefPy} />
 
 ความเหมือนหลัก: การ annotate return type ของ `async def` เป็น `str` หมายความว่า "coroutine นี้จะผลิต `str` เมื่อถูก await" — เหมือนกับ `Promise<string>` ใน TypeScript
 
@@ -67,7 +67,7 @@ async def run() -> None:
     await asyncio.sleep(1)   # suspends, yields to event loop
     print("1 second later")`;
 
-<TsGo client:visible ts={sleepTs} go={sleepPy} />
+<TsGo ts={sleepTs} go={sleepPy} />
 
 `await asyncio.sleep(0)` (ศูนย์วินาที) เทียบเท่ากับ `await Promise.resolve()` ของ Python — มัน yield ให้ event loop หนึ่งรอบโดยไม่รอจริงๆ
 
@@ -96,7 +96,7 @@ asyncio.run(main())
 # In a Jupyter notebook or interactive session, a loop is already
 # running — use top-level await directly instead of asyncio.run().`;
 
-<TsGo client:visible ts={runLoopTs} go={runLoopPy} />
+<TsGo ts={runLoopTs} go={runLoopPy} />
 
 <PyOnly title="asyncio.run() vs top-level await">
 
@@ -149,7 +149,7 @@ async def main() -> None:
     print(result)
     print("done")`;
 
-<TsGo client:visible ts={completeTs} go={completePy} />
+<TsGo ts={completeTs} go={completePy} />
 
 ## ลองเลย
 
@@ -170,7 +170,7 @@ print(a, "->", b)
 print("Event loop managed both without blocking")
 `;
 
-<Playground client:visible code={asyncBasicsCode} />
+<Playground code={asyncBasicsCode} />
 
 export const quizAsyncioBasics = [
   {

@@ -2,8 +2,8 @@
 title: Static Type Checking — mypy
 description: mypy brings TypeScript-style static analysis to Python type hints. The "TypeScript moment" for Python.
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -60,7 +60,7 @@ def add(a: int, b: int) -> int:
 def first[T](arr: list[T]) -> T | None:
     return arr[0] if arr else None`;
 
-<TsGo client:visible ts={tscTypes} go={mypyTypes} />
+<TsGo ts={tscTypes} go={mypyTypes} />
 
 ## Common type annotations
 
@@ -95,7 +95,7 @@ class OkResult(TypedDict):
     ok: bool
     value: str`;
 
-<TsGo client:visible ts={tsCommonTypes} go={pyCommonTypes} />
+<TsGo ts={tsCommonTypes} go={pyCommonTypes} />
 
 ## Try it — type hints in action
 
@@ -116,7 +116,7 @@ result = double("oops")   # mypy would flag this, Python runs it
 print(result)             # prints 'oopsoops' — string * 2 repeats it!
 `;
 
-<Playground client:visible code={mypyDemo} />
+<Playground code={mypyDemo} />
 
 ## Configuring mypy vs tsconfig
 
@@ -139,7 +139,7 @@ warn_return_any = true
 disallow_untyped_defs = true
 ignore_missing_imports = true   # for untyped third-party libs`;
 
-<TsGo client:visible ts={tsconfig} go={mypyConfig} />
+<TsGo ts={tsconfig} go={mypyConfig} />
 
 <PyOnly title="mypy vs pyright — two checkers, same idea">
 

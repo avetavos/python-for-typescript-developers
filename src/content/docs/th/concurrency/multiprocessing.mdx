@@ -2,8 +2,8 @@
 title: Multiprocessing
 description: multiprocessing module ของ Python สำหรับ CPU parallelism จริงๆ — แต่ละ process มี GIL และ memory ของตัวเอง เทียบกับ child_process และ Web Workers ของ JavaScript
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -52,7 +52,7 @@ p.start()
 p.join()
 print("sum:", q.get())`;
 
-<TsGo client:visible ts={mpTs} go={mpPy} />
+<TsGo ts={mpTs} go={mpPy} />
 
 ## Pool.map — high-level API
 

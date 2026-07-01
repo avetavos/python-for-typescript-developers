@@ -2,8 +2,8 @@
 title: Duck Typing และ EAFP
 description: Duck typing ของ Python และ pattern การขอการยกเว้น (EAFP) vs structural types และ LBYL ของ TypeScript
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -60,7 +60,7 @@ make_sound(Dog())
 make_sound(Cat())
 make_sound(Duck())  # works — Duck was never declared as Speaker`;
 
-<TsGo client:visible ts={tsDuckTyping} go={pyDuckTyping} />
+<TsGo ts={tsDuckTyping} go={pyDuckTyping} />
 
 ใน TypeScript `Duck` ต้องประกาศ `implement Speaker` อย่างชัดเจน ใน Python object ใดก็ตามที่มี method `.speak()` ใช้ได้ทันที โดยไม่ต้องประกาศอะไรเลย
 
@@ -102,7 +102,7 @@ def parse_number(s: str):
     except ValueError:
         return None`;
 
-<TsGo client:visible ts={tsLbylEafp} go={pyLbylEafp} />
+<TsGo ts={tsLbylEafp} go={pyLbylEafp} />
 
 ## ลองด้วยตัวเอง
 
@@ -136,7 +136,7 @@ print(get_value(data, "name"))
 print(get_value(data, "email"))
 `;
 
-<Playground client:visible code={playgroundDuckTypingEafp} />
+<Playground code={playgroundDuckTypingEafp} />
 
 <PyOnly title="ทำไมวัฒนธรรม Python ชอบ try/except มากกว่าการตรวจสอบด้วย hasattr">
 

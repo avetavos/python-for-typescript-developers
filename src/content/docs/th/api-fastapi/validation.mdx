@@ -2,8 +2,8 @@
 title: Validation
 description: การ validation อัตโนมัติผ่าน Pydantic types และ Field constraints เปรียบเทียบกับ class-validator และ Zod
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -47,7 +47,7 @@ class CreateItem(BaseModel):
         pattern=r"^[a-z0-9-]+$"
     )`;
 
-<TsGo client:visible ts={fieldTs} go={fieldPy} />
+<TsGo ts={fieldTs} go={fieldPy} />
 
 ตาราง Field constraint:
 
@@ -96,7 +96,7 @@ async def create_item(item: CreateItem):
 #   ]
 # }`;
 
-<TsGo client:visible ts={errorRespTs} go={errorRespPy} />
+<TsGo ts={errorRespTs} go={errorRespPy} />
 
 <PyOnly title="@field_validator — custom validation logic">
 
@@ -177,7 +177,7 @@ for t in tests:
         print(f"VALID   {t}")
 `;
 
-<Playground client:visible code={validationCode} />
+<Playground code={validationCode} />
 
 export const quizValidation = [
   {

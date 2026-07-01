@@ -1,0 +1,30 @@
+---
+import { Code } from 'astro-expressive-code/components';
+
+interface Props {
+  ts: string;
+  go: string;
+  tsTitle?: string;
+  goTitle?: string;
+  tsLang?: string;
+  goLang?: string;
+}
+
+const {
+  ts,
+  go,
+  tsTitle = 'TypeScript',
+  goTitle = 'Python',
+  tsLang = 'ts',
+  goLang = 'python',
+} = Astro.props;
+---
+
+<div class="tsgo">
+  <div class="tsgo__col">
+    <Code code={ts} lang={tsLang} title={tsTitle} />
+  </div>
+  <div class="tsgo__col">
+    <Code code={go} lang={goLang} title={goTitle} />
+  </div>
+</div>

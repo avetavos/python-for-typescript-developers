@@ -2,8 +2,8 @@
 title: Project Anatomy — Packages, Imports, and pyproject.toml
 description: How Python projects are structured — modules, packages, pyproject.toml vs package.json, venv vs node_modules, and the import system.
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -42,7 +42,7 @@ src/
 # import from a module
 from utils.string import capitalize`;
 
-<TsGo client:visible ts={moduleTs} go={modulePy} />
+<TsGo ts={moduleTs} go={modulePy} />
 
 ## The `__init__.py` file
 
@@ -62,7 +62,7 @@ from .number import clamp
 # Caller imports from the package:
 from utils import capitalize, clamp`;
 
-<TsGo client:visible ts={initTs} go={initPy} />
+<TsGo ts={initTs} go={initPy} />
 
 ## Import syntax
 
@@ -82,7 +82,7 @@ import os.path                       # sub-module import
 from . import sibling                # relative: same package
 from ..utils import helper           # relative: parent package`;
 
-<TsGo client:visible ts={importTs} go={importPy} />
+<TsGo ts={importTs} go={importPy} />
 
 ## pyproject.toml — the package.json equivalent
 
@@ -129,7 +129,7 @@ start = "my_api.main:main"    # like "main" in package.json
 requires = ["hatchling"]
 build-backend = "hatchling.build"`;
 
-<TsGo client:visible ts={pkgJsonTs} go={pyprojectPy} />
+<TsGo ts={pkgJsonTs} go={pyprojectPy} />
 
 ## requirements.txt — the package-lock equivalent
 
@@ -155,7 +155,7 @@ pip freeze > requirements.txt     # update snapshot manually
 # Modern: use poetry or uv
 poetry add fastapi                # adds to pyproject.toml + lock`;
 
-<TsGo client:visible ts={lockTs} go={lockPy} />
+<TsGo ts={lockTs} go={lockPy} />
 
 ## Typical project layout
 
@@ -192,7 +192,7 @@ my-api/
   venv/               ← dependencies (gitignored)
   .env                ← secrets (gitignored)`;
 
-<TsGo client:visible ts={layoutTs} go={layoutPy} />
+<TsGo ts={layoutTs} go={layoutPy} />
 
 <PyOnly title="Editable installs — pip install -e .">
 
@@ -228,7 +228,7 @@ if __name__ == "__main__":
     main()
 `;
 
-<Playground client:visible code={projectAnatomyCode} />
+<Playground code={projectAnatomyCode} />
 
 export const quizAnatomy = [
   {

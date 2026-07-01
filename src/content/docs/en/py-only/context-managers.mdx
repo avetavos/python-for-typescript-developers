@@ -2,8 +2,8 @@
 title: "Context Managers & with"
 description: Python's with statement, __enter__/__exit__ protocol, and contextlib vs TypeScript's try/finally pattern.
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -61,7 +61,7 @@ with ManagedResource("database connection") as resource:
     print(f"Using {resource.name}")
 # release is guaranteed even if an exception occurs`;
 
-<TsGo client:visible ts={tsCm} go={pyCm} />
+<TsGo ts={tsCm} go={pyCm} />
 
 The value returned by `__enter__` is bound to the variable after `as`. The `as` clause is optional — you can write `with ManagedResource("x"):` if you do not need a reference to the resource inside the block.
 
@@ -98,7 +98,7 @@ with timer("my block"):
     total = sum(range(1000))
     print(f"sum = \${total}")`;
 
-<TsGo client:visible ts={tsCmContextlib} go={pyCmContextlib} />
+<TsGo ts={tsCmContextlib} go={pyCmContextlib} />
 
 export const tsCmGen = tsCmContextlib;
 export const pyCmGen = pyCmContextlib;
@@ -133,7 +133,7 @@ with timer("my block"):
     print(f"sum = {total}")
 `;
 
-<Playground client:visible code={playgroundCm} />
+<Playground code={playgroundCm} />
 
 <PyOnly title="Exception suppression: the __exit__ contract">
 

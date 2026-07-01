@@ -2,8 +2,8 @@
 title: Functions
 description: def, default args, keyword args, *args/**kwargs, and returning multiple values vs TypeScript functions.
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -36,7 +36,7 @@ print(greet("Alice"))           # Hello, Alice!
 print(greet("Bob", "Hi"))       # Hi, Bob!
 print(add(3, 4))                # 7`;
 
-<TsGo client:visible ts={basicFnTs} go={basicFnPy} />
+<TsGo ts={basicFnTs} go={basicFnPy} />
 
 Key differences to notice:
 - `def` keyword instead of `function`.
@@ -76,7 +76,7 @@ create_user(role="admin", name="Alice")
 # Mix positional and keyword
 create_user("Bob", active=False)`;
 
-<TsGo client:visible ts={kwargTs} go={kwargPy} />
+<TsGo ts={kwargTs} go={kwargPy} />
 
 ## *args and **kwargs: variadic arguments
 
@@ -108,7 +108,7 @@ def log_fields(**fields: str) -> None:
 print(total(1, 2, 3, 4))               # 10.0
 log_fields(lang="Python", tier="backend")`;
 
-<TsGo client:visible ts={variadicTs} go={variadicPy} />
+<TsGo ts={variadicTs} go={variadicPy} />
 
 ## Returning multiple values
 
@@ -133,7 +133,7 @@ print(low, high)  # 1 9
 result = min_max([3, 1, 4, 1, 5, 9])
 print(result)     # (1, 9)`;
 
-<TsGo client:visible ts={multiReturnTs} go={multiReturnPy} />
+<TsGo ts={multiReturnTs} go={multiReturnPy} />
 
 ## Try it
 
@@ -158,7 +158,7 @@ print("User info:")
 describe(language="Python", version="3.12", tier="backend")
 `;
 
-<Playground client:visible code={functionsCode} />
+<Playground code={functionsCode} />
 
 <PyOnly title="Keyword arguments and **kwargs">
 

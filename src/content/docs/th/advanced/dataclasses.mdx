@@ -2,8 +2,8 @@
 title: Dataclasses
 description: decorator @dataclass ของ Python — __init__, __repr__, __eq__ อัตโนมัติ, frozen records, และ field defaults — เปรียบเทียบกับ TypeScript classes และ interfaces
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -45,7 +45,7 @@ print(p.distance_from_origin())   # 5.0
 # __eq__ ถูกสร้างอัตโนมัติ
 print(Point(1, 2) == Point(1, 2)) # True`;
 
-<TsGo client:visible ts={basicTs} go={basicPy} />
+<TsGo ts={basicTs} go={basicPy} />
 
 คุณได้ `__init__`, `__repr__`, และ `__eq__` มาฟรีโดยไม่ต้องเขียน boilerplate decorator `@dataclass` อ่าน field annotations ตอน class definition time และสร้างเมธอดเหล่านั้นให้
 
@@ -93,7 +93,7 @@ cfg1.tags.append("dev")
 print(cfg1.tags)  # ['dev'] — ไม่กระทบ cfg2
 print(cfg2.tags)  # ['prod']`;
 
-<TsGo client:visible ts={defaultTs} go={defaultPy} />
+<TsGo ts={defaultTs} go={defaultPy} />
 
 ## frozen=True: immutable records
 
@@ -131,7 +131,7 @@ try:
 except Exception as e:
     print(f"Error: {e}") # cannot assign to field 'r'`;
 
-<TsGo client:visible ts={frozenTs} go={frozenPy} />
+<TsGo ts={frozenTs} go={frozenPy} />
 
 ## ลองเล่น
 
@@ -179,7 +179,7 @@ except Exception as e:
     print(f"Caught: {e}")
 `;
 
-<Playground client:visible code={dataclassPlaygroundCode} />
+<Playground code={dataclassPlaygroundCode} />
 
 <PyOnly title="post_init และ field metadata">
 

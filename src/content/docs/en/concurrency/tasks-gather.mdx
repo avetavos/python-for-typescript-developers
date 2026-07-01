@@ -2,8 +2,8 @@
 title: Tasks & gather
 description: asyncio.create_task and asyncio.gather — Python's equivalent of Promise.all for running coroutines concurrently.
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -41,7 +41,7 @@ users, posts, tags = await asyncio.gather(
 )
 print(users, posts, tags)`;
 
-<TsGo client:visible ts={gatherTs} go={gatherPy} />
+<TsGo ts={gatherTs} go={gatherPy} />
 
 `asyncio.gather()` preserves the **input order** in the returned results, just like `Promise.all`. Even if `fetch_tags` finishes first, the third element of the tuple will always be its result.
 
@@ -73,7 +73,7 @@ async def main() -> None:
     print(result_a)
     print(result_b)`;
 
-<TsGo client:visible ts={createTaskTs} go={createTaskPy} />
+<TsGo ts={createTaskTs} go={createTaskPy} />
 
 ## create_task vs gather — when to use which
 
@@ -100,7 +100,7 @@ result = await task
 # cancel a task (no direct Promise equivalent in JS)
 task.cancel()`;
 
-<TsGo client:visible ts={choiceTs} go={choicePy} />
+<TsGo ts={choiceTs} go={choicePy} />
 
 ## Error handling
 
@@ -132,7 +132,7 @@ results = await asyncio.gather(
 )
 # results = ["ok", ValueError("boom"), "ok"]`;
 
-<TsGo client:visible ts={errorTs} go={errorPy} />
+<TsGo ts={errorTs} go={errorPy} />
 
 ## Try it
 
@@ -164,7 +164,7 @@ print(await task_a)
 print(await task_b)
 `;
 
-<Playground client:visible code={tasksGatherCode} />
+<Playground code={tasksGatherCode} />
 
 export const quizTasksGather = [
   {

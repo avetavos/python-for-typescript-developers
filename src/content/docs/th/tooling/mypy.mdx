@@ -2,8 +2,8 @@
 title: Static Type Checking — mypy
 description: mypy นำ static analysis แบบ TypeScript มาสู่ Python type hints — "TypeScript moment" ของ Python
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -60,7 +60,7 @@ def add(a: int, b: int) -> int:
 def first[T](arr: list[T]) -> T | None:
     return arr[0] if arr else None`;
 
-<TsGo client:visible ts={tscTypes} go={mypyTypes} />
+<TsGo ts={tscTypes} go={mypyTypes} />
 
 ## Type annotations ที่ใช้บ่อย
 
@@ -95,7 +95,7 @@ class OkResult(TypedDict):
     ok: bool
     value: str`;
 
-<TsGo client:visible ts={tsCommonTypes} go={pyCommonTypes} />
+<TsGo ts={tsCommonTypes} go={pyCommonTypes} />
 
 ## ลองด้วยตัวเอง — type hints ในการทำงานจริง
 
@@ -116,7 +116,7 @@ result = double("oops")   # mypy จะ flag แต่ Python รันได้
 print(result)             # prints 'oopsoops' — string * 2 ทำซ้ำ!
 `;
 
-<Playground client:visible code={mypyDemo} />
+<Playground code={mypyDemo} />
 
 ## การตั้งค่า mypy เทียบกับ tsconfig
 
@@ -139,7 +139,7 @@ warn_return_any = true
 disallow_untyped_defs = true
 ignore_missing_imports = true   # สำหรับ third-party libs ที่ไม่มี type`;
 
-<TsGo client:visible ts={tsconfig} go={mypyConfig} />
+<TsGo ts={tsconfig} go={mypyConfig} />
 
 <PyOnly title="mypy vs pyright — สอง checkers แนวคิดเดียวกัน">
 

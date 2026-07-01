@@ -2,8 +2,8 @@
 title: Collections
 description: Python list, tuple, dict, and set compared to TypeScript Array, object, Map, and Set — plus slicing.
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -45,7 +45,7 @@ print(len(nums))     # 5
 doubled = [n * 2 for n in nums]     # list comprehension
 evens = [n for n in nums if n % 2 == 0]`;
 
-<TsGo client:visible ts={listTs} go={listPy} />
+<TsGo ts={listTs} go={listPy} />
 
 List comprehensions (`[expr for x in iterable if condition]`) are idiomatic Python — prefer them over `map`/`filter` for simple transformations.
 
@@ -82,7 +82,7 @@ print(user.get("missing", "n/a"))        # n/a (safe lookup)
 for key, value in user.items():
     print(key, value)`;
 
-<TsGo client:visible ts={dictTs} go={dictPy} />
+<TsGo ts={dictTs} go={dictPy} />
 
 Use `.get(key, default)` instead of `dict[key]` when the key might be absent — it returns the default instead of raising a `KeyError`.
 
@@ -104,7 +104,7 @@ print("python" in tags)   # True
 print(len(tags))           # 3
 tags.discard("web")        # remove without error if absent`;
 
-<TsGo client:visible ts={setTs} go={setPy} />
+<TsGo ts={setTs} go={setPy} />
 
 ## Slicing — Python's killer feature for sequences
 
@@ -131,7 +131,7 @@ s = "Hello, World!"
 print(s[:5])          # Hello
 print(s[-6:])         # World!`;
 
-<TsGo client:visible ts={sliceTs} go={slicePy} />
+<TsGo ts={sliceTs} go={slicePy} />
 
 ## Try it
 
@@ -166,7 +166,7 @@ print(tags)
 print("python" in tags)
 `;
 
-<Playground client:visible code={collectionsCode} />
+<Playground code={collectionsCode} />
 
 <PyOnly title="Tuples: immutable sequences with unpacking">
 

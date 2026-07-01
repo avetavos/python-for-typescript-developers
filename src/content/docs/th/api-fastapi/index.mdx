@@ -2,7 +2,7 @@
 title: การสร้าง API ด้วย FastAPI
 description: ทำไมต้องใช้ FastAPI, เปรียบเทียบกับ Express และ NestJS, และสิ่งที่เราจะสร้างในโมดูลนี้
 ---
-import TsGo from '../../../../components/TsGo.tsx';
+import TsGo from '../../../../components/TsGo.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 
@@ -48,7 +48,7 @@ async def get_item(item_id: int):   # แปลง int + ส่ง 422 อัต
 #   uvicorn main:app --reload
 # Docs ที่: http://localhost:8000/docs`;
 
-<TsGo client:visible ts={introTs} go={introPy} />
+<TsGo ts={introTs} go={introPy} />
 
 เปรียบเทียบฟีเจอร์หลัก:
 

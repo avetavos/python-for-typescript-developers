@@ -2,8 +2,8 @@
 title: "Sequence Slicing"
 description: Python's powerful [start:stop:step] slice syntax, negative indices, and reversing sequences vs TypeScript's Array.slice().
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -49,7 +49,7 @@ print(data[-1])     # 9
 print(data[-3:])    # [7, 8, 9]
 print(data[1:-1])   # [1, 2, 3, 4, 5, 6, 7, 8]`;
 
-<TsGo client:visible ts={tsSlicing} go={pySlicing} />
+<TsGo ts={tsSlicing} go={pySlicing} />
 
 ## Negative indices
 
@@ -74,7 +74,7 @@ print(data[-1])     # 9   — last element
 print(data[-3:])    # [7, 8, 9] — last 3 elements
 print(data[1:-1])   # [1, 2, 3, 4, 5, 6, 7, 8] — all but first and last`;
 
-<TsGo client:visible ts={tsNeg} go={pyNeg} />
+<TsGo ts={tsNeg} go={pyNeg} />
 
 ## Slicing strings and other sequences
 
@@ -101,7 +101,7 @@ print(text[::-1])   # !dlroW ,olleH  (reversed in one expression)
 coords = (10, 20, 30, 40, 50)
 print(coords[1:4])  # (20, 30, 40)`;
 
-<TsGo client:visible ts={tsSlicingStr} go={pySlicingStr} />
+<TsGo ts={tsSlicingStr} go={pySlicingStr} />
 
 ## Try it
 
@@ -122,7 +122,7 @@ print(text[7:12])
 print(text[::-1])
 `;
 
-<Playground client:visible code={playgroundSlicing} />
+<Playground code={playgroundSlicing} />
 
 <PyOnly title="The slice object and shallow copy semantics">
 

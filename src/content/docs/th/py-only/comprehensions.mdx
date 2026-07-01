@@ -2,8 +2,8 @@
 title: "Comprehensions และ Generator Expressions"
 description: List/dict/set comprehension และ lazy generator expression ของ Python vs map/filter ของ TypeScript
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -40,7 +40,7 @@ words = ["hello", "world", "python"]
 word_lengths = {word: len(word) for word in words}
 print(word_lengths)  # {'hello': 5, 'world': 5, 'python': 6}`;
 
-<TsGo client:visible ts={tsComprehensions} go={pyComprehensions} />
+<TsGo ts={tsComprehensions} go={pyComprehensions} />
 
 ## Dict และ set comprehension
 
@@ -84,7 +84,7 @@ gen = (x ** 2 for x in range(5))
 print(list(gen))
 `;
 
-<Playground client:visible code={playgroundComprehensions} />
+<Playground code={playgroundComprehensions} />
 
 <PyOnly title="เมื่อควรใช้ comprehension และเมื่อไม่ควรใช้">
 

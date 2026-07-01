@@ -2,8 +2,8 @@
 title: "Comprehensions & Generator Expressions"
 description: Python list/dict/set comprehensions and lazy generator expressions vs TypeScript's map/filter/reduce.
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -50,7 +50,7 @@ print(word_lengths)  # {'hello': 5, 'world': 5, 'python': 6}
 unique_lengths = {len(word) for word in words}
 print(unique_lengths)  # {5, 6}`;
 
-<TsGo client:visible ts={tsComprehensions} go={pyComprehensions} />
+<TsGo ts={tsComprehensions} go={pyComprehensions} />
 
 ## All four forms
 
@@ -104,7 +104,7 @@ gen = (x ** 2 for x in range(5))
 print(list(gen))
 `;
 
-<Playground client:visible code={playgroundComprehensions} />
+<Playground code={playgroundComprehensions} />
 
 <PyOnly title="Generator expressions are lazy — list comprehensions are not">
 

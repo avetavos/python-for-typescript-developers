@@ -2,7 +2,7 @@
 title: Python ขั้นสูง — ภาพรวม
 description: ทัวร์เครื่องมือขั้นสูงของ Python สำหรับนักพัฒนา TypeScript — typing, dataclasses, descriptors, itertools, pattern matching, testing, และ profiling
 ---
-import TsGo from '../../../../components/TsGo.tsx';
+import TsGo from '../../../../components/TsGo.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 
@@ -51,7 +51,7 @@ def first(arr: list[T]) -> T:
 
 print(first([10, 20, 30]))  # 10`;
 
-<TsGo client:visible ts={overviewTs} go={overviewPy} />
+<TsGo ts={overviewTs} go={overviewPy} />
 
 ## วิธีอ่านโมดูลนี้
 

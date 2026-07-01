@@ -2,7 +2,7 @@
 title: ฐานข้อมูลด้วย SQLAlchemy
 description: การเชื่อมต่อฐานข้อมูลโดยใช้ SQLAlchemy ORM models และ sessions ใน FastAPI เปรียบเทียบกับ TypeORM หรือ Prisma ใน Node
 ---
-import TsGo from '../../../../components/TsGo.tsx';
+import TsGo from '../../../../components/TsGo.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -45,7 +45,7 @@ class Item(Base):
     price:    Mapped[float] = mapped_column(Numeric(10, 2))
     in_stock: Mapped[bool]  = mapped_column(Boolean, default=True)`;
 
-<TsGo client:visible ts={ormTs} go={ormPy} />
+<TsGo ts={ormTs} go={ormPy} />
 
 ## Database connection — engine และ session
 
@@ -79,7 +79,7 @@ SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 # engine = create_async_engine(DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://"))
 # AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)`;
 
-<TsGo client:visible ts={connTs} go={connPy} />
+<TsGo ts={connTs} go={connPy} />
 
 ## CRUD operations
 
@@ -119,7 +119,7 @@ def delete_item(db: Session, item_id: int):
         db.delete(item)
         db.commit()`;
 
-<TsGo client:visible ts={crudTs} go={crudPy} />
+<TsGo ts={crudTs} go={crudPy} />
 
 ## เชื่อมทุกอย่างเข้าด้วยกัน
 
@@ -158,7 +158,7 @@ async def read_item(item_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Item not found")
     return item`;
 
-<TsGo client:visible ts={wireTs} go={wirePy} />
+<TsGo ts={wireTs} go={wirePy} />
 
 <PyOnly title="Alembic — migration tool (เหมือน Prisma migrate หรือ TypeORM migrations)">
 

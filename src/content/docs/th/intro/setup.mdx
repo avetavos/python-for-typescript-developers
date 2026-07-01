@@ -2,7 +2,7 @@
 title: Setup — ติดตั้ง Python และสร้างโปรเจกต์
 description: ติดตั้ง Python สร้าง virtual environment และรัน script แรก — เปรียบเทียบกับ workflow ของ npm/Node ที่คุณรู้จักอยู่แล้ว
 ---
-import TsGo from '../../../../components/TsGo.tsx';
+import TsGo from '../../../../components/TsGo.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -29,7 +29,7 @@ mypy/pyright → optional type checker (like tsc)
 pyproject.toml → project manifest (modern)
 venv/      → isolated dependency folder (per project)`;
 
-<TsGo client:visible ts={toolchainTs} go={toolchainPy} />
+<TsGo ts={toolchainTs} go={toolchainPy} />
 
 ## ติดตั้ง Python
 
@@ -72,7 +72,7 @@ source venv/bin/activate  # macOS/Linux
 pip install fastapi        # installs into ./venv, not globally
 python3 script.py`;
 
-<TsGo client:visible ts={venvTs} go={venvPy} />
+<TsGo ts={venvTs} go={venvPy} />
 
 หลังจากรัน `source venv/bin/activate` prompt ของคุณจะเปลี่ยนเพื่อแสดง `(venv)` ตอนนี้ `python` และ `pip` ชี้ไปยัง venv local รัน `deactivate` เพื่อออก
 
@@ -96,7 +96,7 @@ python3 src/main.py              # run directly, no compile
 python3 -m module_name           # run a module as a script
 python3 -i src/main.py           # run then drop into REPL`;
 
-<TsGo client:visible ts={runScriptTs} go={runScriptPy} />
+<TsGo ts={runScriptTs} go={runScriptPy} />
 
 ## การติดตั้งและบันทึก dependencies
 
@@ -114,7 +114,7 @@ pip install -r requirements.txt   # install from snapshot
 # Modern workflow with pyproject.toml
 pip install .                     # install project deps from pyproject.toml`;
 
-<TsGo client:visible ts={depsTs} go={depsPy} />
+<TsGo ts={depsTs} go={depsPy} />
 
 <PyOnly title="pip freeze vs package.json — ความแตกต่างสำคัญ">
 
@@ -148,7 +148,7 @@ uvicorn main:app --reload
 # Capture deps for teammates
 pip freeze > requirements.txt`;
 
-<TsGo client:visible ts={workflowTs} go={workflowPy} />
+<TsGo ts={workflowTs} go={workflowPy} />
 
 export const quizSetup = [
   {

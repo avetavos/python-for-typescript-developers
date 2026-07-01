@@ -2,8 +2,8 @@
 title: "Unpacking, *args และ **kwargs"
 description: tuple unpacking, starred assignment, *args/**kwargs และการ merge dict ด้วย ** ของ Python
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -42,7 +42,7 @@ a, b = 5, 10
 a, b = b, a
 print(a, b)  # 10 5`;
 
-<TsGo client:visible ts={tsUnpacking} go={pyUnpacking} />
+<TsGo ts={tsUnpacking} go={pyUnpacking} />
 
 starred assignment ของ Python (`*middle`) มีความยืดหยุ่นกว่า rest element ของ TypeScript — คุณวางมันไว้ตำแหน่งใดก็ได้ (ต้น กลาง หรือท้าย) และ Python จะคิดเองว่าอะไรควรอยู่ที่ไหน
 
@@ -71,7 +71,7 @@ print(sum_all(1, 2, 3, 4, 5))  # 15
 nums = [1, 2, 3]
 print(max(*nums))  # 3`;
 
-<TsGo client:visible ts={tsArgs} go={pyArgs} />
+<TsGo ts={tsArgs} go={pyArgs} />
 
 ## **kwargs: variadic keyword arguments
 
@@ -105,7 +105,7 @@ overrides = {"color": "red", "weight": "heavy"}
 merged = {**defaults, **overrides}
 print(merged)`;
 
-<TsGo client:visible ts={tsKwargs} go={pyKwargs} />
+<TsGo ts={tsKwargs} go={pyKwargs} />
 
 ## ลองด้วยตัวเอง
 
@@ -139,7 +139,7 @@ merged = {**defaults, **overrides}
 print(merged)
 `;
 
-<Playground client:visible code={playgroundUnpacking} />
+<Playground code={playgroundUnpacking} />
 
 <PyOnly title="กฎการเรียงลำดับ parameter: positional, *args, keyword-only, **kwargs">
 

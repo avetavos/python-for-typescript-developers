@@ -2,8 +2,8 @@
 title: concurrent.futures
 description: The high-level concurrent.futures API — ThreadPoolExecutor and ProcessPoolExecutor provide a unified, Promise-like interface over threads and processes.
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -37,7 +37,7 @@ with ThreadPoolExecutor(max_workers=5) as executor:
 
 print(results)`;
 
-<TsGo client:visible ts={futuresTs} go={futuresPy} />
+<TsGo ts={futuresTs} go={futuresPy} />
 
 ## ThreadPoolExecutor — I/O-bound work
 
@@ -140,7 +140,7 @@ with ProcessPoolExecutor(max_workers=4) as executor:
 #   Threads: 5 * os.cpu_count() (I/O-bound — threads mostly sleep)
 #   Processes: os.cpu_count() (CPU-bound — one per core is enough)`;
 
-<TsGo client:visible ts={choiceTs} go={choicePy} />
+<TsGo ts={choiceTs} go={choicePy} />
 
 <PyOnly title="concurrent.futures vs asyncio — which to use?">
 

@@ -2,7 +2,7 @@
 title: Virtual Envs, pip, uv, and Poetry
 description: Virtual environments, pip + requirements.txt, uv, and Poetry/pyproject.toml — mapped to npm/package.json/lockfiles.
 ---
-import TsGo from '../../../../components/TsGo.tsx';
+import TsGo from '../../../../components/TsGo.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -70,7 +70,7 @@ pip install -r requirements.txt            # reproduce from snapshot
 # certifi==2024.2.2
 # charset-normalizer==3.3.2`;
 
-<TsGo client:visible ts={npmClassic} go={pipClassic} />
+<TsGo ts={npmClassic} go={pipClassic} />
 
 `requirements.txt` is the oldest approach. It works, but it has no distinction between direct and transitive dependencies. The modern replacement is `pyproject.toml`.
 
@@ -120,7 +120,7 @@ poetry run python main.py     # run script
 poetry run pytest             # run tests
 cat poetry.lock               # exact lock file`;
 
-<TsGo client:visible ts={npmLike} go={poetryLike} />
+<TsGo ts={npmLike} go={poetryLike} />
 
 ## Comparing the options
 

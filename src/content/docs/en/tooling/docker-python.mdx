@@ -2,7 +2,7 @@
 title: Dockerizing a Python App
 description: A multi-stage Dockerfile for a Python app — slim base, venv inside the image, non-root user — mapped to a Node Dockerfile.
 ---
-import TsGo from '../../../../components/TsGo.tsx';
+import TsGo from '../../../../components/TsGo.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -64,7 +64,7 @@ USER appuser
 EXPOSE 8000
 CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]`;
 
-<TsGo client:visible ts={nodeDockerfile} go={pythonDockerfile} />
+<TsGo ts={nodeDockerfile} go={pythonDockerfile} />
 
 ## The full Python Dockerfile explained
 

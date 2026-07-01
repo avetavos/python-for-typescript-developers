@@ -2,8 +2,8 @@
 title: Modules & Packages
 description: Python import, from...import, packages, and pip compared to ESM and npm.
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 
@@ -33,7 +33,7 @@ print(join("src", "main.py"))
 print(m.floor(3.7))
 print(sqrt(16))`;
 
-<TsGo client:visible ts={importTs} go={importPy} />
+<TsGo ts={importTs} go={importPy} />
 
 ## Packages vs modules
 
@@ -65,7 +65,7 @@ export const pkgPy = `# Python package structure
 from utils import format_date        # from __init__.py
 from utils.string_utils import capitalize`;
 
-<TsGo client:visible ts={pkgTs} go={pkgPy} />
+<TsGo ts={pkgTs} go={pkgPy} />
 
 ## pip — Python's npm
 
@@ -95,7 +95,7 @@ pip install pytest --dev          # dev dependency
 
 # Modern: use pyproject.toml + pip install -e .`;
 
-<TsGo client:visible ts={pipTs} go={pipPy} tsTitle="npm (Node.js)" goTitle="pip (Python)" />
+<TsGo ts={pipTs} go={pipPy} tsTitle="npm (Node.js)" goTitle="pip (Python)" />
 
 ## The standard library — batteries included
 
@@ -134,7 +134,7 @@ print(f"Word counts: {dict(freq)}")
 print(f"Most common: {freq.most_common(2)}")
 `;
 
-<Playground client:visible code={modulesCode} />
+<Playground code={modulesCode} />
 
 export const quizModules = [
   {

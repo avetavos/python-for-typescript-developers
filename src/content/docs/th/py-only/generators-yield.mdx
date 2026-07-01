@@ -2,8 +2,8 @@
 title: "Generators และ yield"
 description: generator ของ Python, keyword yield และ lazy iteration vs generator ของ TypeScript
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -67,7 +67,7 @@ fib = fibonacci()
 first_ten = [next(fib) for _ in range(10)]
 print(first_ten)`;
 
-<TsGo client:visible ts={tsGen} go={pyGen} />
+<TsGo ts={tsGen} go={pyGen} />
 
 ข้อแตกต่างสำคัญที่ควรสังเกต:
 - Python ใช้ `def` ธรรมดา — ไม่มี syntax แบบ `function*` การมี `yield` อยู่ที่ใดก็ตามใน function body จะทำให้มันกลายเป็น generator โดยอัตโนมัติ
@@ -109,7 +109,7 @@ print(acc.send(10)) # 10
 print(acc.send(20)) # 30
 print(acc.send(5))  # 35`;
 
-<TsGo client:visible ts={tsGenSend} go={pyGenSend} />
+<TsGo ts={tsGenSend} go={pyGenSend} />
 
 ## ลองด้วยตัวเอง
 
@@ -135,7 +135,7 @@ first_ten = [next(fib) for _ in range(10)]
 print(first_ten)
 `;
 
-<Playground client:visible code={playgroundGen} />
+<Playground code={playgroundGen} />
 
 <PyOnly title="Generator protocol: __iter__ และ __next__">
 

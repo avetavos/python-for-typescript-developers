@@ -2,8 +2,8 @@
 title: Pattern Matching
 description: Python 3.10+ structural pattern matching with match/case — sequence, mapping, and class patterns — compared to TypeScript switch/case and destructuring.
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -38,7 +38,7 @@ match command:
 
 # Output: Move to (10, 20)`;
 
-<TsGo client:visible ts={seqTs} go={seqPy} />
+<TsGo ts={seqTs} go={seqPy} />
 
 The `case ["move", x, y]` pattern checks the list length, checks that the first element equals `"move"`, and **binds** `x` and `y` to the second and third elements — all in one step.
 
@@ -74,7 +74,7 @@ match event:
 
 # Output: Click at (100, 200)`;
 
-<TsGo client:visible ts={mapTs} go={mapPy} />
+<TsGo ts={mapTs} go={mapPy} />
 
 ## Class patterns
 
@@ -111,7 +111,7 @@ match point:
 
 # Output: On Y-axis at 5`;
 
-<TsGo client:visible ts={classTs} go={classPy} />
+<TsGo ts={classTs} go={classPy} />
 
 ## Guard conditions (if clauses)
 
@@ -138,7 +138,7 @@ export const guardPy = `def grade(score: int) -> str:
 
 print(grade(85))   # B`;
 
-<TsGo client:visible ts={guardTs} go={guardPy} />
+<TsGo ts={guardTs} go={guardPy} />
 
 ## Try it
 
@@ -191,7 +191,7 @@ for pt in [Point(0, 0), Point(0, 7), Point(3, 0), Point(3, 4)]:
             print(f"  quadrant ({x},{y})")
 `;
 
-<Playground client:visible code={patternMatchingPlaygroundCode} />
+<Playground code={patternMatchingPlaygroundCode} />
 
 <PyOnly title="OR patterns and AS patterns">
 

@@ -2,7 +2,7 @@
 title: โครงสร้างโปรเจกต์
 description: โครงสร้างไฟล์ FastAPI ทั่วไป, main.py และ pyproject.toml เปรียบเทียบกับโปรเจกต์ Express หรือ NestJS
 ---
-import TsGo from '../../../../components/TsGo.tsx';
+import TsGo from '../../../../components/TsGo.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 
@@ -41,7 +41,7 @@ my-api/
 ├── pyproject.toml       # เหมือน package.json
 └── .env`;
 
-<TsGo client:visible ts={layoutTs} go={layoutPy} />
+<TsGo ts={layoutTs} go={layoutPy} />
 
 การ mapping แทบจะ 1:1:
 - `controller` → `routers/` (ใช้ `APIRouter`)
@@ -77,7 +77,7 @@ async def startup():
 
 # รัน: uvicorn app.main:app --reload`;
 
-<TsGo client:visible ts={mainTs} go={mainPy} />
+<TsGo ts={mainTs} go={mainPy} />
 
 ## pyproject.toml — เทียบเท่า package.json
 
@@ -119,7 +119,7 @@ dev = ["pytest", "httpx", "mypy"]
 # เริ่ม: uvicorn app.main:app --reload
 # หรือ:  python -m uvicorn app.main:app --reload`;
 
-<TsGo client:visible ts={pkgTs} go={pkgPy} />
+<TsGo ts={pkgTs} go={pkgPy} />
 
 > **รันที่เครื่องตัวเอง — ต้องการ FastAPI + server**
 > สร้างโครงสร้างด้านบน, ติดตั้ง dependencies ด้วย `pip install -e ".[dev]"` หรือ `uv sync` แล้วรัน `uvicorn app.main:app --reload`

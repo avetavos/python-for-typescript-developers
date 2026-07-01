@@ -2,7 +2,7 @@
 title: Linting & Formatting — ruff และ black
 description: ruff (lint + format) และ black เทียบกับ eslint + prettier การ format ด้วยคำสั่งเดียวสำหรับ Python
 ---
-import TsGo from '../../../../components/TsGo.tsx';
+import TsGo from '../../../../components/TsGo.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -68,7 +68,7 @@ ignore = ["E501"]   # line-too-long (จัดการโดย formatter)
 [tool.ruff.format]
 quote-style = "double"   # ตรงกับค่าเริ่มต้นของ black`;
 
-<TsGo client:visible ts={tsEslintConfig} go={pyRuffConfig} />
+<TsGo ts={tsEslintConfig} go={pyRuffConfig} />
 
 ## black — formatter แบบ opinionated
 
@@ -107,7 +107,7 @@ ruff check --fix . && ruff format .
 # lint:
 #     ruff check --fix . && ruff format .`;
 
-<TsGo client:visible ts={tsLintCmd} go={pyLintCmd} />
+<TsGo ts={tsLintCmd} go={pyLintCmd} />
 
 > Playground note: `ruff` และ `black` ทำงานกับไฟล์และต้องการ terminal environment รันคำสั่งข้างต้นในไดเรกทอรี project ของคุณ
 

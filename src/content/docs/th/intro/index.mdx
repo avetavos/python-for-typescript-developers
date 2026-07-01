@@ -2,7 +2,7 @@
 title: บทนำ — ทำไม TypeScript Developer ถึงควรเรียน Python
 description: เหตุผลที่ Python คุ้มค่าแก่การเรียนรู้สำหรับ TypeScript Developer สิ่งที่ Python เก่งเป็นพิเศษ และสิ่งที่คอร์สนี้จะครอบคลุม
 ---
-import TsGo from '../../../../components/TsGo.tsx';
+import TsGo from '../../../../components/TsGo.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -37,7 +37,7 @@ import urllib.request   # built-in HTTP client
 import csv              # built-in CSV parser
 import argparse         # built-in CLI argument parser`;
 
-<TsGo client:visible ts={batteriesTs} go={batteriesPy} />
+<TsGo ts={batteriesTs} go={batteriesPy} />
 
 ## การอ่านง่ายในฐานะเป้าหมายการออกแบบ
 

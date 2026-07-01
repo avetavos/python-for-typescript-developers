@@ -2,8 +2,8 @@
 title: "Sequence Slicing"
 description: syntax slice [start:stop:step] ของ Python, negative index และการกลับลำดับ vs Array.slice() ของ TypeScript
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -37,7 +37,7 @@ print(data[7:])     # [7, 8, 9]  — omit stop → to end
 print(data[::2])    # [0, 2, 4, 6, 8]  — every other element
 print(data[::-1])   # [9, 8, 7, 6, 5, 4, 3, 2, 1, 0]  — reverse`;
 
-<TsGo client:visible ts={tsSlicing} go={pySlicing} />
+<TsGo ts={tsSlicing} go={pySlicing} />
 
 สามส่วนของ slice ล้วนเป็น optional: `[:]` คัดลอก sequence ทั้งหมด, `[::2]` ดึงทุก element ที่สอง, `[::-1]` กลับลำดับ
 
@@ -64,7 +64,7 @@ print(data[-1])     # 9   — last element
 print(data[-3:])    # [7, 8, 9] — last 3 elements
 print(data[1:-1])   # [1, 2, 3, 4, 5, 6, 7, 8] — all but first and last`;
 
-<TsGo client:visible ts={tsNeg} go={pyNeg} />
+<TsGo ts={tsNeg} go={pyNeg} />
 
 ## Slicing บน string
 
@@ -82,7 +82,7 @@ text = "Hello, World!"
 print(text[7:12])   # "World"
 print(text[::-1])   # "!dlroW ,olleH"  — reverse a string`;
 
-<TsGo client:visible ts={tsSlicingStr} go={pySlicingStr} />
+<TsGo ts={tsSlicingStr} go={pySlicingStr} />
 
 ## ลองด้วยตัวเอง
 
@@ -103,7 +103,7 @@ print(text[7:12])
 print(text[::-1])
 `;
 
-<Playground client:visible code={playgroundSlicing} />
+<Playground code={playgroundSlicing} />
 
 <PyOnly title="Object slice และการ assign ผ่าน slice">
 

@@ -2,8 +2,8 @@
 title: Metaclasses & Descriptors
 description: descriptor protocol (__get__/__set__/__delete__) และระบบ metaclass ของ Python — เครื่องจักร runtime ที่ทรงพลังโดยไม่มีคู่เทียบใน TypeScript
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -72,7 +72,7 @@ item = Product(9.99, 3)
 print(item.total())    # 29.97
 item.price = "free"    # TypeError: price must be numeric`;
 
-<TsGo client:visible ts={descTs} go={descPy} />
+<TsGo ts={descTs} go={descPy} />
 
 ข้อสังเกตสำคัญ: descriptor `Validated` สามารถ reuse กับคลาสต่างๆ และ attributes ต่างๆ ได้จำนวนมาก getter/setter ของ TypeScript เป็นแบบ per-class และ per-property — คุณไม่สามารถแชร์ definition เดียวได้
 
@@ -121,7 +121,7 @@ except TypeError as e:
     print(f"Caught: {e}")
 `;
 
-<Playground client:visible code={descriptorPlaygroundCode} />
+<Playground code={descriptorPlaygroundCode} />
 
 <PyOnly title="Metaclasses: คลาสที่สร้างคลาส">
 

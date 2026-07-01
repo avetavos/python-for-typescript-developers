@@ -2,8 +2,8 @@
 title: Multiprocessing
 description: Python's multiprocessing module for true CPU parallelism — each process has its own GIL and memory. Compared to JavaScript's child_process and Web Workers.
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -52,7 +52,7 @@ p.start()
 p.join()
 print("sum:", q.get())`;
 
-<TsGo client:visible ts={mpTs} go={mpPy} />
+<TsGo ts={mpTs} go={mpPy} />
 
 ## Pool.map — the high-level API
 

@@ -2,8 +2,8 @@
 title: Whitespace ที่มีความหมาย
 description: Python ใช้การย่อหน้าเพื่อกำหนด code block แทนที่จะใช้ curly braces
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -46,7 +46,7 @@ for i in range(3):
     if i % 2 == 0:
         print(f"\${i} is even")`;
 
-<TsGo client:visible ts={tsWhitespace} go={pyWhitespace} />
+<TsGo ts={tsWhitespace} go={pyWhitespace} />
 
 ข้อแตกต่างด้าน syntax ที่ควรสังเกต:
 - คำว่า `function` กลายเป็น `def` ตามด้วยชื่อฟังก์ชันและเครื่องหมายโคลอน
@@ -71,7 +71,7 @@ return a + b  # missing indent — SyntaxError at parse time
 def add(a: int, b: int) -> int:
     return a + b  # 4 spaces`;
 
-<TsGo client:visible ts={tsIndentTs} go={pyIndentPy} />
+<TsGo ts={tsIndentTs} go={pyIndentPy} />
 
 ## บล็อกซ้อนกัน
 
@@ -95,7 +95,7 @@ def process_matrix(matrix: list[list[int]]) -> None:
             if cell > 0:
                 print(f"positive: \${cell}")`;
 
-<TsGo client:visible ts={tsNestedWhitespace} go={pyNestedWhitespace} />
+<TsGo ts={tsNestedWhitespace} go={pyNestedWhitespace} />
 
 ## ลองด้วยตัวเอง
 
@@ -116,7 +116,7 @@ for i in range(3):
         print(f"{i} is odd")
 `;
 
-<Playground client:visible code={playgroundWhitespace} />
+<Playground code={playgroundWhitespace} />
 
 <PyOnly title="Zen of Python: ความอ่านง่ายนับ">
 

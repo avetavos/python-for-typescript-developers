@@ -2,8 +2,8 @@
 title: Async & Concurrency — Overview
 description: Python's concurrency model compared to JavaScript's single-threaded event loop. Concurrency vs parallelism, the GIL, and which tool to reach for.
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -67,7 +67,7 @@ async def main() -> None:
         fetch_posts(1),
     )`;
 
-<TsGo client:visible ts={concurrencyTs} go={concurrencyPy} />
+<TsGo ts={concurrencyTs} go={concurrencyPy} />
 
 ## The three layers at a glance
 
@@ -88,7 +88,7 @@ import multiprocessing  # true parallelism, separate memory
 # waiting on network/disk → asyncio or threading
 # heavy CPU math         → multiprocessing`;
 
-<TsGo client:visible ts={layersTs} go={layersPy} />
+<TsGo ts={layersTs} go={layersPy} />
 
 <PyOnly title="The GIL — Python's most important concurrency constraint">
 

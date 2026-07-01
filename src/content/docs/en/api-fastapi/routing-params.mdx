@@ -2,8 +2,8 @@
 title: Routing & Parameters
 description: Defining routes with @app.get/@app.post, path parameters, and query parameters with type hints — compared to Express routes.
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 
@@ -36,7 +36,7 @@ async def list_items():
 async def create_item(item: dict):
     return item`;
 
-<TsGo client:visible ts={basicRouteTs} go={basicRoutePy} />
+<TsGo ts={basicRouteTs} go={basicRoutePy} />
 
 FastAPI supports all standard HTTP methods: `@app.get`, `@app.post`, `@app.put`, `@app.patch`, `@app.delete`, `@app.options`.
 
@@ -71,7 +71,7 @@ async def get_item(item_id: int):      # GET /items/abc → 422 automatically
 async def get_user_item(user_id: int, item_id: int):
     return {"user_id": user_id, "item_id": item_id}`;
 
-<TsGo client:visible ts={pathTs} go={pathPy} />
+<TsGo ts={pathTs} go={pathPy} />
 
 ## Query parameters
 
@@ -99,7 +99,7 @@ async def search_items(
 ):
     return {"skip": skip, "limit": limit, "q": q}`;
 
-<TsGo client:visible ts={queryTs} go={queryPy} />
+<TsGo ts={queryTs} go={queryPy} />
 
 ## Try it — routing logic as a plain dict
 
@@ -142,7 +142,7 @@ for method, path in tests:
     print(f"{method:6s} {path:20s} -> {match_route(method, path)}")
 `;
 
-<Playground client:visible code={routingCode} />
+<Playground code={routingCode} />
 
 export const quizRouting = [
   {

@@ -2,7 +2,7 @@
 title: Introduction — Why Python for TypeScript Developers
 description: Why Python is worth learning as a TypeScript developer, what it excels at, and what this course covers.
 ---
-import TsGo from '../../../../components/TsGo.tsx';
+import TsGo from '../../../../components/TsGo.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -37,7 +37,7 @@ import urllib.request   # built-in HTTP client
 import csv              # built-in CSV parser
 import argparse         # built-in CLI argument parser`;
 
-<TsGo client:visible ts={batteriesTs} go={batteriesPy} />
+<TsGo ts={batteriesTs} go={batteriesPy} />
 
 ## Readability as a design goal
 

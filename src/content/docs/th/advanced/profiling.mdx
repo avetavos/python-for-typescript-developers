@@ -2,8 +2,8 @@
 title: Profiling & Performance
 description: การวัด performance ของ Python ด้วย timeit และ cProfile — เปรียบเทียบกับ console.time และ --prof ของ Node.js — โดยเน้นที่การอ่านและใช้ประโยชน์จาก profile output
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -47,7 +47,7 @@ t2 = timeit.timeit(
 )
 print(f"map(): {t2:.4f}s")`;
 
-<TsGo client:visible ts={timeitTs} go={timeitPy} />
+<TsGo ts={timeitTs} go={timeitPy} />
 
 ## ลองเล่น — timeit ใน browser
 
@@ -70,7 +70,7 @@ fastest = min(results, key=results.get)
 print(f"\\nFastest: {fastest}")
 `;
 
-<Playground client:visible code={timeitPlaygroundCode} />
+<Playground code={timeitPlaygroundCode} />
 
 ## cProfile: function-level profiling
 
@@ -102,7 +102,7 @@ ps = pstats.Stats(pr, stream=s).sort_stats('cumulative')
 ps.print_stats(5)
 print(s.getvalue())`;
 
-<TsGo client:visible ts={cprofTs} go={cprofPy} />
+<TsGo ts={cprofTs} go={cprofPy} />
 
 ## cProfile ใน browser
 
@@ -132,7 +132,7 @@ print()
 print(s.getvalue())
 `;
 
-<Playground client:visible code={cprofilePlaygroundCode} />
+<Playground code={cprofilePlaygroundCode} />
 
 ## การอ่าน pstats output
 

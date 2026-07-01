@@ -2,8 +2,8 @@
 title: Control Flow
 description: if/elif/else, for...in, while, range, and match/case in Python vs TypeScript control structures.
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 
@@ -43,7 +43,7 @@ else:
 
 print(f"Grade: {grade}")  # Grade: B`;
 
-<TsGo client:visible ts={ifTs} go={ifPy} />
+<TsGo ts={ifTs} go={ifPy} />
 
 ## for ... in and range()
 
@@ -78,7 +78,7 @@ for fruit in fruits:
 for i, fruit in enumerate(fruits):
     print(i, fruit)`;
 
-<TsGo client:visible ts={forTs} go={forPy} />
+<TsGo ts={forTs} go={forPy} />
 
 `range(start, stop, step)` mirrors TypeScript patterns:
 
@@ -106,7 +106,7 @@ while n <= 5:
     print(n)
     n += 1   # no ++ operator in Python`;
 
-<TsGo client:visible ts={whileTs} go={whilePy} />
+<TsGo ts={whileTs} go={whilePy} />
 
 Note: Python has no `++` or `--` operators. Use `+= 1` and `-= 1`.
 
@@ -140,7 +140,7 @@ match command:
     case _:                 # wildcard — like default
         print(f"Unknown: {command}")`;
 
-<TsGo client:visible ts={matchTs} go={matchPy} />
+<TsGo ts={matchTs} go={matchPy} />
 
 Unlike `switch`, `match` does NOT fall through. You never need `break`. The `|` character combines cases in a single `case` clause.
 
@@ -181,7 +181,7 @@ for cmd in ["start", "quit", "help"]:
     print(result)
 `;
 
-<Playground client:visible code={controlFlowCode} />
+<Playground code={controlFlowCode} />
 
 export const quizControlFlow = [
   {

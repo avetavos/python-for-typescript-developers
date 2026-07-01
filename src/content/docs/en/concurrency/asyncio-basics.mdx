@@ -2,8 +2,8 @@
 title: asyncio Basics
 description: async def, await, and the event loop in Python — nearly identical to JavaScript async/await, with a few important differences.
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -40,7 +40,7 @@ async def greet(name: str) -> str:
 result = await greet("Alice")
 print(result)  # Hello, Alice!`;
 
-<TsGo client:visible ts={asyncDefTs} go={asyncDefPy} />
+<TsGo ts={asyncDefTs} go={asyncDefPy} />
 
 Key similarity: annotating the return type of an `async def` as `str` means "this coroutine will produce a `str` when awaited" — the same as `Promise<string>` in TypeScript.
 
@@ -67,7 +67,7 @@ async def run() -> None:
     await asyncio.sleep(1)   # suspends, yields to event loop
     print("1 second later")`;
 
-<TsGo client:visible ts={sleepTs} go={sleepPy} />
+<TsGo ts={sleepTs} go={sleepPy} />
 
 `await asyncio.sleep(0)` (zero seconds) is the Python equivalent of `await Promise.resolve()` — it yields to the event loop for one cycle without actually waiting.
 
@@ -96,7 +96,7 @@ asyncio.run(main())
 # In a Jupyter notebook or interactive session, a loop is already
 # running — use top-level await directly instead of asyncio.run().`;
 
-<TsGo client:visible ts={runLoopTs} go={runLoopPy} />
+<TsGo ts={runLoopTs} go={runLoopPy} />
 
 <PyOnly title="asyncio.run() vs top-level await">
 
@@ -149,7 +149,7 @@ async def main() -> None:
     print(result)
     print("done")`;
 
-<TsGo client:visible ts={completeTs} go={completePy} />
+<TsGo ts={completeTs} go={completePy} />
 
 ## Try it
 
@@ -170,7 +170,7 @@ print(a, "->", b)
 print("Event loop managed both without blocking")
 `;
 
-<Playground client:visible code={asyncBasicsCode} />
+<Playground code={asyncBasicsCode} />
 
 export const quizAsyncioBasics = [
   {

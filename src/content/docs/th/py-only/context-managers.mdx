@@ -2,8 +2,8 @@
 title: "Context Managers และ with"
 description: with statement, protocol __enter__/__exit__ และ contextlib ของ Python vs try/finally ของ TypeScript
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -36,7 +36,7 @@ def read_file(path):
         return f.read()
     # f.close() is called automatically — even if read() raises`;
 
-<TsGo client:visible ts={tsCm} go={pyCm} />
+<TsGo ts={tsCm} go={pyCm} />
 
 บล็อก `with` เรียก `f.close()` โดยอัตโนมัติเมื่อออกจากบล็อก ไม่ว่าจะออกปกติหรือเพราะ exception ไม่ต้องมี `try/finally` ที่ซ้ำซ้อน
 
@@ -87,7 +87,7 @@ class ManagedResource:
 with ManagedResource("database connection") as resource:
     print(f"Using \${resource.name}")`;
 
-<TsGo client:visible ts={tsCmContextlib} go={pyCmContextlib} />
+<TsGo ts={tsCmContextlib} go={pyCmContextlib} />
 
 `__exit__` รับ argument สามตัวที่อธิบาย exception (ถ้ามี): type, value และ traceback ถ้าคืนค่า `True` exception จะถูก suppress ถ้าคืนค่า `False` หรือ `None` exception จะถูกส่งต่อออกไป
 
@@ -125,7 +125,7 @@ with timer("my block"):
     total = sum(range(1000))
     print(f"sum = \${total}")`;
 
-<TsGo client:visible ts={tsCmGen} go={pyCmGen} />
+<TsGo ts={tsCmGen} go={pyCmGen} />
 
 ## ลองด้วยตัวเอง
 
@@ -157,7 +157,7 @@ with timer("my block"):
     print(f"sum = {total}")
 `;
 
-<Playground client:visible code={playgroundCm} />
+<Playground code={playgroundCm} />
 
 <PyOnly title="การจัดการ exception ใน __exit__ และการใช้ with หลายตัว">
 

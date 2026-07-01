@@ -2,8 +2,8 @@
 title: Pattern Matching
 description: structural pattern matching ด้วย match/case ของ Python 3.10+ — sequence, mapping, และ class patterns — เปรียบเทียบกับ TypeScript switch/case และ destructuring
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -38,7 +38,7 @@ match command:
 
 # Output: Move to (10, 20)`;
 
-<TsGo client:visible ts={seqTs} go={seqPy} />
+<TsGo ts={seqTs} go={seqPy} />
 
 pattern `case ["move", x, y]` ตรวจสอบความยาว list ตรวจสอบว่า element แรกเท่ากับ `"move"` และ **bind** `x` และ `y` กับ element ที่สองและสาม — ทั้งหมดในขั้นตอนเดียว
 
@@ -74,7 +74,7 @@ match event:
 
 # Output: Click at (100, 200)`;
 
-<TsGo client:visible ts={mapTs} go={mapPy} />
+<TsGo ts={mapTs} go={mapPy} />
 
 ## Class patterns
 
@@ -111,7 +111,7 @@ match point:
 
 # Output: On Y-axis at 5`;
 
-<TsGo client:visible ts={classTs} go={classPy} />
+<TsGo ts={classTs} go={classPy} />
 
 ## Guard conditions (if clauses)
 
@@ -138,7 +138,7 @@ export const guardPy = `def grade(score: int) -> str:
 
 print(grade(85))   # B`;
 
-<TsGo client:visible ts={guardTs} go={guardPy} />
+<TsGo ts={guardTs} go={guardPy} />
 
 ## ลองเล่น
 
@@ -191,7 +191,7 @@ for pt in [Point(0, 0), Point(0, 7), Point(3, 0), Point(3, 4)]:
             print(f"  quadrant ({x},{y})")
 `;
 
-<Playground client:visible code={patternMatchingPlaygroundCode} />
+<Playground code={patternMatchingPlaygroundCode} />
 
 <PyOnly title="OR patterns และ AS patterns">
 

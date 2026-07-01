@@ -2,7 +2,7 @@
 title: pytest — เชิงลึก
 description: Fixtures, parametrize, และ assertion introspection ใน pytest — เปรียบเทียบกับ beforeEach, it.each, และ expect matchers ของ Jest
 ---
-import TsGo from '../../../../components/TsGo.tsx';
+import TsGo from '../../../../components/TsGo.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import Mermaid from '../../../../components/Mermaid.astro';
@@ -80,7 +80,7 @@ def test_create_user(user_service):
 def test_db_connected(db):
     assert db["connected"] is True`;
 
-<TsGo client:visible ts={fixtureTs} go={fixturePy} />
+<TsGo ts={fixtureTs} go={fixturePy} />
 
 รัน locally:
 
@@ -139,7 +139,7 @@ def add(a: int, b: int) -> int:
 def test_add(a, b, expected):
     assert add(a, b) == expected`;
 
-<TsGo client:visible ts={paramTs} go={paramPy} />
+<TsGo ts={paramTs} go={paramPy} />
 
 รวม `parametrize` กับ fixtures สำหรับการทดสอบแบบ combinatorial เต็มรูปแบบ:
 
@@ -173,7 +173,7 @@ import pytest
 with pytest.raises(ValueError, match="negative"):
     parse_price(-5)`;
 
-<TsGo client:visible ts={assertTs} go={assertPy} />
+<TsGo ts={assertTs} go={assertPy} />
 
 เมื่อ assertion fail, pytest แสดงค่าจริง diff เต็มรูปแบบสำหรับ containers และ expression tree — รายละเอียดมากกว่า `AssertionError` ธรรมดามาก
 

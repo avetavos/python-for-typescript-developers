@@ -2,8 +2,8 @@
 title: Error Handling
 description: HTTPException, custom exception handlers, and how Python exceptions map to HTTP errors in FastAPI.
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -45,7 +45,7 @@ raise HTTPException(
     detail={"field": "price", "message": "must be positive"},
 )`;
 
-<TsGo client:visible ts={httpExcTs} go={httpExcPy} />
+<TsGo ts={httpExcTs} go={httpExcPy} />
 
 ## Custom exception handlers
 
@@ -81,7 +81,7 @@ async def item_not_found_handler(request: Request, exc: ItemNotFoundError):
 async def get_item(item_id: int):
     raise ItemNotFoundError(item_id=item_id)  # automatically caught`;
 
-<TsGo client:visible ts={handlerTs} go={handlerPy} />
+<TsGo ts={handlerTs} go={handlerPy} />
 
 ## Overriding the default 422 handler
 
@@ -118,7 +118,7 @@ async def validation_exception_handler(
         },
     )`;
 
-<TsGo client:visible ts={override422Ts} go={override422Py} />
+<TsGo ts={override422Ts} go={override422Py} />
 
 <PyOnly title="Python exceptions tie naturally into HTTP errors">
 
@@ -180,7 +180,7 @@ for test_id in [0, 42, 999]:
         print(f"ERR {test_id:4d} -> {e.status_code} {e.message}")
 `;
 
-<Playground client:visible code={exceptionCode} />
+<Playground code={exceptionCode} />
 
 export const quizErrorHandling = [
   {

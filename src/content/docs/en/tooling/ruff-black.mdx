@@ -2,7 +2,7 @@
 title: Linting & Formatting — ruff and black
 description: ruff (lint + format) and black vs eslint + prettier. One-command formatting for Python.
 ---
-import TsGo from '../../../../components/TsGo.tsx';
+import TsGo from '../../../../components/TsGo.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -68,7 +68,7 @@ ignore = ["E501"]   # line-too-long (handled by formatter)
 [tool.ruff.format]
 quote-style = "double"   # matches black defaults`;
 
-<TsGo client:visible ts={tsEslintConfig} go={pyRuffConfig} />
+<TsGo ts={tsEslintConfig} go={pyRuffConfig} />
 
 ## black — the opinionated formatter
 
@@ -107,7 +107,7 @@ ruff check --fix . && ruff format .
 # lint:
 #     ruff check --fix . && ruff format .`;
 
-<TsGo client:visible ts={tsLintCmd} go={pyLintCmd} />
+<TsGo ts={tsLintCmd} go={pyLintCmd} />
 
 > Playground note: `ruff` and `black` operate on files and require a terminal environment. Run the commands above in your project directory.
 

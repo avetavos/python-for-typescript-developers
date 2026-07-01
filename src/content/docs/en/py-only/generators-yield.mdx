@@ -2,8 +2,8 @@
 title: "Generators & yield"
 description: Python generators, the yield keyword, and lazy iteration vs TypeScript generators (similar but with key differences).
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -67,7 +67,7 @@ fib = fibonacci()
 first_ten = [next(fib) for _ in range(10)]
 print(first_ten)`;
 
-<TsGo client:visible ts={tsGen} go={pyGen} />
+<TsGo ts={tsGen} go={pyGen} />
 
 Key differences to notice:
 - Python uses a plain `def` — there is no `function*` syntax. The presence of `yield` anywhere in the function body makes it a generator automatically.
@@ -109,7 +109,7 @@ print(acc.send(10)) # 10
 print(acc.send(20)) # 30
 print(acc.send(5))  # 35`;
 
-<TsGo client:visible ts={tsGenSend} go={pyGenSend} />
+<TsGo ts={tsGenSend} go={pyGenSend} />
 
 ## Try it
 
@@ -135,7 +135,7 @@ first_ten = [next(fib) for _ in range(10)]
 print(first_ten)
 `;
 
-<Playground client:visible code={playgroundGen} />
+<Playground code={playgroundGen} />
 
 <PyOnly title="The generator protocol: __iter__ and __next__">
 

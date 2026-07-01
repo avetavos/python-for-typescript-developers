@@ -2,8 +2,8 @@
 title: Classes
 description: class, __init__, self, instance vs class attributes และ inheritance ของ Python เทียบกับคลาสของ TypeScript
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -61,7 +61,7 @@ cat = Animal("Cat", "meow")   # no "new" keyword
 print(cat.speak())
 print(Animal.kingdom)`;
 
-<TsGo client:visible ts={classTs} go={classPy} />
+<TsGo ts={classTs} go={classPy} />
 
 ## Inheritance
 
@@ -96,7 +96,7 @@ print(rex.speak())          # Rex says woof
 print(rex.fetch("ball"))    # Rex fetches the ball!
 print(isinstance(rex, Animal))  # True`;
 
-<TsGo client:visible ts={inheritTs} go={inheritPy} />
+<TsGo ts={inheritTs} go={inheritPy} />
 
 ## Class methods และ static methods
 
@@ -133,7 +133,7 @@ Counter.increment()
 Counter.increment()
 print(Counter.get_count())   # 2`;
 
-<TsGo client:visible ts={classMethodTs} go={classMethodPy} />
+<TsGo ts={classMethodTs} go={classMethodPy} />
 
 ## ลองเล่นดู
 
@@ -167,7 +167,7 @@ print(f"Kingdom: {Animal.kingdom}")
 print(repr(rex))
 `;
 
-<Playground client:visible code={classesCode} />
+<Playground code={classesCode} />
 
 <PyOnly title="self ต้องเขียนชัดเจน, __init__ คือ constructor, dunders คือ protocol">
 

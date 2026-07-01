@@ -2,7 +2,7 @@
 title: การ Dockerize Python App
 description: Multi-stage Dockerfile สำหรับ Python app — slim base, venv ภายใน image, non-root user — เทียบกับ Node Dockerfile
 ---
-import TsGo from '../../../../components/TsGo.tsx';
+import TsGo from '../../../../components/TsGo.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -64,7 +64,7 @@ USER appuser
 EXPOSE 8000
 CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]`;
 
-<TsGo client:visible ts={nodeDockerfile} go={pythonDockerfile} />
+<TsGo ts={nodeDockerfile} go={pythonDockerfile} />
 
 ## Python Dockerfile แบบ production เต็มรูปแบบ พร้อม comment
 

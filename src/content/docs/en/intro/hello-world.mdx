@@ -2,8 +2,8 @@
 title: Hello World — Your First Python Program
 description: Write and run your first Python script, understand print(), and learn the if __name__ == "__main__" entry-point guard.
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -26,7 +26,7 @@ print(f"Hello, {name}!")
 # Run: python3 hello.py
 # Output: Hello, TypeScript Developer!`;
 
-<TsGo client:visible ts={helloTs} go={helloPy} />
+<TsGo ts={helloTs} go={helloPy} />
 
 ## The `print` function
 
@@ -46,7 +46,7 @@ print(f"sum = {1 + 2}")              # sum = 3 (f-string)
 print("a", "b", sep="-")            # a-b  (custom separator)
 print("loading", end="...")         # loading... (no newline)`;
 
-<TsGo client:visible ts={printTs} go={printPy} />
+<TsGo ts={printTs} go={printPy} />
 
 ## F-strings — Python's template literals
 
@@ -73,7 +73,7 @@ print(f"pi ≈ {pi:.2f}")   # pi ≈ 3.14
 # Any expression works
 print(f"2 + 2 = {2 + 2}")  # 2 + 2 = 4`;
 
-<TsGo client:visible ts={fstringTs} go={fstringPy} />
+<TsGo ts={fstringTs} go={fstringPy} />
 
 ## Running a script
 
@@ -98,7 +98,7 @@ chmod +x hello.py   # add #!/usr/bin/env python3 as line 1
 # 3. Run as a module (inside a package)
 python3 -m mypackage.hello`;
 
-<TsGo client:visible ts={runfileTs} go={runfilePy} />
+<TsGo ts={runfileTs} go={runfilePy} />
 
 ## The entry-point guard: `if __name__ == "__main__":`
 
@@ -128,7 +128,7 @@ if __name__ == "__main__":
     # It does NOT run when another file does: import hello
     print(greet("world"))`;
 
-<TsGo client:visible ts={guardTs} go={guardPy} />
+<TsGo ts={guardTs} go={guardPy} />
 
 <PyOnly title="Why does __name__ matter?">
 
@@ -162,7 +162,7 @@ if __name__ == "__main__":
     main()
 `;
 
-<Playground client:visible code={completeHelloCode} />
+<Playground code={completeHelloCode} />
 
 export const quizHello = [
   {

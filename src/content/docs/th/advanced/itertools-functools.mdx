@@ -2,8 +2,8 @@
 title: itertools & functools
 description: เครื่องมือ standard-library ที่ทรงพลังของ Python สำหรับ iteration และ functional programming — chain, groupby, lru_cache, partial — เปรียบเทียบกับ Lodash และ JS Array methods
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -31,7 +31,7 @@ nested = [[1, 2], [3, 4], [5]]
 flat = list(itertools.chain.from_iterable(nested))
 print(flat)     # [1, 2, 3, 4, 5]`;
 
-<TsGo client:visible ts={chainTs} go={chainPy} />
+<TsGo ts={chainTs} go={chainPy} />
 
 ### count — infinite counter
 
@@ -58,7 +58,7 @@ print(result)   # [10, 12, 14, 16]
 first_five = list(itertools.islice(itertools.count(1), 5))
 print(first_five)   # [1, 2, 3, 4, 5]`;
 
-<TsGo client:visible ts={countTs} go={countPy} />
+<TsGo ts={countTs} go={countPy} />
 
 ### groupby — จัดกลุ่ม items ที่ต่อเนื่องกัน
 
@@ -83,7 +83,7 @@ for key, group in itertools.groupby(data, key=lambda x: x[0]):
 # a: [('a', 1), ('a', 2)]
 # b: [('b', 3), ('b', 4)]`;
 
-<TsGo client:visible ts={groupbyTs} go={groupbyPy} />
+<TsGo ts={groupbyTs} go={groupbyPy} />
 
 ## functools: higher-order functions
 
@@ -102,7 +102,7 @@ print(result)   # 15
 result2 = functools.reduce(lambda acc, x: acc + x, [1, 2, 3], 100)
 print(result2)  # 106`;
 
-<TsGo client:visible ts={reduceTs} go={reducePy} />
+<TsGo ts={reduceTs} go={reducePy} />
 
 ### lru_cache — memoization
 
@@ -132,7 +132,7 @@ def fib(n: int) -> int:
 print(fib(30))            # 832040
 print(fib.cache_info())   # hits=28, misses=31, ...`;
 
-<TsGo client:visible ts={cacheTs} go={cachePy} />
+<TsGo ts={cacheTs} go={cachePy} />
 
 ### partial — เติม arguments ล่วงหน้า
 
@@ -163,7 +163,7 @@ def connect(host: str, port: int, ssl: bool = False) -> str:
 prod = functools.partial(connect, port=443, ssl=True)
 print(prod("api.example.com"))   # https://api.example.com:443`;
 
-<TsGo client:visible ts={partialTs} go={partialPy} />
+<TsGo ts={partialTs} go={partialPy} />
 
 ## ลองเล่น
 
@@ -204,7 +204,7 @@ print("squares:", [square(x) for x in range(1, 6)])
 print("cubes  :", [cube(x)   for x in range(1, 6)])
 `;
 
-<Playground client:visible code={itertoolsPlaygroundCode} />
+<Playground code={itertoolsPlaygroundCode} />
 
 <PyOnly title="itertools.product และ combinatorics">
 

@@ -2,8 +2,8 @@
 title: Responses และ Status Codes
 description: response_model, status codes และ JSONResponse ใน FastAPI เปรียบเทียบกับ res.json() และ res.status() ใน Express
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 
@@ -34,7 +34,7 @@ async def get_item(item_id: int):
 async def create_item(item: dict):
     return {"id": 42, **item}`;
 
-<TsGo client:visible ts={returnTs} go={returnPy} />
+<TsGo ts={returnTs} go={returnPy} />
 
 ## response_model — กรองและกำหนดรูปร่าง output
 
@@ -72,7 +72,7 @@ async def get_item(item_id: int):
     return ItemInDB(id=item_id, name="Widget",
                     price=9.99, hashed_password="secret")`;
 
-<TsGo client:visible ts={respModelTs} go={respModelPy} />
+<TsGo ts={respModelTs} go={respModelPy} />
 
 ## Status codes
 
@@ -98,7 +98,7 @@ async def create_item(item: dict):
 async def delete_item(item_id: int):
     return None   # 204 — ไม่มี body`;
 
-<TsGo client:visible ts={statusTs} go={statusPy} />
+<TsGo ts={statusTs} go={statusPy} />
 
 ## JSONResponse — ควบคุมโดยตรง
 
@@ -124,7 +124,7 @@ async def download():
         headers={"X-Custom-Header": "value"},
     )`;
 
-<TsGo client:visible ts={jsonRespTs} go={jsonRespPy} />
+<TsGo ts={jsonRespTs} go={jsonRespPy} />
 
 ## ลองเล่น — JSON serialization ด้วย stdlib
 
@@ -159,7 +159,7 @@ filtered = {k: v for k, v in decoded.items() if k in public_fields}
 print(f"\\nFiltered (response_model): {filtered}")
 `;
 
-<Playground client:visible code={jsonCode} />
+<Playground code={jsonCode} />
 
 export const quizResponses = [
   {

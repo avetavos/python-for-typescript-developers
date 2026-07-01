@@ -2,8 +2,8 @@
 title: "Dunder Methods (เมธอดมหัศจรรย์)"
 description: เมธอดพิเศษอย่าง __init__, __str__, __len__, __eq__ และการ overload operator ใน Python
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -72,7 +72,7 @@ print(str(v1))         # calls v1.__str__()
 print(len(v1))         # calls v1.__len__()
 print(v1 == Vector(1, 2))  # calls v1.__eq__(...)`;
 
-<TsGo client:visible ts={tsDunder} go={pyDunder} />
+<TsGo ts={tsDunder} go={pyDunder} />
 
 ## Python เรียก dunder ได้อย่างไร
 
@@ -112,7 +112,7 @@ print(v1 == Vector(1, 2))
 print(v3)
 `;
 
-<Playground client:visible code={playgroundDunder} />
+<Playground code={playgroundDunder} />
 
 <PyOnly title="Dunder methods by category">
 

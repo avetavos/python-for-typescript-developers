@@ -2,8 +2,8 @@
 title: การทดสอบด้วย pytest
 description: พื้นฐาน pytest, test discovery และ assertions — เทียบกับ jest สำหรับนักพัฒนา TypeScript
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -70,7 +70,7 @@ def test_raises_on_negative_input():
     with pytest.raises(ValueError, match="negative"):
         add(-1, 0)`;
 
-<TsGo client:visible ts={jestTest} go={pytestTest} />
+<TsGo ts={jestTest} go={pytestTest} />
 
 ## กฎ Test Discovery
 
@@ -117,7 +117,7 @@ def db():
 def test_finds_a_user(db):   # pytest inject fixture
     assert db.find(1) == {"id": 1, "name": "Alice"}`;
 
-<TsGo client:visible ts={jestFixture} go={pytestFixture} />
+<TsGo ts={jestFixture} go={pytestFixture} />
 
 ## Parametrize — tests แบบ data-driven
 
@@ -141,7 +141,7 @@ import pytest
 def test_add(a, b, expected):
     assert add(a, b) == expected`;
 
-<TsGo client:visible ts={jestParametrize} go={pytestParametrize} />
+<TsGo ts={jestParametrize} go={pytestParametrize} />
 
 ## ลองด้วยตัวเอง — assertions ในการทำงานจริง
 
@@ -165,7 +165,7 @@ test_string()
 print("All assertions passed!")
 `;
 
-<Playground client:visible code={assertDemo} />
+<Playground code={assertDemo} />
 
 > Playground note: snippet ข้างต้นแสดง Python `assert` statements แบบธรรมดา pytest runner จริง (test discovery, fixtures, parametrize, `--cov`) ต้องการ terminal ที่ติดตั้ง `pytest` รัน `pytest -v` ใน project ของคุณเพื่อดูประสบการณ์จริง
 

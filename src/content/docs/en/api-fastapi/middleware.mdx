@@ -2,7 +2,7 @@
 title: Middleware & CORS
 description: Writing middleware with @app.middleware, adding CORS — compared to Express and NestJS middleware patterns.
 ---
-import TsGo from '../../../../components/TsGo.tsx';
+import TsGo from '../../../../components/TsGo.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 
@@ -35,7 +35,7 @@ async def log_requests(request: Request, call_next):
           f"{response.status_code} {ms:.1f}ms")
     return response`;
 
-<TsGo client:visible ts={middlewareTs} go={middlewarePy} />
+<TsGo ts={middlewareTs} go={middlewarePy} />
 
 ## Adding custom headers
 
@@ -59,7 +59,7 @@ async def add_request_id(request: Request, call_next):
     response.headers["X-Request-Id"] = str(uuid.uuid4())
     return response`;
 
-<TsGo client:visible ts={headersTs} go={headersPy} />
+<TsGo ts={headersTs} go={headersPy} />
 
 ## CORS
 
@@ -94,7 +94,7 @@ app.add_middleware(
     allow_headers=["*"],
 )`;
 
-<TsGo client:visible ts={corsTs} go={corsPy} />
+<TsGo ts={corsTs} go={corsPy} />
 
 ## Starlette middleware (class-based)
 
@@ -124,7 +124,7 @@ class LoggerMiddleware(BaseHTTPMiddleware):
 app = FastAPI()
 app.add_middleware(LoggerMiddleware)`;
 
-<TsGo client:visible ts={classMiddlewareTs} go={classMiddlewarePy} />
+<TsGo ts={classMiddlewareTs} go={classMiddlewarePy} />
 
 > **Run this locally — needs FastAPI + a server.**
 > Playground is skipped: middleware requires the ASGI request lifecycle and cannot be demonstrated with a plain Python script.

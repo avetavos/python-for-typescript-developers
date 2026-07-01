@@ -2,8 +2,8 @@
 title: Typing & Protocols
 description: ระบบ structural typing ของ Python — Protocol, TypeVar, Generic, TypedDict, Optional/Union — เปรียบเทียบกับ interfaces และ generics ของ TypeScript โดยตรง
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -51,7 +51,7 @@ class Square:
 print(render(Circle()))  # Drawing Circle
 print(render(Square()))  # Drawing Square`;
 
-<TsGo client:visible ts={protoTs} go={protoPy} />
+<TsGo ts={protoTs} go={protoPy} />
 
 สังเกตว่า `Circle` และ `Square` **ไม่ได้ inherit จาก `Drawable`** พวกมันแค่มีเมธอด `draw()` ที่มี signature ถูกต้อง — แค่นั้นก็พอ เครื่องมือ static analysis เช่น `mypy` และ `pyright` จะจับข้อผิดพลาดได้
 
@@ -94,7 +94,7 @@ stack.push(1)
 stack.push(2)
 print(stack.pop())   # 2`;
 
-<TsGo client:visible ts={genericTs} go={genericPy} />
+<TsGo ts={genericTs} go={genericPy} />
 
 ตั้งแต่ Python 3.9+ คุณสามารถเขียน `list[T]` ได้โดยตรงในคลาสโดยไม่ต้อง import `List` จาก `typing` และตั้งแต่ 3.12 มี syntax `type T = ...` เพิ่มเข้ามา แต่ `TypeVar` ยังเป็นรูปแบบที่ compatible กว้างที่สุด
 
@@ -125,7 +125,7 @@ print(user["name"])   # Alice
 # mypy/pyright จะจับ key ที่ขาดหาย:
 # bad: UserRecord = {"name": "Alice"}  # age missing`;
 
-<TsGo client:visible ts={tdictTs} go={tdictPy} />
+<TsGo ts={tdictTs} go={tdictPy} />
 
 ## Optional และ Union
 
@@ -157,7 +157,7 @@ def greet_modern(name: str | None = None) -> str:
 print(greet())           # Hello, stranger!
 print(greet("Alice"))    # Hello, Alice!`;
 
-<TsGo client:visible ts={optTs} go={optPy} />
+<TsGo ts={optTs} go={optPy} />
 
 ## ลองเล่น
 
@@ -219,7 +219,7 @@ print(find_user(1))   # Alice
 print(find_user(99))  # None
 `;
 
-<Playground client:visible code={typingPlaygroundCode} />
+<Playground code={typingPlaygroundCode} />
 
 <PyOnly title="การตรวจสอบ type ที่ runtime ด้วย isinstance และ Protocol">
 

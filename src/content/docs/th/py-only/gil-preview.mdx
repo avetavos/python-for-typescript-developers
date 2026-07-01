@@ -2,7 +2,7 @@
 title: "GIL — Global Interpreter Lock"
 description: GIL ของ Python คืออะไร, ส่งผลต่อ concurrency อย่างไร และ preview ของ module concurrency vs single-thread ของ JavaScript
 ---
-import TsGo from '../../../../components/TsGo.tsx';
+import TsGo from '../../../../components/TsGo.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -58,7 +58,7 @@ for t in threads:
 
 print(results)  # {0: 0, 1: 2, 2: 4, 3: 6, 4: 8}`;
 
-<TsGo client:visible ts={tsGil} go={pyGil} />
+<TsGo ts={tsGil} go={pyGil} />
 
 ## เมื่อต้องการ parallelism จริง ๆ ใช้ multiprocessing
 
@@ -100,7 +100,7 @@ if __name__ == "__main__":
         results = pool.map(cpu_work, [chunk] * cpus)
     print(sum(results))`;
 
-<TsGo client:visible ts={tsMp} go={pyMp} />
+<TsGo ts={tsMp} go={pyMp} />
 
 หมายเหตุ: Playground ไม่พร้อมใช้งานสำหรับบทเรียนนี้ เนื่องจากตัวอย่าง multiprocessing ต้องการ `if __name__ == "__main__"` guard และรันได้ถูกต้องเฉพาะในสภาพแวดล้อม process แบบ fork เท่านั้น
 

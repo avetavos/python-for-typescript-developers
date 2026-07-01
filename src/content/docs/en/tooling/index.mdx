@@ -2,7 +2,7 @@
 title: Python Tooling Landscape
 description: Python's tooling ecosystem mapped to the Node/TypeScript toolchain — and how it's consolidating around ruff and uv.
 ---
-import TsGo from '../../../../components/TsGo.tsx';
+import TsGo from '../../../../components/TsGo.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -39,7 +39,7 @@ export const pyToolchain = `# Python toolchain
 # Build step       → (usually none for apps — deploy source)
 # Env isolation    → venv  (mandatory — see venv-uv-poetry)`;
 
-<TsGo client:visible ts={tsToolchain} go={pyToolchain} />
+<TsGo ts={tsToolchain} go={pyToolchain} />
 
 ## Why virtual environments are non-negotiable
 

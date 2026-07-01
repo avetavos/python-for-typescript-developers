@@ -1,0 +1,69 @@
+---
+import { Code } from 'astro-expressive-code/components';
+
+interface Props {
+  code: string;
+  lang?: string;
+}
+
+const { code, lang = 'python' } = Astro.props;
+---
+
+<div class="pg" data-code={code}>
+  <div class="pg__bar">
+    <button class="pg__run" data-run type="button">Run ▸</button>
+    <a class="pg__run" data-open href="https://www.python.org/shell/" target="_blank" rel="noopener">Open in an online REPL</a>
+  </div>
+  <Code code={code} lang={lang} />
+  <p class="pg__hint" data-hint hidden>Loading Python runtime (first run only)…</p>
+  <pre class="pg__err" data-err hidden><code></code></pre>
+  <pre class="pg__out" data-out hidden><code></code></pre>
+</div>
+
+<script>
+  import { runPython } from './py-runner';
+
+  document.querySelectorAll<HTMLElement>('.pg').forEach((pg) => {
+    if (pg.dataset.wired) return;
+    pg.dataset.wired = '1';
+
+    const code = pg.dataset.code || '';
+    const runBtn = pg.querySelector<HTMLButtonElement>('[data-run]');
+    const openBtn = pg.querySelector<HTMLAnchorElement>('[data-open]');
+    const hint = pg.querySelector<HTMLElement>('[data-hint]');
+    const errBox = pg.querySelector<HTMLElement>('[data-err]');
+    const outBox = pg.querySelector<HTMLElement>('[data-out]');
+
+    openBtn?.addEventListener('click', () => {
+      navigator.clipboard?.writeText(code);
+    });
+
+    runBtn?.addEventListener('click', async () => {
+      runBtn.disabled = true;
+      runBtn.textContent = 'Running…';
+      if (hint) hint.hidden = false;
+      if (errBox) errBox.hidden = true;
+      if (outBox) outBox.hidden = true;
+      try {
+        const data = await runPython(code);
+        if (data.errors && errBox) {
+          errBox.querySelector('code')!.textContent = data.errors;
+          errBox.hidden = false;
+        }
+        if (outBox) {
+          outBox.querySelector('code')!.textContent = (data.output ?? '') || '(no output)';
+          outBox.hidden = false;
+        }
+      } catch {
+        if (errBox) {
+          errBox.querySelector('code')!.textContent = 'Run failed — try the online REPL.';
+          errBox.hidden = false;
+        }
+      } finally {
+        runBtn.disabled = false;
+        runBtn.textContent = 'Run ▸';
+        if (hint) hint.hidden = true;
+      }
+    });
+  });
+</script>

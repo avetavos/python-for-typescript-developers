@@ -2,7 +2,7 @@
 title: ภาพรวม Tooling ของ Python
 description: ระบบ tooling ของ Python เทียบกับ toolchain ของ Node/TypeScript — และการรวมตัวกันรอบ ruff และ uv
 ---
-import TsGo from '../../../../components/TsGo.tsx';
+import TsGo from '../../../../components/TsGo.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -39,7 +39,7 @@ export const pyToolchain = `# Python toolchain
 # Build step       → (usually none for apps — deploy source)
 # Env isolation    → venv  (mandatory — see venv-uv-poetry)`;
 
-<TsGo client:visible ts={tsToolchain} go={pyToolchain} />
+<TsGo ts={tsToolchain} go={pyToolchain} />
 
 ## ทำไม Virtual Environments จึงขาดไม่ได้
 

@@ -2,8 +2,8 @@
 title: Dataclasses
 description: Python's @dataclass decorator — automatic __init__, __repr__, __eq__, frozen records, and field defaults — compared to TypeScript classes and interfaces.
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -45,7 +45,7 @@ print(p.distance_from_origin())   # 5.0
 # __eq__ generated automatically
 print(Point(1, 2) == Point(1, 2)) # True`;
 
-<TsGo client:visible ts={basicTs} go={basicPy} />
+<TsGo ts={basicTs} go={basicPy} />
 
 You get `__init__`, `__repr__`, and `__eq__` for free — no boilerplate. The `@dataclass` decorator reads the field annotations at class definition time and generates them.
 
@@ -93,7 +93,7 @@ cfg1.tags.append("dev")
 print(cfg1.tags)  # ['dev'] — does NOT affect cfg2
 print(cfg2.tags)  # ['prod']`;
 
-<TsGo client:visible ts={defaultTs} go={defaultPy} />
+<TsGo ts={defaultTs} go={defaultPy} />
 
 ## frozen=True: immutable records
 
@@ -131,7 +131,7 @@ try:
 except Exception as e:
     print(f"Error: {e}") # cannot assign to field 'r'`;
 
-<TsGo client:visible ts={frozenTs} go={frozenPy} />
+<TsGo ts={frozenTs} go={frozenPy} />
 
 ## Try it
 
@@ -179,7 +179,7 @@ except Exception as e:
     print(f"Caught: {e}")
 `;
 
-<Playground client:visible code={dataclassPlaygroundCode} />
+<Playground code={dataclassPlaygroundCode} />
 
 <PyOnly title="post_init and field metadata">
 

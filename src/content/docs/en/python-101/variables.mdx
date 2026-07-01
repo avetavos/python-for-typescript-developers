@@ -2,8 +2,8 @@
 title: Variables & Types
 description: Dynamic typing, type hints, and constants-by-convention in Python vs TypeScript's let/const and static types.
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -34,7 +34,7 @@ is_active: bool = True
 # No annotation needed — works the same
 score = 100  # Python infers nothing; it is just an int`;
 
-<TsGo client:visible ts={declareTs} go={declarePy} />
+<TsGo ts={declareTs} go={declarePy} />
 
 Notice the style differences:
 - No `let` or `const` keyword — the assignment IS the declaration.
@@ -58,7 +58,7 @@ API_BASE: str = "https://api.example.com"
 # Technically legal (but don't do this):
 # MAX_RETRIES = 5  # no error, just bad style`;
 
-<TsGo client:visible ts={constTs} go={constPy} />
+<TsGo ts={constTs} go={constPy} />
 
 ## Dynamic typing in action
 
@@ -79,7 +79,7 @@ print(type(value))   # <class 'int'>
 value = [1, 2, 3]
 print(type(value))   # <class 'list'>`;
 
-<TsGo client:visible ts={dynamicTs} go={dynamicPy} />
+<TsGo ts={dynamicTs} go={dynamicPy} />
 
 ## Multiple assignment
 
@@ -97,7 +97,7 @@ print(x, y, z)  # 1 2 3
 first, *rest = [10, 20, 30, 40]
 print(first, rest)  # 10 [20, 30, 40]`;
 
-<TsGo client:visible ts={multiTs} go={multiPy} />
+<TsGo ts={multiTs} go={multiPy} />
 
 ## Try it
 
@@ -122,7 +122,7 @@ first, *rest = [10, 20, 30, 40]
 print(f"first={first}, rest={rest}")
 `;
 
-<Playground client:visible code={variablesCode} />
+<Playground code={variablesCode} />
 
 <PyOnly title="Type hints are optional and not enforced at runtime">
 

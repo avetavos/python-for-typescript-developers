@@ -2,7 +2,7 @@
 title: Building an API with FastAPI
 description: Why FastAPI, how it compares to Express and NestJS, and what you will build in this module.
 ---
-import TsGo from '../../../../components/TsGo.tsx';
+import TsGo from '../../../../components/TsGo.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 
@@ -48,7 +48,7 @@ async def get_item(item_id: int):   # int cast + 422 on failure — automatic
 #   uvicorn main:app --reload
 # Docs at: http://localhost:8000/docs`;
 
-<TsGo client:visible ts={introTs} go={introPy} />
+<TsGo ts={introTs} go={introPy} />
 
 Key differences at a glance:
 

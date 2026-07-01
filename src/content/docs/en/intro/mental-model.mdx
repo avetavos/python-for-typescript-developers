@@ -2,8 +2,8 @@
 title: Mental Model — Thinking in Python
 description: The key mindset shifts TypeScript developers need when moving to Python — dynamic typing, the interpreter, indentation, and explicit self.
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -36,7 +36,7 @@ def double(n: int) -> int:   # hints are documentation only
 print(double(3))    # 6
 print(double("x"))  # TypeError at RUNTIME, not before`;
 
-<TsGo client:visible ts={dynamicTs} go={dynamicPy} />
+<TsGo ts={dynamicTs} go={dynamicPy} />
 
 ## The interpreter and the REPL
 
@@ -52,7 +52,7 @@ export const runPy = `# Python workflow
 # python3               → opens the interactive REPL
 # python3 -c "print(1)" → run a one-liner inline`;
 
-<TsGo client:visible ts={runTs} go={runPy} />
+<TsGo ts={runTs} go={runPy} />
 
 ## Significant indentation — no curly braces
 
@@ -82,7 +82,7 @@ print(classify(5))   # positive
 print(classify(-3))  # negative
 print(classify(0))   # zero`;
 
-<TsGo client:visible ts={indentTs} go={indentPy} />
+<TsGo ts={indentTs} go={indentPy} />
 
 A misindented line is a syntax error. Most Python editors enforce 4-space indentation automatically.
 
@@ -103,7 +103,7 @@ print(evens)   # [2, 4, 6]
 # Works but less Pythonic:
 # evens = list(filter(lambda n: n % 2 == 0, nums))`;
 
-<TsGo client:visible ts={pythonicTs} go={pythonicPy} />
+<TsGo ts={pythonicTs} go={pythonicPy} />
 
 ## Explicit `self` in methods
 
@@ -138,7 +138,7 @@ c.increment()
 c.increment()
 print(c.value())   # 2`;
 
-<TsGo client:visible ts={selfTs} go={selfPy} />
+<TsGo ts={selfTs} go={selfPy} />
 
 <PyOnly title="__init__ is not a constructor — it is an initialiser">
 
@@ -193,7 +193,7 @@ c.increment()
 print("Counter:", c.value())
 `;
 
-<Playground client:visible code={playgroundMentalModel} />
+<Playground code={playgroundMentalModel} />
 
 export const quizMentalModel = [
   {

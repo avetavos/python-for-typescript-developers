@@ -2,7 +2,7 @@
 title: CI ด้วย GitHub Actions
 description: GitHub Actions workflow สำหรับ Python — setup-python, install, ruff, mypy, pytest — เทียบกับ Node CI workflow
 ---
-import TsGo from '../../../../components/TsGo.tsx';
+import TsGo from '../../../../components/TsGo.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -81,7 +81,7 @@ jobs:
       - name: Test (pytest)
         run: pytest --tb=short -q`;
 
-<TsGo client:visible ts={nodeCi} go={pythonCi} />
+<TsGo ts={nodeCi} go={pythonCi} />
 
 ## Python CI workflow แบบ production เต็มรูปแบบ
 

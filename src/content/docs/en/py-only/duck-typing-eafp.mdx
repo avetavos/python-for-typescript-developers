@@ -2,8 +2,8 @@
 title: Duck Typing & EAFP
 description: Python's structural duck typing and the ask-forgiveness-not-permission pattern vs TypeScript's structural types and LBYL.
 ---
-import TsGo from '../../../../components/TsGo.tsx';
-import Playground from '../../../../components/Playground.tsx';
+import TsGo from '../../../../components/TsGo.astro';
+import Playground from '../../../../components/Playground.astro';
 import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
@@ -60,7 +60,7 @@ make_sound(Dog())
 make_sound(Cat())
 make_sound(Duck())  # works — Duck was never declared as Speaker`;
 
-<TsGo client:visible ts={tsDuckTyping} go={pyDuckTyping} />
+<TsGo ts={tsDuckTyping} go={pyDuckTyping} />
 
 In TypeScript, `Duck` would need to explicitly `implement Speaker`. In Python, any object with a `.speak()` method works — no declaration required.
 
@@ -102,7 +102,7 @@ def parse_number(s: str):
     except ValueError:
         return None`;
 
-<TsGo client:visible ts={tsLbylEafp} go={pyLbylEafp} />
+<TsGo ts={tsLbylEafp} go={pyLbylEafp} />
 
 ## Try it
 
@@ -136,7 +136,7 @@ print(get_value(data, "name"))
 print(get_value(data, "email"))
 `;
 
-<Playground client:visible code={playgroundDuckTypingEafp} />
+<Playground code={playgroundDuckTypingEafp} />
 
 <PyOnly title="Why Python culture prefers try/except over hasattr checks">
 
