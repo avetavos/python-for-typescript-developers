@@ -63,17 +63,24 @@ app.use('/items', itemsRouter);
 app.listen(3000, () => console.log('listening on 3000'));`;
 
 export const mainPy = `# app/main.py
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from app.routers import items
 
-app = FastAPI(title="Items API", version="1.0.0")
+
+# Startup/shutdown via lifespan: code before yield runs at startup,
+# code after yield runs at shutdown (e.g. open/close a DB pool).
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    print("Server is starting up")
+    yield
+    print("Server is shutting down")
+
+
+app = FastAPI(title="Items API", version="1.0.0", lifespan=lifespan)
 
 app.include_router(items.router, prefix="/items", tags=["items"])
-
-# Optional startup/shutdown events
-@app.on_event("startup")
-async def startup():
-    print("Server is starting up")
 
 # รัน: uvicorn app.main:app --reload`;
 
