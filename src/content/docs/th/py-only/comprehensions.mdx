@@ -10,7 +10,9 @@ import PyOnly from '../../../../components/PyOnly.astro';
 
 ## จาก `.map()` และ `.filter()` สู่ syntax ที่ built-in
 
-ใน TypeScript คุณแปลงและกรอง array โดยเชื่อมต่อ method เช่น `.map()`, `.filter()`, และ `.reduce()` วิธีนี้ใช้งานได้ดีแต่ต้องผ่าน array intermediate ทุกขั้นตอน Python มีแนวทางอีกแบบที่ฝังอยู่ในภาษาโดยตรง: **comprehensions** ซึ่งเป็น syntax สั้นกระชับสำหรับสร้าง list, dict, หรือ set ใหม่จาก iterable ที่มีอยู่ ด้วยการกรองแบบ optional ในบรรทัดเดียว
+ใน TypeScript คุณแปลงและกรอง array ด้วยการต่อ method อย่าง `.map()`, `.filter()` และ `.reduce()` เข้าด้วยกัน ใช้ได้ดีอยู่ แต่ทุกขั้นตอนต้องสร้าง array กลางทางขึ้นมาใหม่
+
+Python เลือกอีกทาง โดยฝังไว้ในภาษาเลย นั่นคือ **comprehension** ที่เป็น syntax กระชับสำหรับสร้าง list, dict หรือ set ใหม่จาก iterable ที่มีอยู่ พร้อมกรองค่าไปในตัวได้ภายในบรรทัดเดียว
 
 ## List comprehension
 

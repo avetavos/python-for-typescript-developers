@@ -9,13 +9,15 @@ import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 
 ## ยินดีต้อนรับสู่ Python 101
 
-ถ้าคุณเคยส่งงาน TypeScript ขึ้น production มาแล้ว แสดงว่าคุณรู้จัก Python มากกว่าที่คิด ทั้งสองภาษาต่างก็เป็น dynamically typed ในแก่นของมัน (TypeScript เพิ่มเลเยอร์ type ตอน compile-time ส่วน Python 3 เพิ่ม hint แบบ optional) ทั้งคู่ใช้ garbage collection และทั้งคู่ก็เน้น syntax ที่สื่อความหมายมากกว่าพิธีรีตอง การปรับมุมมองที่ใหญ่ที่สุดเป็นแค่เรื่องผิวเผิน คือ indentation เข้ามาแทนปีกกา และ syntactic sugar หลายอย่างของ JavaScript ก็มีเวอร์ชัน Python ที่สะอาดกว่า
+ถ้าคุณเคยส่งงาน TypeScript ขึ้น production มาแล้ว คุณรู้จัก Python มากกว่าที่คิด เพราะแกนกลางของทั้งสองภาษาเป็น dynamically typed เหมือนกัน (TypeScript แปะเลเยอร์ type ตอน compile-time ส่วน Python 3 แปะ hint แบบ optional) ใช้ garbage collection เหมือนกัน และเน้น syntax ที่สื่อความหมายมากกว่าพิธีรีตองเหมือนกัน
 
-โมดูลนี้จะพาคุณผ่านบทเรียนเก้าบท แต่ละบทยึดโยงกับโค้ดที่คุณรู้จักอยู่แล้ว เมื่อจบลงคุณจะมี Python มากพอที่จะอ่านโปรเจกต์จริง เขียนสคริปต์ และสร้าง REST API ด้วย FastAPI ได้
+สิ่งที่ต้องปรับมุมมองจริง ๆ เป็นเรื่องผิวเผินเสียส่วนใหญ่ คือ indentation เข้ามาแทนปีกกา ส่วน syntactic sugar หลายตัวของ JavaScript ก็มีเวอร์ชัน Python ที่สะอาดกว่ารออยู่
+
+โมดูลนี้มีเก้าบทเรียน แต่ละบทโยงกลับไปหาโค้ดที่คุณรู้จักดีอยู่แล้ว เรียนจบแล้วคุณจะอ่านโปรเจกต์จริง เขียนสคริปต์ และสร้าง REST API ด้วย FastAPI ได้
 
 ## ลองชิมรสชาติแบบเร็ว ๆ: โปรแกรมเดียวกันในทั้งสองภาษา
 
-นี่คือโปรแกรมเล็ก ๆ — รายชื่อที่ถูก filter แล้วทักทาย — เขียนด้วย TypeScript ก่อน แล้วตามด้วย Python ตรรกะเดียวกัน ผลลัพธ์เดียวกัน แต่ syntax ต่างกัน
+โปรแกรมเล็ก ๆ ตัวนี้ filter รายชื่อแล้วทักทาย เขียนด้วย TypeScript ก่อน แล้วตามด้วย Python ตรรกะเดียวกัน ผลลัพธ์เดียวกัน ต่างกันแค่ syntax
 
 export const tasterTs = `const names: string[] = ["Alice", "Bob", "Carol", "Dave"];
 
@@ -72,8 +74,8 @@ export const quizIndex = [
     answer: 1,
   },
   {
-    q: 'Type hints ของ Python (เช่น `name: str`) ถูกบังคับใช้ตอน:',
-    options: ['ตอน compile', 'ตอน import', 'ตอน runtime โดย interpreter', 'มันไม่ถูกบังคับใช้โดย interpreter'],
+    q: 'Type hints ของ Python (เช่น `name: str`) มีผลบังคับตอนไหน?',
+    options: ['ตอน compile', 'ตอน import', 'ตอน runtime โดย interpreter', 'interpreter ไม่บังคับให้เลย'],
     answer: 3,
   },
   {

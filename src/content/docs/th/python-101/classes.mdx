@@ -10,11 +10,11 @@ import PyOnly from '../../../../components/PyOnly.astro';
 
 ## Classes: แนวคิดที่คุ้นเคย แต่ self ต้องเขียนชัดเจน
 
-คลาสของ Python ให้ความรู้สึกคล้ายคลาสของ TypeScript มาก คุณมี `class`, constructor, เมธอด และ inheritance สิ่งที่มักทำให้นักพัฒนา TS สะดุดคือ:
+class ของ Python ให้ความรู้สึกใกล้เคียง class ของ TypeScript มาก มีทั้ง `class`, constructor, method และ inheritance ครบ จุดที่ TS developer มักสะดุดมีอยู่สามข้อ:
 
-1. constructor มีชื่อว่า `__init__` ไม่ใช่ `constructor`
-2. instance method ทุกตัวต้องประกาศ `self` เป็นพารามิเตอร์แรก — Python ไม่ฉีด `this` ให้โดยปริยาย
-3. class attributes (ที่แชร์ร่วมกันทุก instance) ถูกประกาศที่ระดับ class body ไม่ใช่ภายใน constructor
+1. constructor ชื่อ `__init__` ไม่ใช่ `constructor`
+2. instance method ทุกตัวต้องประกาศ `self` เป็นพารามิเตอร์แรก เพราะ Python ไม่ฉีด `this` ให้โดยปริยาย
+3. class attribute ที่แชร์กันทุก instance ประกาศไว้ที่ระดับ class body ไม่ใช่ใน constructor
 
 ## การนิยามคลาส
 
@@ -171,11 +171,11 @@ print(repr(rex))
 
 <PyOnly title="self ต้องเขียนชัดเจน, __init__ คือ constructor, dunders คือ protocol">
 
-ใน TypeScript นั้น `this` ถูกฉีดให้โดย runtime — คุณไม่เคยต้องประกาศมัน ส่วนใน Python นั้น `self` เป็นพารามิเตอร์จริงที่คุณต้องประกาศเป็น argument แรกของ instance method ทุกตัว มันเป็นเพียงธรรมเนียมการตั้งชื่อ — คุณจะเรียกมันว่าอะไรก็ได้ — แต่ `self` เป็นที่ใช้กันทั่วไป
+ใน TypeScript runtime ฉีด `this` ให้เอง คุณไม่เคยต้องประกาศ ส่วนใน Python `self` เป็นพารามิเตอร์จริงที่ต้องเขียนเป็น argument ตัวแรกของ instance method ทุกตัว ชื่อ `self` เป็นแค่ธรรมเนียม จะตั้งชื่ออื่นก็ได้ แต่ทั้งวงการใช้ `self` กันหมด
 
-`__init__` (อ่านว่า "dunder init") เป็น initialiser ไม่ใช่ constructor object มีอยู่แล้วเมื่อ `__init__` ทำงาน — มันทำหน้าที่ตั้งค่าสถานะเริ่มต้นของ object
+`__init__` (อ่านว่า "dunder init") เป็น initialiser ไม่ใช่ constructor เพราะตอนที่ `__init__` เริ่มทำงาน object มีตัวตนอยู่แล้ว หน้าที่ของ `__init__` คือตั้งค่าสถานะเริ่มต้นให้ object นั้น
 
-Python ใช้ **dunder methods** (ขีดล่างสองตัว เช่น `__repr__`, `__str__`, `__len__`, `__eq__`) เพื่อเสียบเข้ากับการทำงาน built-in มันคือสิ่งที่เทียบเท่า interface ของ TypeScript อย่าง `toString()` หรือ `Symbol.iterator`:
+Python ใช้ **dunder methods** (ขีดล่างสองตัว เช่น `__repr__`, `__str__`, `__len__`, `__eq__`) เป็นจุดเสียบเข้ากับพฤติกรรม built-in เทียบได้กับ interface ฝั่ง TypeScript อย่าง `toString()` หรือ `Symbol.iterator`:
 
 ```python
 class Point:

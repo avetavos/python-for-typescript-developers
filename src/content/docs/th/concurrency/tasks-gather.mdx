@@ -43,11 +43,11 @@ print(users, posts, tags)`;
 
 <TsGo ts={gatherTs} go={gatherPy} />
 
-`asyncio.gather()` รักษา **ลำดับ input** ใน results ที่ return กลับมา เหมือนกับ `Promise.all` แม้ `fetch_tags` จะเสร็จก่อน element ที่สามของ tuple จะยังเป็น result ของมันเสมอ
+`asyncio.gather()` รักษา **ลำดับของ input** ไว้ใน result ที่ return กลับมา เหมือน `Promise.all` เป๊ะ ต่อให้ `fetch_tags` เสร็จก่อนใครเพื่อน element ตัวที่สามของ tuple ก็ยังเป็น result ของ `fetch_tags` อยู่ดี
 
 ## asyncio.create_task — schedule งานล่วงหน้า
 
-`Promise.all` เริ่ม execute promise ทันทีที่คุณส่งเข้าไป Python มีแนวคิดเดียวกันผ่าน `asyncio.create_task()`: มัน schedule coroutine ให้ run บน event loop ทันที โดยไม่รอ `await`
+ฝั่ง `Promise.all` promise เริ่มทำงานตั้งแต่วินาทีที่คุณส่งเข้าไป ส่วน Python ให้พฤติกรรมเดียวกันผ่าน `asyncio.create_task()` ที่ schedule coroutine ขึ้น event loop ทันทีโดยไม่ต้องรอ `await`
 
 export const createTaskTs = `// TypeScript — promise starts running immediately on creation
 const p1 = fetchUser(1);    // already running
@@ -104,7 +104,7 @@ task.cancel()`;
 
 ## การจัดการ error
 
-`asyncio.gather` มีพฤติกรรมเหมือน `Promise.all` โดย default: หาก coroutine ใด raise exception exception จะ propagate และ coroutine อื่นจะถูก cancel
+โดย default `asyncio.gather` ทำตัวเหมือน `Promise.all` คือถ้า coroutine ตัวไหน raise exception ขึ้นมา exception นั้นจะเด้งต่อออกไป แล้ว coroutine ตัวที่เหลือโดน cancel ทิ้ง
 
 export const errorTs = `// TypeScript — Promise.all rejects on first failure
 try {

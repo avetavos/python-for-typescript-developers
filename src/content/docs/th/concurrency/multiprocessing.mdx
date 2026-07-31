@@ -14,7 +14,7 @@ import PyOnly from '../../../../components/PyOnly.astro';
 
 อย่างที่เรียนรู้ในบทก่อน GIL ป้องกัน Python thread ไม่ให้ run Python bytecode แบบ parallel บนหลาย core สำหรับงาน CPU-bound — number crunching, image processing, data transformation — thread ไม่ได้ให้ speedup
 
-`multiprocessing` แก้ปัญหานี้โดย spawn Python interpreter process แยกต่างหากทั้งหมด แต่ละ process มี GIL ของตัวเอง memory ของตัวเอง และ Python runtime ของตัวเอง พวกมัน run แบบ parallel จริงๆ บนทุก CPU core ที่มี
+`multiprocessing` แก้ปัญหานี้ด้วยการ spawn process ของ Python interpreter ขึ้นมาแยกกันคนละตัว แต่ละ process มี GIL ของตัวเอง มี memory ของตัวเอง และมี Python runtime ของตัวเอง จึงรันขนานกันได้จริงบนทุก CPU core ที่มี
 
 ## เทียบกับ isolation model ของ JavaScript
 
@@ -155,7 +155,7 @@ if __name__ == "__main__":
 
 export const quizMultiprocessing = [
   {
-    q: 'ทำไม `multiprocessing` จึงได้ CPU parallelism จริงๆ ในขณะที่ `threading` ไม่ได้?',
+    q: 'ทำไม `multiprocessing` ถึงได้ CPU parallelism จริง ส่วน `threading` ไม่ได้?',
     options: [
       'multiprocessing ใช้ GIL implementation ที่เร็วกว่า',
       'แต่ละ process มี Python interpreter และ GIL ของตัวเอง',

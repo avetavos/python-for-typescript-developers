@@ -9,23 +9,27 @@ import PyOnly from '../../../../components/PyOnly.astro';
 
 ## คุณเขียนโปรแกรมเป็นอยู่แล้ว
 
-คุณรู้จัก TypeScript แล้ว คุณคิดในแง่ของ types, modules, async/await และ npm scripts Python ไม่ใช่วิธีคิดใหม่ — มันเหมือนกล่องเครื่องมือใบที่สองที่วางอยู่ข้างๆ กล่องของคุณ และเครื่องมือหลายชิ้นมีรูปร่างที่คุ้นเคย คอร์สนี้จะแมปแนวคิด Python ทุกข้อกลับไปสู่ตัวเทียบเคียง TypeScript ที่คุณเข้าใจอยู่แล้ว
+คุณรู้จัก TypeScript อยู่แล้ว และคิดเป็นภาพของ type, module, async/await กับ npm script ได้คล่อง การเรียน Python จึงไม่ใช่การเริ่มคิดใหม่ทั้งหมด แต่เหมือนได้กล่องเครื่องมือใบที่สองมาวางข้าง ๆ ใบเดิม ซึ่งเครื่องมือหลายชิ้นในนั้นรูปร่างคุ้นตามาก
+
+คอร์สนี้จะจับแนวคิดของ Python ทุกข้อไปเทียบกับตัวเทียบเคียงฝั่ง TypeScript ที่คุณเข้าใจอยู่แล้ว
 
 ## ทำไม Python ถึงอยู่ทุกที่
 
-TypeScript ครองโลกของ frontend และ Node backend Python ครองเกือบทุกอย่างนอกจากนั้น:
+TypeScript ครองฝั่ง frontend กับ Node backend ส่วน Python ครองเกือบทุกอย่างที่เหลือ:
 
-- **Data science และ machine learning** — NumPy, pandas, PyTorch, TensorFlow, scikit-learn ไม่มีสิ่งเทียบเคียงใน JavaScript สำหรับ ML ระดับ production
-- **Scripting และ automation** — แทนที่ bash ด้วยโค้ดที่อ่านง่ายและมี type ส่วนใหญ่ของ CI/CD helpers, data pipelines และ ops tooling ล้วนเป็น Python
-- **Backend APIs** — FastAPI มีความสะดวกใช้เทียบเท่า Express/NestJS แต่มี OpenAPI docs อัตโนมัติและรองรับ async โดยธรรมชาติ
-- **Scientific computing** — ชีววิทยา, การเงิน, การจำลองทางฟิสิกส์ Python คือภาษากลางของนักวิจัย
-- **DevOps และ cloud tooling** — AWS CDK (เวอร์ชัน Python), Ansible, Terraform providers และ cloud SDK ส่วนใหญ่รองรับ Python ก่อนเป็นอันดับแรก
+- **Data science และ machine learning** — NumPy, pandas, PyTorch, TensorFlow, scikit-learn ฝั่ง JavaScript ยังไม่มีอะไรเทียบได้สำหรับงาน ML ระดับ production
+- **Scripting และ automation** — เขียนแทน bash ได้ด้วยโค้ดที่อ่านง่ายกว่าและใส่ type ได้ ทุกวันนี้ CI/CD helper, data pipeline และ ops tooling ส่วนใหญ่เป็น Python
+- **Backend APIs** — FastAPI ใช้สะดวกพอ ๆ กับ Express/NestJS แถมสร้าง OpenAPI docs ให้อัตโนมัติและรองรับ async มาตั้งแต่ต้น
+- **Scientific computing** — งานชีววิทยา การเงิน และการจำลองทางฟิสิกส์ ล้วนใช้ Python เป็นภาษากลางของนักวิจัย
+- **DevOps และ cloud tooling** — AWS CDK เวอร์ชัน Python, Ansible, Terraform provider และ cloud SDK ส่วนใหญ่รองรับ Python เป็นอันดับแรก
 
-การสำรวจประจำปีของ GitHub วาง Python ไว้ใน 2 ภาษาที่ใช้มากที่สุดอย่างสม่ำเสมอ การเรียนรู้มันจะขยายพื้นที่ของโปรเจกต์ที่คุณมีส่วนร่วมได้เป็นสองเท่า
+ผลสำรวจประจำปีของ GitHub จัด Python อยู่ใน 2 อันดับภาษาที่ใช้มากที่สุดมาตลอด เรียนไว้ก็เท่ากับเพิ่มโปรเจกต์ที่คุณเข้าไปร่วมได้อีกเท่าตัว
 
 ## Batteries included
 
-Node.js มี standard library ขนาดเล็กและมอบส่วนที่เหลือให้ npm ปรัชญาของ Python คือ "batteries included" — standard library ครอบคลุม HTTP clients, JSON, CSV parsing, argument parsing, zip files, SQLite, email, regular expressions และอีกมาก คุณสามารถเขียนสคริปต์ที่สมบูรณ์อย่างน่าประหลาดใจโดยไม่ต้องพึ่ง external dependencies เลย
+Node.js มี standard library ตัวเล็ก แล้วโยนที่เหลือให้ npm จัดการ ส่วน Python ยึดปรัชญา "batteries included" — standard library ครอบคลุมทั้ง HTTP client, JSON, CSV parsing, argument parsing, zip file, SQLite, email, regular expression และอีกเพียบ
+
+ผลคือคุณเขียนสคริปต์ที่ทำงานได้ครบจริง ๆ โดยไม่แตะ external dependency เลยสักตัว
 
 export const batteriesTs = `// TypeScript: need external packages
 import axios from "axios";           // npm install axios
@@ -41,13 +45,13 @@ import argparse         # built-in CLI argument parser`;
 
 ## การอ่านง่ายในฐานะเป้าหมายการออกแบบ
 
-Python ถูกออกแบบโดยมีหลักการนำทางเดียว: ควรมีวิธีเดียว — และควรเป็นวิธีที่ชัดเจนที่สุด — ในการทำสิ่งหนึ่งๆ ชุมชนเรียกการเขียน Python ที่ถูกต้องว่า "Pythonic" คุณจะพบคำนี้บ่อยมาก มันหมายถึง: ชัดเจน เป็นธรรมชาติ และไม่ต่อสู้กับภาษา
+Python ออกแบบมาโดยยึดหลักเดียว คือการทำสิ่งหนึ่งควรมีวิธีเดียว และควรเป็นวิธีที่ชัดเจนที่สุด ชุมชนเรียกโค้ด Python ที่เขียนถูกทางว่า "Pythonic" ซึ่งคุณจะเจอคำนี้บ่อยมาก ความหมายคือ ชัดเจน เป็นธรรมชาติ และไม่ฝืนภาษา
 
-ในฐานะ TypeScript developer คุณจะชื่นชมไวยากรณ์ที่กระชับของ Python ทันที ไม่มี semicolons ไม่มี curly braces สำหรับ blocks ไม่มี keyword `function` — มีแค่การย่อหน้าและเจตนา
+ในฐานะ TypeScript developer คุณจะชอบ syntax ที่กระชับของ Python ตั้งแต่แรกเห็น ไม่มี semicolon ไม่มี curly brace ครอบ block ไม่มี keyword `function` เหลือแค่การย่อหน้ากับเจตนาของโค้ด
 
 ## สิ่งที่คอร์สนี้ครอบคลุม
 
-นี่ไม่ใช่บทแนะนำ Python ทั่วไป มันคือ fast-track สำหรับ TypeScript developers ที่ต้องการมีประสิทธิภาพอย่างรวดเร็ว แต่ละบทเรียนจะยึดแนวคิดใหม่ไว้กับสิ่งที่คุณรู้อยู่แล้ว แสดงความแตกต่างอย่างชัดเจน และให้ตัวอย่างที่รันได้
+คอร์สนี้ไม่ใช่บทแนะนำ Python ทั่วไป แต่เป็นทางลัดสำหรับ TypeScript developer ที่อยากเขียนงานจริงได้เร็ว ทุกบทเรียนจะโยงแนวคิดใหม่กลับไปหาสิ่งที่คุณรู้อยู่แล้ว ชี้จุดต่างให้ชัด แล้วปิดท้ายด้วยตัวอย่างที่รันได้จริง
 
 **Module: Intro (คุณอยู่ที่นี่)**
 - การเปลี่ยน mindset จาก TypeScript/Node
@@ -67,7 +71,7 @@ Python ถูกออกแบบโดยมีหลักการนำท�
 
 <PyOnly title="Python REPL — ไม่มีใน Node โดยค่าเริ่มต้น">
 
-Python มาพร้อม interactive REPL (Read-Eval-Print Loop) ที่คุณเปิดด้วย `python3` ในเทอร์มินัล ทุก expression ที่คุณพิมพ์จะถูกประมวลผลทันทีและผลลัพธ์จะถูกแสดงออกมา
+Python แถม interactive REPL (Read-Eval-Print Loop) มาให้ในตัว เปิดด้วยคำสั่ง `python3` ในเทอร์มินัล แล้วทุก expression ที่พิมพ์เข้าไปจะรันทันทีและพ่นผลลัพธ์ออกมาเลย
 
 ```bash
 $ python3
@@ -80,7 +84,7 @@ $ python3
 >>> quit()
 ```
 
-Node.js มี `node` REPL เช่นกัน แต่ Python REPL ถูกใช้บ่อยกว่ามากในการทำงานประจำวัน — มันคือวิธีหลักที่ Python developers ใช้สำรวจ APIs และทดสอบ snippets แบบ interactive
+Node.js ก็มี `node` REPL เหมือนกัน แต่คน Python ใช้ REPL ในงานประจำวันบ่อยกว่ามาก เพราะเป็นช่องทางหลักในการสำรวจ API และลอง snippet สั้น ๆ แบบ interactive
 
 </PyOnly>
 

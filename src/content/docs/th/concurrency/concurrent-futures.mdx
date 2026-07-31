@@ -12,7 +12,7 @@ import PyOnly from '../../../../components/PyOnly.astro';
 
 ## High-level API
 
-`concurrent.futures` คือคำตอบของ Python สำหรับ "ฉันต้องการ thread หรือ process แต่ไม่อยาก manage เอง" มันให้ clean, unified API ที่รู้สึกใกล้เคียงกับ `Promise`-based model ของ JavaScript มากกว่า raw `threading` หรือ `multiprocessing`
+`concurrent.futures` คือคำตอบของ Python สำหรับโจทย์ "อยากได้ thread หรือ process แต่ไม่อยาก manage เอง" โดยให้ API ชุดเดียวที่สะอาดและให้ความรู้สึกใกล้เคียงโมเดล `Promise` ของ JavaScript มากกว่าการเล่นกับ `threading` หรือ `multiprocessing` ดิบ ๆ
 
 executor ทั้งสองเป็น drop-in replacement สำหรับกัน — คุณสลับระหว่าง thread-based และ process-based concurrency โดยเปลี่ยนแค่หนึ่งบรรทัด
 
@@ -200,7 +200,7 @@ export const quizConcurrentFutures = [
       'ThreadPoolExecutor กับ max_workers เท่ากับ cpu_count',
       'ProcessPoolExecutor — แต่ละ process มี GIL ของตัวเอง',
       'ทั้งสองอย่าง — concurrent.futures ลบ GIL สำหรับทุก executor',
-      'asyncio.gather — มันใช้ทุก core อัตโนมัติ',
+      'asyncio.gather เพราะกระจายไปทุก core ให้อัตโนมัติ',
     ],
     answer: 1,
   },

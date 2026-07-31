@@ -53,7 +53,7 @@ print(render(Square()))  # Drawing Square`;
 
 <TsGo ts={protoTs} go={protoPy} />
 
-สังเกตว่า `Circle` และ `Square` **ไม่ได้ inherit จาก `Drawable`** พวกมันแค่มีเมธอด `draw()` ที่มี signature ถูกต้อง — แค่นั้นก็พอ เครื่องมือ static analysis เช่น `mypy` และ `pyright` จะจับข้อผิดพลาดได้
+สังเกตว่า `Circle` กับ `Square` **ไม่ได้ inherit จาก `Drawable`** เลย ทั้งคู่แค่มี method `draw()` ที่ signature ตรงเท่านั้น ซึ่งพอแล้ว ส่วนงานจับข้อผิดพลาดเป็นหน้าที่ของ static analysis tool อย่าง `mypy` และ `pyright`
 
 ## Generics: TypeVar และ Generic
 
@@ -270,7 +270,7 @@ export const quizTypingProtocols = [
     answer: 1,
   },
   {
-    q: 'คลาสจำเป็นต้อง inherit จาก `Protocol` อย่างชัดเจนเพื่อตรงตามมันหรือไม่?',
+    q: 'class ต้อง inherit จาก `Protocol` ตรง ๆ ไหม ถึงจะนับว่าเข้าเกณฑ์?',
     options: [
       'ใช่ — ต้อง inherit อย่างชัดเจน',
       'ไม่ — แค่ implement เมธอดที่จำเป็น (structural typing)',

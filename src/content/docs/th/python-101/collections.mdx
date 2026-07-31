@@ -10,7 +10,7 @@ import PyOnly from '../../../../components/PyOnly.astro';
 
 ## Collections: โครงสร้างข้อมูลของ Python ที่คุณจะใช้ทุกวัน
 
-Python มาพร้อม collection แบบ built-in สี่ชนิด: `list`, `tuple`, `dict` และ `set` ในฐานะนักพัฒนา TypeScript คุณมีแบบจำลองในหัวสำหรับทั้งหมดนี้อยู่แล้ว — การแมปนั้นใกล้เคียงกัน แต่ Python แต่ละชนิดก็มีเอกลักษณ์เฉพาะตัว
+Python มี collection แบบ built-in อยู่สี่ชนิดคือ `list`, `tuple`, `dict` และ `set` ในฐานะ TypeScript developer คุณมีภาพในหัวของทั้งสี่ตัวอยู่แล้ว การเทียบจึงใกล้เคียงกันมาก แต่ฝั่ง Python แต่ละตัวก็มีจุดเด่นของตัวเอง
 
 | Python | TypeScript | ความต่างสำคัญ |
 |---|---|---|
@@ -47,7 +47,7 @@ evens = [n for n in nums if n % 2 == 0]`;
 
 <TsGo ts={listTs} go={listPy} />
 
-List comprehensions (`[expr for x in iterable if condition]`) เป็นสไตล์ idiomatic ของ Python — สำหรับการแปลงค่าง่าย ๆ ควรเลือกใช้มันมากกว่า `map`/`filter`
+List comprehension (`[expr for x in iterable if condition]`) คือสไตล์ idiomatic ของ Python งานแปลงค่าง่าย ๆ ควรเลือกท่านี้ก่อน `map`/`filter` เสมอ
 
 ## dict — Record / Map ของ Python
 
@@ -84,7 +84,7 @@ for key, value in user.items():
 
 <TsGo ts={dictTs} go={dictPy} />
 
-ใช้ `.get(key, default)` แทน `dict[key]` เมื่อคีย์อาจไม่มีอยู่ — มันจะคืนค่า default แทนที่จะโยน `KeyError`
+ถ้าคีย์อาจไม่มีอยู่จริง ให้ใช้ `.get(key, default)` แทน `dict[key]` เพราะจะคืนค่า default ให้แทนการโยน `KeyError`
 
 ## set — ค่าที่ไม่ซ้ำกัน
 
@@ -108,7 +108,7 @@ tags.discard("web")        # remove without error if absent`;
 
 ## Slicing — ฟีเจอร์เด็ดของ Python สำหรับ sequence
 
-Slicing ของ Python ให้คุณดึง sub-sequence ออกมาด้วย `[start:stop:step]` ไม่มีสิ่งที่เทียบเท่าตรง ๆ ใน TypeScript — `.slice()` มีอยู่บน array แต่ขาดพารามิเตอร์ step และไม่รองรับ index ติดลบโดยตรง
+Slicing ของ Python ดึง sub-sequence ออกมาด้วย `[start:stop:step]` ฝั่ง TypeScript ไม่มีตัวเทียบตรง ๆ เพราะ `.slice()` บน array ไม่มีพารามิเตอร์ step และไม่รองรับ index ติดลบแบบเดียวกัน
 
 export const sliceTs = `// TypeScript
 const nums = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -170,7 +170,7 @@ print("python" in tags)
 
 <PyOnly title="Tuples: sequence ที่ immutable พร้อม unpacking">
 
-Tuple ของ Python ดูเหมือน array ที่ขนาดคงที่ แต่แบกความหมายที่ต่างออกไป: มัน **immutable** — คุณไม่สามารถ append, ลบ หรือ reassign สมาชิกได้ TypeScript มี `readonly` array และ type แบบ `[T, U]` แต่นั่นเป็นแนวคิดระดับคอมไพเลอร์ ส่วน tuple ของ Python เป็น runtime type ที่มีตัวตนจริง
+tuple หน้าตาเหมือน array ที่ขนาดคงที่ แต่ความหมายต่างออกไป เพราะเป็น **immutable** จะ append ลบ หรือ reassign สมาชิกไม่ได้เลย ฝั่ง TypeScript มี `readonly` array กับ type แบบ `[T, U]` ก็จริง แต่ทั้งหมดนั้นเป็นแนวคิดระดับคอมไพเลอร์ ส่วน tuple ของ Python เป็น runtime type ที่มีตัวตนจริง
 
 ```python
 point = (10, 20)
@@ -181,7 +181,7 @@ location = (37.7749, -122.4194)
 city_map = {location: "San Francisco"}
 ```
 
-Tuple ยังเป็นกลไกเบื้องหลัง **การ return หลายค่า** และ **การ unpacking** อีกด้วย:
+tuple ยังเป็นกลไกเบื้องหลัง **การ return หลายค่า** และ **การ unpacking** ด้วย:
 
 ```python
 def divmod_custom(a: int, b: int) -> tuple[int, int]:
@@ -195,7 +195,7 @@ print(quotient, remainder)  # 3 2
 
 export const quizCollections = [
   {
-    q: 'Collection ชนิดใดของ Python ที่แมปใกล้เคียงที่สุดกับ `Map<string, number>` ของ TypeScript?',
+    q: 'collection ชนิดไหนของ Python ใกล้เคียง `Map<string, number>` ของ TypeScript มากที่สุด?',
     options: ['list', 'tuple', 'dict', 'set'],
     answer: 2,
   },
@@ -210,7 +210,7 @@ export const quizCollections = [
     answer: 0,
   },
   {
-    q: 'เมธอดใดดึงค่าจาก dict ได้อย่างปลอดภัยโดยไม่โยน KeyError?',
+    q: 'method ไหนดึงค่าจาก dict ได้อย่างปลอดภัยโดยไม่โยน KeyError?',
     options: [
       'dict.fetch(key)',
       'dict.get(key, default)',
@@ -220,12 +220,12 @@ export const quizCollections = [
     answer: 1,
   },
   {
-    q: 'คุณเขียน `t = (1, 2, 3); t[0] = 99` จะเกิดอะไรขึ้น?',
+    q: 'เขียน `t = (1, 2, 3); t[0] = 99` แล้วเกิดอะไรขึ้น?',
     options: [
-      'ค่าถูกอัปเดตเป็น 99',
+      'ค่าเปลี่ยนเป็น 99',
       'Python โยน TypeError ตอน runtime',
       'Python โยน SyntaxError',
-      'tuple ถูกแปลงเป็น list',
+      'Python แปลง tuple เป็น list ให้',
     ],
     answer: 1,
   },

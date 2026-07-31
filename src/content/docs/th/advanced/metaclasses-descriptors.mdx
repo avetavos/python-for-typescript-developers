@@ -10,7 +10,9 @@ import PyOnly from '../../../../components/PyOnly.astro';
 
 ## ไม่มีคู่เทียบใน TypeScript — และนั่นคือประเด็น
 
-Descriptors และ metaclasses เป็นสองฟีเจอร์ runtime ที่ทรงพลังที่สุดของ Python TypeScript มี decorators (stage-3, experimental) แต่มีความสามารถจำกัดกว่ามาก descriptor protocol และระบบ metaclass ของ Python ทำงานในระดับต่ำกว่า: มันควบคุมว่าการเข้าถึง attribute และการสร้างคลาสทำงานอย่างไรที่ runtime การเข้าใจสิ่งเหล่านี้จะอธิบายว่า `@property`, `@dataclass`, และ ORM อย่าง SQLAlchemy ทำงานอยู่เบื้องหลังได้อย่างไร
+descriptor กับ metaclass คือสองฟีเจอร์ระดับ runtime ที่ทรงพลังที่สุดของ Python ฝั่ง TypeScript มี decorator อยู่ (stage-3, ยัง experimental) แต่ทำได้จำกัดกว่ามาก
+
+descriptor protocol และระบบ metaclass ของ Python ทำงานในชั้นที่ลึกกว่านั้น คือเข้าไปคุมว่าการเข้าถึง attribute และการสร้าง class เกิดขึ้นอย่างไรตอน runtime เข้าใจสองเรื่องนี้แล้วคุณจะเห็นภาพทันทีว่า `@property`, `@dataclass` และ ORM อย่าง SQLAlchemy ทำงานเบื้องหลังอย่างไร
 
 ## Descriptors: การควบคุมการเข้าถึง attribute
 
@@ -78,7 +80,7 @@ item.price = "free"    # TypeError: price must be numeric`;
 
 ## __set_name__: descriptor self-registration
 
-`__set_name__` ถูกเรียกโดย Python ตอน class creation time (เมื่อ class body ถูก execute) ทำให้ descriptor รู้ชื่อของ attribute ที่มันถูก assign ให้ นี่คือสาเหตุที่คุณไม่ต้องเขียน `price = Validated("price")` — Python inject ชื่อให้อัตโนมัติ
+Python เรียก `__set_name__` ตอนสร้าง class (จังหวะที่ class body รัน) ทำให้ descriptor รู้ชื่อ attribute ที่ตัวเองถูก assign ไปให้ นี่คือเหตุผลที่คุณไม่ต้องเขียน `price = Validated("price")` เพราะ Python ใส่ชื่อให้เอง
 
 ## ลองเล่น — descriptor demo
 
@@ -125,7 +127,7 @@ except TypeError as e:
 
 <PyOnly title="Metaclasses: คลาสที่สร้างคลาส">
 
-ใน Python **ทุกอย่างเป็น object** — รวมถึงคลาสด้วย คลาสคือ instance ของ **metaclass** ของมัน metaclass เริ่มต้นคือ `type` เมื่อ Python process `class Foo: ...` statement มันเรียก `type('Foo', bases, namespace)` เพื่อสร้าง class object
+ใน Python **ทุกอย่างเป็น object** รวมถึง class ด้วย พูดให้ตรงกว่านั้นคือ class เป็น instance ของ **metaclass** โดยมี `type` เป็น metaclass เริ่มต้น พอ Python เจอ statement `class Foo: ...` ก็จะเรียก `type('Foo', bases, namespace)` เพื่อสร้าง class object ขึ้นมา
 
 คุณสามารถแทนที่ `type` ด้วย metaclass ของคุณเองโดยส่ง `metaclass=MyMeta` ซึ่งช่วยให้คุณ intercept และแก้ไขการสร้างคลาส — เพิ่มเมธอด, enforce conventions, หรือ implement patterns เช่น singleton
 
@@ -152,7 +154,7 @@ print(a is b)   # True — same object
 
 - **ORMs:** SQLAlchemy ใช้ metaclass เพื่อประมวลผล `Column()` annotations และลงทะเบียน models
 - **Django:** `models.Model` ใช้ metaclass เพื่อสร้าง database schemas จาก class bodies
-- **`@dataclass`:** ไม่ใช่ metaclass — มันคือ class decorator แต่ inspect `__annotations__` เพื่อสร้าง `__init__` คล้ายกับที่ metaclass ทำ
+- **`@dataclass`:** ไม่ใช่ metaclass แต่เป็น class decorator ที่ไปอ่าน `__annotations__` แล้วสร้าง `__init__` ให้ ซึ่งใกล้เคียงกับสิ่งที่ metaclass ทำ
 
 **กฎง่ายๆ:** ถ้าคุณต้องการแก้ไขทุกคลาสในลำดับชั้นตอน creation time นั่นคือ use case ของ metaclass สำหรับทุกอย่างอื่น class decorator หรือ descriptor เรียบง่ายกว่าและอ่านง่ายกว่า
 

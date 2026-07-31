@@ -9,7 +9,9 @@ import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 
 ## Control flow: แนวคิดเดียวกัน แต่ syntax สะอาดกว่า
 
-Control flow ของ TypeScript แปลเป็น Python ได้แทบจะคำต่อคำ ความต่างที่ใหญ่ที่สุดเป็นเรื่องผิวเผิน: ไม่มีปีกกา (การย่อหน้าคือโครงสร้าง), ใช้ `elif` แทน `else if` และใช้ `match`/`case` แทน `switch` ลูป `for` ของ Python จะเป็น `for ... in` เสมอ — ไม่มีลูปสไตล์ C แบบ `for (let i = 0; ...)`
+Control flow ของ TypeScript ย้ายมา Python ได้แทบจะคำต่อคำ จุดต่างที่ใหญ่ที่สุดล้วนเป็นเรื่องผิวเผิน คือไม่มีปีกกา (การย่อหน้าคือโครงสร้าง) ใช้ `elif` แทน `else if` และใช้ `match`/`case` แทน `switch`
+
+อีกจุดที่ต้องปรับคือ ลูป `for` ของ Python เป็น `for ... in` เสมอ ไม่มีลูปสไตล์ C แบบ `for (let i = 0; ...)` ให้เขียน
 
 ## if / elif / else
 
@@ -47,7 +49,7 @@ print(f"Grade: {grade}")  # Grade: B`;
 
 ## for ... in และ range()
 
-`for` ของ Python จะวนซ้ำบน iterable เสมอ — ไม่ว่าจะเป็น list, string, dict หรือ `range` ไม่มีลูปแบบ indexed สไตล์ C สำหรับการเข้าถึงด้วย index ให้ใช้ `enumerate()`
+`for` ของ Python วนบน iterable เสมอ จะเป็น list, string, dict หรือ `range` ก็ได้ ไม่มีลูปแบบไล่ index สไตล์ C ให้ใช้ ถ้าต้องการ index ด้วยให้เรียก `enumerate()`
 
 export const forTs = `// TypeScript
 // Indexed loop
@@ -80,7 +82,7 @@ for i, fruit in enumerate(fruits):
 
 <TsGo ts={forTs} go={forPy} />
 
-`range(start, stop, step)` สะท้อนรูปแบบของ TypeScript:
+`range(start, stop, step)` เทียบกับรูปแบบฝั่ง TypeScript ได้ตรง ๆ:
 
 | TypeScript | Python |
 |---|---|
@@ -91,7 +93,7 @@ for i, fruit in enumerate(fruits):
 
 ## while
 
-`while` ทำงานเหมือนกันทุกประการ — วนซ้ำจนกว่าเงื่อนไขจะเป็น false
+`while` ทำงานเหมือนกันทุกอย่าง คือวนไปจนกว่าเงื่อนไขจะเป็น false
 
 export const whileTs = `// TypeScript
 let n: number = 1;
@@ -108,11 +110,11 @@ while n <= 5:
 
 <TsGo ts={whileTs} go={whilePy} />
 
-หมายเหตุ: Python ไม่มี operator `++` หรือ `--` ให้ใช้ `+= 1` และ `-= 1` แทน
+สังเกตว่า Python ไม่มี operator `++` หรือ `--` ต้องใช้ `+= 1` และ `-= 1` แทน
 
 ## match / case — switch ของ Python
 
-Python 3.10 ได้แนะนำ `match`/`case` ซึ่งทรงพลังกว่า `switch` ของ TypeScript มันรองรับ OR pattern ด้วย `|`, wildcard `_` และ structural pattern matching (การ match รูปร่างของ object)
+Python 3.10 เพิ่ม `match`/`case` เข้ามา ซึ่งทำได้มากกว่า `switch` ของ TypeScript เพราะรองรับทั้ง OR pattern ด้วย `|`, wildcard `_` และ structural pattern matching คือ match ตามรูปร่างของ object ได้เลย
 
 export const matchTs = `// TypeScript switch
 const command: string = "quit";
@@ -142,7 +144,7 @@ match command:
 
 <TsGo ts={matchTs} go={matchPy} />
 
-ต่างจาก `switch` ตรงที่ `match` จะไม่ fall through คุณไม่ต้องใช้ `break` เลย อักขระ `|` ใช้รวมหลาย case เข้าไว้ในประโยค `case` เดียว
+ต่างจาก `switch` ตรงที่ `match` ไม่ fall through จึงไม่ต้องเขียน `break` เลยสักที่ ถ้าอยากรวมหลาย case เข้าด้วยกันก็ใช้ `|` คั่นใน `case` เดียว
 
 ## ลองเล่นดู
 
@@ -200,12 +202,12 @@ export const quizControlFlow = [
     answer: 2,
   },
   {
-    q: 'ใน `match`/`case` ของ Python จะเกิดอะไรขึ้นหลังจาก case ที่ตรงกันถูกรัน?',
+    q: 'ใน `match`/`case` ของ Python เกิดอะไรขึ้นหลังรัน case ที่ตรงเงื่อนไขจบ?',
     options: [
-      'มัน fall through ไปยัง case ถัดไป',
-      'มันต้องใช้คำสั่ง `break`',
-      'มันหยุดโดยอัตโนมัติ — ไม่มี fallthrough',
-      'มันโยน StopIteration error',
+      'ไหลต่อไปยัง case ถัดไป',
+      'ต้องเขียน `break` ปิดท้าย',
+      'หยุดให้เองอัตโนมัติ — ไม่มี fallthrough',
+      'โยน StopIteration error',
     ],
     answer: 2,
   },

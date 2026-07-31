@@ -22,7 +22,7 @@ import PyOnly from '../../../../components/PyOnly.astro';
 
 ## timeit: microbenchmarks ที่แม่นยำ
 
-`timeit` รัน snippet หลายพันครั้งและรายงานเวลารวม มันเทียบเท่ากับ `console.time` แต่เข้มงวดกว่ามาก — มันปิด garbage collection ระหว่างการรันเพื่อลด noise
+`timeit` รัน snippet ซ้ำหลายพันรอบแล้วรายงานเวลารวม บทบาทเทียบได้กับ `console.time` แต่เข้มงวดกว่ามาก เพราะปิด garbage collection ระหว่างวัดเพื่อตัด noise ออก
 
 export const timeitTs = `// TypeScript — manual timing
 console.time("list comp");
@@ -74,7 +74,7 @@ print(f"\\nFastest: {fastest}")
 
 ## cProfile: function-level profiling
 
-`cProfile` คือ built-in deterministic profiler ของ Python มันบันทึกทุก function call, จำนวนครั้งที่แต่ละ function ถูกเรียก และนานแค่ไหน มันเทียบเท่ากับ `node --prof` แต่ติดมากับ Python และไม่ต้องใช้เครื่องมือพิเศษในการอ่าน
+`cProfile` คือ deterministic profiler ที่ติดมากับ Python คอยบันทึกทุก function call ว่าแต่ละ function โดนเรียกกี่ครั้งและใช้เวลาไปเท่าไหร่ เทียบได้กับ `node --prof` ต่างกันตรงที่มีมาให้ในตัวและอ่านผลได้เลยโดยไม่ต้องหา tool เสริม
 
 export const cprofTs = `// Node.js — file-based profiling
 // node --prof server.js
@@ -208,7 +208,7 @@ export const quizProfiling = [
     q: 'ใน pstats output ของ cProfile `cumtime` หมายความว่าอะไร?',
     options: [
       'เวลาที่ใช้ใน function โดยไม่รวม sub-calls',
-      'เวลา cumulative รวมทุก functions ที่มันเรียก',
+      'เวลา cumulative รวมเวลาของทุก function ที่ถูกเรียกต่อลงไปด้วย',
       'จำนวน calls ทั้งหมด',
       'Memory ที่ function ใช้',
     ],

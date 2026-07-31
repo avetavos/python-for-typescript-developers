@@ -10,7 +10,7 @@ import PyOnly from '../../../../components/PyOnly.astro';
 
 ## เกินกว่า switch/case
 
-`switch` ของ TypeScript match บนค่าเดียว `match`/`case` ของ Python (introduced ใน Python 3.10) เป็นแบบ **structural** — มัน destructure sequences, dictionaries, และ class instances ได้พร้อมกัน ลองนึกถึงมันว่าคือ `switch` ของ TypeScript + array/object destructuring ที่หลอมรวมเป็น statement เดียว
+`switch` ของ TypeScript match ได้ทีละค่าเดียว ส่วน `match`/`case` ของ Python (เข้ามาตั้งแต่ 3.10) เป็นแบบ **structural** คือ destructure sequence, dictionary และ class instance ไปพร้อมกับการ match ได้เลย ลองนึกภาพว่าเป็น `switch` บวกกับ array/object destructuring หลอมรวมอยู่ใน statement เดียว
 
 ## Sequence patterns
 
@@ -251,7 +251,7 @@ export const quizPatternMatching = [
     options: [
       'เฉพาะ None values',
       'เฉพาะ sequences ว่าง',
-      'ทุกอย่าง — มันคือ wildcard / default arm',
+      'ได้ทุกอย่าง เพราะเป็น wildcard หรือ default arm',
       'เฉพาะ strings',
     ],
     answer: 2,

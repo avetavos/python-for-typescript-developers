@@ -107,9 +107,9 @@ print(results)
 
 **Global Interpreter Lock (GIL)** คือ mutex ภายใน CPython ที่อนุญาตให้ thread เดียวเท่านั้น execute Python bytecode ในเวลาหนึ่ง แม้บน machine ที่มีหลาย core
 
-**Thread แบบ I/O-bound ยังได้ประโยชน์:** เมื่อ thread ถูก block รอ I/O (network, disk, database) มันจะ release GIL thread อื่นสามารถ run ได้ในระหว่างนั้น นี่คือเหตุผลที่การใช้ thread สำหรับการ download ไฟล์หรือ HTTP request เร็วขึ้นจริงๆ
+**งาน I/O-bound ยังได้ประโยชน์จาก thread:** พอ thread ติด block รอ I/O อยู่ (network, disk, database) จะปล่อย GIL ออกมา ทำให้ thread อื่นแทรกเข้าไปทำงานต่อได้ นี่คือเหตุผลที่การโยนงาน download ไฟล์หรือยิง HTTP request ไปให้ thread แล้วเร็วขึ้นจริง
 
-**Thread แบบ CPU-bound ไม่ได้ประโยชน์:** เมื่อ thread กำลังคำนวณ (number crunching, string processing, pure Python loops) มันถือ GIL thread ที่สองไม่สามารถ run บน core อื่นได้ — มันแค่รอคิว การเพิ่ม thread สำหรับงาน CPU-bound อาจทำให้ *ช้าลง* เนื่องจาก GIL contention overhead
+**งาน CPU-bound ไม่ได้อะไรจาก thread เลย:** ตอน thread กำลังคำนวณอยู่ (number crunching, string processing, ลูป pure Python) จะกำ GIL ไว้ตลอด thread ตัวที่สองจึงไปรันบน core อื่นไม่ได้ ต้องนั่งรอคิวอย่างเดียว ยิ่งเพิ่ม thread ให้งาน CPU-bound ยิ่งอาจ *ช้าลง* เพราะ overhead จาก GIL contention
 
 ```python
 import threading

@@ -10,7 +10,9 @@ import PyOnly from '../../../../components/PyOnly.astro';
 
 ## Functions: `def` แทน `function`
 
-คุณรู้จักฟังก์ชันจาก TypeScript ดีอยู่แล้ว คีย์เวิร์ด `def` ของ Python แมปเข้ากับการประกาศ `function` ของ TS แทบจะตรงตัว — แนวคิดเดียวกัน แต่ syntax ต่างกันเล็กน้อย จุดที่ Python แตกต่างคือระบบ **keyword arguments** และความสามารถในการ return หลายค่าได้อย่างสะอาดผ่าน tuple unpacking
+คุณรู้จักฟังก์ชันฝั่ง TypeScript ดีอยู่แล้ว คีย์เวิร์ด `def` ของ Python เทียบกับการประกาศ `function` ของ TS ได้แทบตรงตัว แนวคิดเดียวกัน ต่างกันแค่ syntax เล็กน้อย
+
+จุดที่ Python ต่างออกไปจริง ๆ คือระบบ **keyword arguments** และการ return หลายค่าได้สะอาด ๆ ผ่าน tuple unpacking
 
 ## การนิยามฟังก์ชันพื้นฐาน
 
@@ -46,7 +48,7 @@ print(add(3, 4))                # 7`;
 
 ## Keyword arguments
 
-Python ให้ผู้เรียกระบุชื่อ argument ใด ๆ ก็ได้ที่จุดเรียก โดยไม่ขึ้นกับตำแหน่ง สิ่งนี้ไม่เหมือนกับรูปแบบ object-destructuring ของ TypeScript — ใน Python ทุกพารามิเตอร์สามารถเรียกด้วยชื่อได้โดยธรรมชาติ
+Python ให้ฝั่งที่เรียกระบุชื่อ argument ตัวไหนก็ได้ ณ จุดเรียก โดยไม่ต้องสนลำดับ ต่างจาก TypeScript ที่ต้องพึ่งท่า object destructuring เพราะใน Python ทุกพารามิเตอร์ส่งด้วยชื่อได้อยู่แล้วโดยธรรมชาติ
 
 export const kwargTs = `// TypeScript — must use object destructuring to name args
 function createUser({
@@ -80,7 +82,7 @@ create_user("Bob", active=False)`;
 
 ## *args และ **kwargs: argument แบบ variadic
 
-`*args` ของ Python รวบ positional arguments ที่เกินมาเข้าไปใน tuple ส่วน `**kwargs` รวบ keyword arguments ที่เกินมาเข้าไปใน dict เมื่อใช้ร่วมกัน มันช่วยให้คุณเขียน API ที่ยืดหยุ่นได้
+`*args` รวบ positional argument ที่เกินมาใส่ tuple ส่วน `**kwargs` รวบ keyword argument ที่เกินมาใส่ dict ใช้คู่กันเมื่อไหร่ก็ออกแบบ API ให้ยืดหยุ่นได้ทันที
 
 export const variadicTs = `// TypeScript
 function sum(...numbers: number[]): number {
@@ -112,7 +114,7 @@ log_fields(lang="Python", tier="backend")`;
 
 ## การ return หลายค่า
 
-TypeScript ใช้ destructuring บน array หรือ object ส่วน Python ใช้ **tuple unpacking** — ฟังก์ชัน return tuple ออกมาแล้วคุณ unpack มันได้โดยตรง สิ่งนี้ให้ความรู้สึกเหมือนเป็นฟีเจอร์ระดับภาษาแบบ first-class มากกว่าจะเป็นวิธีเลี่ยงปัญหา
+TypeScript ใช้ destructuring บน array หรือ object ส่วน Python ใช้ **tuple unpacking** คือฟังก์ชัน return tuple ออกมา แล้วคุณ unpack ตรงจุดเรียกได้เลย ท่านี้ให้ความรู้สึกเป็นฟีเจอร์ first-class ของภาษา ไม่ใช่ทางเลี่ยงที่หาทางออกไม่ได้
 
 export const multiReturnTs = `// TypeScript — return an object or array
 function minMax(nums: number[]): { min: number; max: number } {
@@ -162,9 +164,9 @@ describe(language="Python", version="3.12", tier="backend")
 
 <PyOnly title="Keyword arguments และ **kwargs">
 
-TypeScript ไม่มีสิ่งที่เทียบเท่าระบบ keyword argument ของ Python โดยตรง ใน TypeScript การส่งพารามิเตอร์แบบระบุชื่อต้องใช้ options object (`{ name, role }`) ส่วนใน Python นั้น positional parameter **ทุกตัว** ก็สามารถส่งด้วยชื่อได้ที่จุดเรียก โดยไม่ต้องหุ้มด้วย object เพิ่ม
+TypeScript ไม่มีตัวเทียบตรง ๆ กับระบบ keyword argument ของ Python ถ้าอยากส่งพารามิเตอร์แบบระบุชื่อต้องพึ่ง options object (`{ name, role }`) ส่วนใน Python positional parameter **ทุกตัว** ส่งด้วยชื่อได้ที่จุดเรียก ไม่ต้องหุ้ม object เพิ่ม
 
-`**kwargs` จับ keyword argument ใด ๆ ที่ผู้เรียกส่งมาแต่ไม่ได้เป็นพารามิเตอร์ที่ประกาศไว้อย่างชัดเจน รูปแบบนี้ถูกใช้อย่างแพร่หลายในไลบรารี Python สำหรับการ config ที่ยืดหยุ่น:
+`**kwargs` จะรับ keyword argument ทุกตัวที่ฝั่งเรียกส่งมาแต่ไม่ได้ประกาศไว้เป็นพารามิเตอร์ตรง ๆ ไลบรารี Python ใช้ท่านี้กันเยอะมากเวลาต้องการ config ที่ยืดหยุ่น:
 
 ```python
 def make_request(url: str, **options: str) -> None:
@@ -174,7 +176,7 @@ def make_request(url: str, **options: str) -> None:
 make_request("https://api.example.com", timeout="30", method="POST")
 ```
 
-คุณยังสามารถ **spread** dict เข้าไปเป็น keyword arguments ได้ด้วย `**`:
+และ **spread** dict เข้าไปเป็น keyword argument ด้วย `**` ก็ได้:
 
 ```python
 defaults = {"timeout": "30", "retries": "3"}
@@ -214,7 +216,7 @@ export const quizFunctions = [
     options: [
       'list ที่มีสองสมาชิก',
       'tuple ที่มีสองสมาชิก',
-      'ค่าสองค่าแยกกันที่ไม่สามารถรับพร้อมกันได้',
+      'ค่าสองค่าแยกกัน ที่รับพร้อมกันไม่ได้',
       'dict ที่มีสองคีย์',
     ],
     answer: 1,

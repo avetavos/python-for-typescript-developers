@@ -10,7 +10,7 @@ import PyOnly from '../../../../components/PyOnly.astro';
 
 ## jest → pytest
 
-ถ้าคุณรู้จัก `jest` แล้ว `pytest` จะรู้สึกคุ้นเคยในโครงสร้าง แต่เรียบง่ายกว่าอย่างน่าพอใจในด้าน syntax ไม่มี `.toBe()`, ไม่มี `expect()` wrapper — pytest ใช้ Python `assert` ธรรมดา และ magic ของมัน rewrite พวกมันเพื่อแสดง diff ที่เป็นประโยชน์เมื่อ fail
+ถ้าคุ้นกับ `jest` อยู่แล้ว โครงสร้างของ `pytest` จะคุ้นตาทันที แต่ syntax เรียบง่ายกว่าอย่างน่าพอใจ ไม่มี `.toBe()` ไม่มี wrapper `expect()` เพราะ pytest ใช้ `assert` ของ Python ตรง ๆ แล้ว rewrite ให้เบื้องหลัง เพื่อโชว์ diff ที่อ่านรู้เรื่องตอน test fail
 
 ## การติดตั้ง pytest
 
@@ -86,7 +86,7 @@ pytest ค้นหา tests อัตโนมัติ — ไม่ต้อ�
 
 ## Fixtures — beforeEach ของ pytest
 
-ใน jest คุณใช้ `beforeEach` / `afterEach` pytest ใช้ **fixtures**: functions ที่ inject เข้าไปเป็น dependency ที่ setup และ optionally teardown resources พวกมันมีพลังมากกว่า beforeEach เพราะ compose ได้และมี scope ที่ควบคุมได้
+ฝั่ง jest คุณใช้ `beforeEach` / `afterEach` ส่วน pytest ใช้ **fixture** ที่เป็น function ที่ inject เข้ามาเป็น dependency คอย setup resource และจะ teardown ต่อท้ายด้วยก็ได้ fixture ทำได้มากกว่า beforeEach เพราะ compose ต่อกันได้และกำหนด scope เองได้
 
 export const jestFixture = `// jest beforeEach
 let db: MockDatabase;
@@ -171,9 +171,9 @@ print("All assertions passed!")
 
 <PyOnly title="pytest vs unittest — ละเว้น unittest สำหรับ projects ใหม่">
 
-Python มาพร้อมกับ module `unittest` ในตัวที่จำลอง Java's JUnit คุณอาจพบมันใน legacy codebases: มันต้องการ classes ที่ inherit จาก `unittest.TestCase` และ assertion methods ที่ verbose เช่น `self.assertEqual(a, b)`
+Python มี module `unittest` ติดมาในตัว ซึ่งลอกแบบ JUnit ของ Java มาอีกที คุณจะเจอบ่อยใน legacy codebase โดยต้องเขียน class ที่ inherit จาก `unittest.TestCase` และเรียก assertion method ยาว ๆ อย่าง `self.assertEqual(a, b)`
 
-สำหรับ projects ใหม่ ให้ใช้ `pytest` มันเรียบง่ายกว่า expressive กว่า ไม่ต้อง boilerplate classes และเป็น industry standard pytest ยังสามารถรัน `unittest`-style tests ได้ด้วย ทำให้การ migrate ค่อยเป็นค่อยไป
+โปรเจกต์ใหม่ให้ใช้ `pytest` เพราะเรียบง่ายกว่า สื่อความหมายดีกว่า ไม่ต้องมี class boilerplate และเป็นมาตรฐานของวงการไปแล้ว ข้อดีอีกอย่างคือ pytest รัน test สไตล์ `unittest` ได้ด้วย จึงค่อย ๆ migrate ทีละส่วนได้
 
 </PyOnly>
 

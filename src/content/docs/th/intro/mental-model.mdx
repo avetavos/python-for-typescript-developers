@@ -10,13 +10,15 @@ import PyOnly from '../../../../components/PyOnly.astro';
 
 ## การเปลี่ยนแปลงที่ใหญ่ที่สุด: compiler หายไปแล้ว
 
-ใน TypeScript, compiler (`tsc`) คือด่านแรกของการป้องกัน มันจับความไม่ตรงกันของ type ก่อนที่โค้ดจะทำงาน เมื่อคุณย้ายมา Python ตาข่ายความปลอดภัยนั้นหายไปที่ runtime — interpreter ไม่ตรวจสอบ types Type hints แบบ optional มีอยู่ (และคุณควรใช้) แต่การบังคับใช้ต้องใช้ tool แยก เช่น `mypy` หรือ `pyright`
+ใน TypeScript compiler (`tsc`) คือด่านป้องกันด่านแรก จับ type ที่ไม่ตรงกันตั้งแต่ก่อนโค้ดได้รัน พอย้ายมา Python ด่านนั้นหายไป เหลือแค่ runtime — interpreter ไม่ตรวจ type ให้เลย
 
-**Mental model:** TypeScript พูดว่า "พิสูจน์ว่าปลอดภัยก่อนรัน" Python พูดว่า "รันเลย ถ้าคุณส่ง type ผิด คุณจะได้รับ runtime error"
+Python มี type hints ให้ใช้ (และคุณควรใช้) แต่เป็นแค่ hint ถ้าอยากให้บังคับจริงต้องพึ่ง tool แยกอย่าง `mypy` หรือ `pyright`
+
+**Mental model:** TypeScript บอกว่า "พิสูจน์ก่อนว่าปลอดภัย แล้วค่อยรัน" ส่วน Python บอกว่า "รันเลย ถ้าส่ง type ผิดค่อยเจอ runtime error เอา"
 
 ## Dynamic typing
 
-ตัวแปร Python คือ labels ที่ชี้ไปยัง object ใดก็ได้ type ของค่านั้นอยู่ที่ object เอง ไม่ใช่ที่ชื่อตัวแปร ซึ่งแตกต่างจาก TypeScript โดยพื้นฐานที่ตัวแปรมี type ณ เวลา compile
+ตัวแปรใน Python เป็นแค่ label ที่ชี้ไปยัง object ตัวไหนก็ได้ และ type ติดอยู่กับ object ไม่ได้ติดอยู่กับชื่อตัวแปร ต่างจาก TypeScript ที่ตัวแปรถือ type ของตัวเองมาตั้งแต่ตอน compile
 
 export const dynamicTs = `// TypeScript: variable has a compile-time type
 let count: number = 0;
@@ -40,7 +42,7 @@ print(double("x"))  # TypeError at RUNTIME, not before`;
 
 ## Interpreter และ REPL
 
-TypeScript คอมไพล์ไปเป็น JavaScript ก่อนรัน Python ถูก interpret — คุณรัน source files โดยตรงด้วย `python3` ไม่มีขั้นตอน build สำหรับการพัฒนา
+TypeScript ต้องคอมไพล์เป็น JavaScript ก่อนถึงจะรันได้ ส่วน Python รันผ่าน interpreter — สั่ง `python3` ใส่ source file ตรง ๆ ได้เลย ตอน develop ไม่มีขั้นตอน build
 
 export const runTs = `# TypeScript workflow
 # tsc index.ts          → compiles to index.js
@@ -56,7 +58,7 @@ export const runPy = `# Python workflow
 
 ## Significant indentation — ไม่มี curly braces
 
-นี่คือการเปลี่ยนแปลงที่ TypeScript developers สังเกตเห็นก่อน Python ใช้การย่อหน้า (4 spaces ตามข้อกำหนด) เพื่อกำหนด blocks ไม่มี `{` และ `}` เครื่องหมาย colon (`:`) จะเปิด block ใหม่เสมอ
+ข้อนี้คือสิ่งที่ TypeScript developer สังเกตเห็นเป็นอย่างแรก เพราะ Python ใช้การย่อหน้า (4 spaces ตามข้อกำหนด) กำหนดขอบเขตของ block ไม่มี `{` `}` ให้ยึด และ colon (`:`) คือสิ่งที่เปิด block ใหม่เสมอ
 
 export const indentTs = `// TypeScript
 function classify(n: number): string {
@@ -84,11 +86,11 @@ print(classify(0))   # zero`;
 
 <TsGo ts={indentTs} go={indentPy} />
 
-การย่อหน้าผิดจะเป็น syntax error editor Python ส่วนใหญ่บังคับ indentation 4 spaces อัตโนมัติ
+ย่อหน้าผิดเมื่อไหร่ก็เป็น syntax error ทันที โชคดีที่ editor สาย Python ส่วนใหญ่จัด indentation 4 spaces ให้อัตโนมัติอยู่แล้ว
 
 ## One obvious way — โค้ดแบบ "Pythonic"
 
-TypeScript มีความยืดหยุ่น: คุณสามารถใช้ classes, functional composition, prototype chains หรือ plain objects สลับกันได้ Python ส่งเสริมรูปแบบที่เป็นธรรมชาติและเป็นเอกลักษณ์เดียว ชุมชนมีชื่อให้มัน: **Pythonic** โค้ด Pythonic คือโค้ดที่กระชับ อ่านง่าย และใช้ฟีเจอร์ภาษาตามที่ตั้งใจ
+TypeScript ยืดหยุ่นมาก จะใช้ class, functional composition, prototype chain หรือ plain object สลับกันไปมาก็ได้ ส่วน Python เชียร์ให้เหลือทางเดียวที่เป็นธรรมชาติที่สุด และชุมชนเรียกสไตล์นั้นว่า **Pythonic** — โค้ดที่กระชับ อ่านง่าย และใช้ฟีเจอร์ของภาษาตรงตามที่ออกแบบมา
 
 export const pythonicTs = `// TypeScript: multiple ways to filter
 const evens1 = nums.filter(n => n % 2 === 0);
@@ -107,7 +109,7 @@ print(evens)   # [2, 4, 6]
 
 ## Explicit `self` ใน methods
 
-TypeScript class methods รับ `this` โดยปริยาย Python class methods ต้องการ parameter `self` ที่ชัดเจนเป็น argument แรก — interpreter จะใส่ค่าให้เมื่อคุณเรียก method แต่คุณต้องประกาศมันเอง
+method ของ class ใน TypeScript ได้ `this` มาโดยปริยาย ส่วนใน Python ต้องประกาศ parameter `self` เป็น argument ตัวแรกให้ชัดเจน — interpreter ใส่ค่าให้เองตอนคุณเรียก method แต่คนที่ต้องเขียนประกาศไว้คือคุณ
 
 export const selfTs = `// TypeScript: implicit this
 class Counter {
@@ -140,16 +142,16 @@ print(c.value())   # 2`;
 
 <TsGo ts={selfTs} go={selfPy} />
 
-<PyOnly title="__init__ ไม่ใช่ constructor — มันคือ initialiser">
+<PyOnly title="__init__ ไม่ใช่ constructor แต่เป็น initialiser">
 
-`constructor` ของ TypeScript สร้าง object และ initialise มันในขั้นตอนเดียว ใน Python:
+`constructor` ของ TypeScript สร้าง object แล้ว initialise ให้จบในขั้นตอนเดียว แต่ Python แยกเป็นสองจังหวะ:
 
 1. `__new__` สร้าง object (คุณแทบไม่เคย override อันนี้)
 2. `__init__` initialise object ที่เพิ่งสร้าง — นี่คืออันที่คุณ override
 
-เมื่อคุณเขียน `Counter()` Python จะเรียก `Counter.__new__(Counter)` เพื่อจัดสรรหน่วยความจำ จากนั้นส่งผลลัพธ์ไปยัง `Counter.__init__(self)` เพื่อให้คุณตั้งค่า attributes Parameter `self` ใน `__init__` คือ instance ที่เพิ่งถูก allocate นั้น
+พอคุณเขียน `Counter()` Python จะเรียก `Counter.__new__(Counter)` เพื่อจอง memory ก่อน แล้วส่งผลลัพธ์ต่อไปให้ `Counter.__init__(self)` เพื่อให้คุณตั้งค่า attribute ตัว `self` ที่รับเข้ามาก็คือ instance ที่เพิ่งจองไว้นั่นเอง
 
-ในทางปฏิบัติ คุณจะเขียนแค่ `__init__` เท่านั้น ลองคิดว่ามันคือ "constructor body" โดยไม่มีขั้นตอนการสร้าง object
+ในทางปฏิบัติคุณจะเขียนแค่ `__init__` ลองคิดว่าเป็น "constructor body" ที่ตัดขั้นตอนสร้าง object ออกไปแล้ว
 
 </PyOnly>
 

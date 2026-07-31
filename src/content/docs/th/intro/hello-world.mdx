@@ -10,7 +10,7 @@ import PyOnly from '../../../../components/PyOnly.astro';
 
 ## โปรแกรมที่ง่ายที่สุด
 
-ใน TypeScript คุณมักต้องตั้งค่าโปรเจกต์ก่อนจะเขียนโค้ดบรรทัดแรก ใน Python คุณสามารถไปจากศูนย์สู่การรันได้ด้วยไฟล์เดียวและคำสั่งเดียว
+ใน TypeScript คุณมักต้องเซ็ตโปรเจกต์ก่อนถึงจะเขียนโค้ดบรรทัดแรกได้ ส่วนใน Python จากศูนย์ถึงรันได้จริงใช้แค่ไฟล์เดียวกับคำสั่งเดียว
 
 export const helloTs = `// hello.ts
 const name: string = "TypeScript Developer";
@@ -30,7 +30,7 @@ print(f"Hello, {name}!")
 
 ## ฟังก์ชัน `print`
 
-`console.log` ใน TypeScript กลายเป็น `print` ใน Python ทั้งคู่รับ arguments หลายตัว แต่รายละเอียดแตกต่างกัน:
+`console.log` ของ TypeScript เทียบได้กับ `print` ของ Python ทั้งคู่รับหลาย argument เหมือนกัน แต่รายละเอียดต่างกันอยู่:
 
 export const printTs = `// TypeScript console.log
 console.log("a", "b", "c");          // a b c (space separated)
@@ -50,7 +50,7 @@ print("loading", end="...")         # loading... (no newline)`;
 
 ## F-strings — template literals ของ Python
 
-f-string ของ Python (`f"..."`) เทียบเท่ากับ template literal ของ TypeScript (`` `...` ``) ใส่ prefix `f` หน้า string และใส่ expressions ใน `{}`
+f-string ของ Python (`f"..."`) ทำหน้าที่เดียวกับ template literal ของ TypeScript (`` `...` ``) วิธีใช้คือเติม `f` ไว้หน้า string แล้ววาง expression ไว้ใน `{}`
 
 export const fstringTs = `// TypeScript template literal
 const user = { name: "Alice", age: 30 };
@@ -102,11 +102,11 @@ python3 -m mypackage.hello`;
 
 ## Entry-point guard: `if __name__ == "__main__":`
 
-นี่คือ Python pattern ที่ไม่มีสิ่งเทียบเคียงโดยตรงใน TypeScript ดังนั้นจึงสมควรอธิบายอย่างละเอียด
+นี่คือ pattern ของ Python ที่ไม่มีตัวเทียบตรง ๆ ใน TypeScript จึงควรอธิบายให้ละเอียดสักหน่อย
 
-เมื่อ Python รัน file โดยตรง (`python3 hello.py`) มันจะตั้งค่า `__name__` ของ module เป็น string `"__main__"` เมื่อ file อื่น import `hello.py` ด้วย `import hello` นั้น `__name__` จะถูกตั้งค่าเป็น `"hello"` (ชื่อ module) แทน
+เวลา Python รันไฟล์โดยตรงด้วย `python3 hello.py` interpreter จะตั้ง `__name__` ของ module นั้นเป็น string `"__main__"` แต่ถ้าไฟล์อื่นเรียก `import hello` ค่า `__name__` จะกลายเป็น `"hello"` ซึ่งก็คือชื่อ module แทน
 
-Guard `if __name__ == "__main__":` หมายความว่า "รันโค้ดนี้เฉพาะเมื่อ file นี้คือ entry point ไม่ใช่เมื่อมันถูก import"
+ดังนั้น `if __name__ == "__main__":` จึงแปลว่า "รันโค้ดในนี้เฉพาะตอนไฟล์นี้เป็น entry point อย่าไปรันตอนโดน import"
 
 export const guardTs = `// TypeScript: no direct equivalent
 // In Node, top-level code always runs when the file is imported
@@ -132,11 +132,11 @@ if __name__ == "__main__":
 
 <PyOnly title="ทำไม __name__ ถึงสำคัญ?">
 
-พิจารณาไฟล์ utility `utils.py` ที่กำหนด helpers และยังพิมพ์ debug message ด้วย ถ้า module อื่น import มัน debug message นั้นจะทำงานโดยไม่คาดคิด Guard `if __name__ == "__main__":` ป้องกันเรื่องนี้ — เฉพาะ entry point สุดท้ายเท่านั้นที่รัน block นั้น
+ลองนึกถึงไฟล์ `utils.py` ที่นิยาม helper ไว้ แล้วดันมีบรรทัด print debug message ติดมาด้วย พอ module อื่น import เข้าไป debug message นั้นก็จะโผล่ขึ้นมาแบบไม่ได้ตั้งใจ ตัว guard `if __name__ == "__main__":` แก้ปัญหานี้ให้ เพราะมีแค่ไฟล์ที่เป็น entry point เท่านั้นที่ได้รัน block นั้น
 
-นี่ยังเป็นเหตุผลที่ test runners ของ Python (เช่น `pytest`) สามารถ import source files ของคุณได้โดยไม่ trigger logic `main()` ของคุณ: guard ทำให้ side effects แยกออกมา
+เหตุผลเดียวกันนี้เองที่ทำให้ test runner อย่าง `pytest` import source file ของคุณเข้าไปได้โดยไม่ไป trigger `main()` เพราะ guard กันไม่ให้ side effect หลุดออกมา
 
-Best practice: ห่อโค้ด executable ระดับบนสุดทั้งหมดไว้ใน guard นี้
+Best practice คือ ห่อโค้ดที่ต้องรันจริงในระดับบนสุดไว้ใน guard นี้ทั้งหมด
 
 </PyOnly>
 
@@ -196,12 +196,12 @@ export const quizHello = [
     answer: 1,
   },
   {
-    q: 'เกิดอะไรขึ้นกับ block `if __name__ == "__main__":` เมื่อ module อื่น import file?',
+    q: 'เกิดอะไรขึ้นกับ block `if __name__ == "__main__":` เมื่อ module อื่น import ไฟล์นี้?',
     options: [
-      'มัน raise ImportError',
-      'มันรันเพียงครั้งเดียวใน import แรก',
-      'มันถูกข้ามไปทั้งหมด — ไม่รัน',
-      'มันรันใน subprocess',
+      'raise ImportError',
+      'รันครั้งเดียวตอน import ครั้งแรก',
+      'ถูกข้ามทั้ง block — ไม่รันเลย',
+      'รันแยกใน subprocess',
     ],
     answer: 2,
   },

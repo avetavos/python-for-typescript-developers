@@ -10,11 +10,11 @@ import PyOnly from '../../../../components/PyOnly.astro';
 
 ## มองโครงสร้างต่างมุม
 
-TypeScript และ Python ต่างก็เป็นภาษา structurally typed ค่าหนึ่งจะเข้ากันได้กับ type หนึ่งถ้ามันมี shape ที่ถูกต้อง แต่กลไกที่ใช้ต่างกันโดยสิ้นเชิง
+ทั้ง TypeScript และ Python เป็นภาษา structurally typed คือค่าหนึ่งจะเข้ากับ type หนึ่งได้ก็ต่อเมื่อมี shape ตรงกัน แต่กลไกเบื้องหลังของสองภาษาต่างกันคนละเรื่อง
 
 TypeScript ตรวจสอบโครงสร้าง **ตอน compile** ผ่าน interface และ type aliases ถ้าค่าไม่ตรงตาม interface compiler จะปฏิเสธก่อนที่ code จะรัน Python ตรวจสอบโครงสร้าง **ตอน runtime** โดยลอง call method หรือเข้าถึง attribute โดยตรง ถ้า object มีสิ่งนั้น ก็ดำเนินต่อไป ถ้าไม่มี จะได้รับ `AttributeError`
 
-แนวทาง runtime นี้เรียกว่า **duck typing**: ถ้ามันเดินเหมือนเป็ดและร้องเหมือนเป็ด มันก็คือเป็ด Python ไม่สนใจ type ที่ประกาศไว้ สนใจแค่ว่า object ทำสิ่งที่คุณถามได้หรือไม่
+แนวทางแบบ runtime นี้เรียกว่า **duck typing** คือถ้ามันเดินเหมือนเป็ดและร้องเหมือนเป็ด ก็ถือว่าเป็นเป็ด Python ไม่สนใจว่าประกาศ type ไว้ว่าอะไร สนแค่ว่า object ทำสิ่งที่คุณสั่งได้หรือเปล่า
 
 ## Duck typing: interface vs behavior
 

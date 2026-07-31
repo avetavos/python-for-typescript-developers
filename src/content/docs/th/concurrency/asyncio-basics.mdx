@@ -69,7 +69,7 @@ async def run() -> None:
 
 <TsGo ts={sleepTs} go={sleepPy} />
 
-`await asyncio.sleep(0)` (ศูนย์วินาที) เทียบเท่ากับ `await Promise.resolve()` ของ Python — มัน yield ให้ event loop หนึ่งรอบโดยไม่รอจริงๆ
+`await asyncio.sleep(0)` (ศูนย์วินาที) คือตัวเทียบเคียงของ `await Promise.resolve()` ฝั่ง JavaScript คือคืนคิวให้ event loop หนึ่งรอบโดยไม่ได้รออะไรจริง ๆ
 
 ## การ run event loop
 

@@ -57,7 +57,7 @@ findOne(@Param('id', ParseIntPipe) id: number) {
   return { id, name: 'Widget' };
 }`;
 
-export const pathPy = `# FastAPI — type hint ทำการแปลง + validation
+export const pathPy = `# FastAPI — type hint แปลง + validation
 from fastapi import FastAPI
 
 app = FastAPI()
@@ -75,7 +75,7 @@ async def get_user_item(user_id: int, item_id: int):
 
 ## Query parameters
 
-argument ของฟังก์ชันที่ไม่อยู่ใน path string จะถูกถือว่าเป็น query parameter ให้ค่า default เพื่อทำให้เป็น optional
+argument ของฟังก์ชันตัวไหนที่ไม่ปรากฏใน path string FastAPI จะนับเป็น query parameter ให้อัตโนมัติ ถ้าอยากให้เป็น optional ก็ใส่ค่า default ไว้
 
 export const queryTs = `// Express
 app.get('/items', (req, res) => {
@@ -103,7 +103,7 @@ async def search_items(
 
 ## ลองเล่น — routing logic แบบ plain dict
 
-เบราว์เซอร์ไม่สามารถรัน HTTP server จริงได้ แต่สามารถสำรวจวิธีที่ FastAPI จับคู่ handler ด้วย plain dict:
+browser ไม่สามารถรัน HTTP server จริงได้ แต่สามารถสำรวจวิธีที่ FastAPI จับคู่ handler ด้วย plain dict:
 
 export const routingCode = `# Route registry — สะท้อนวิธีที่ FastAPI map handlers
 routes = {

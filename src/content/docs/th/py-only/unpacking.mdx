@@ -10,7 +10,9 @@ import PyOnly from '../../../../components/PyOnly.astro';
 
 ## Spread ใน TypeScript, * และ ** ใน Python
 
-operator `...` ของ TypeScript จัดการทั้ง array และ object Python แบ่งแนวคิดนี้ออกเป็นสอง operator: `*` สำหรับ sequence (list, tuple, iterable) และ `**` สำหรับ dictionary operator `*` มีความใกล้เคียงกับสิ่งที่คุณรู้จากการ destructuring และ spread ของ TypeScript ส่วน operator `**` สำหรับ dict นั้นไม่มีสิ่งที่เทียบเท่าโดยตรงใน TypeScript — มันเป็นของ Python โดยเฉพาะ และยังเป็น syntax สำหรับ variadic keyword argument ใน function signature อีกด้วย
+ฝั่ง TypeScript ใช้ operator `...` ตัวเดียวคุมทั้ง array และ object ส่วน Python แยกออกเป็นสองตัว คือ `*` สำหรับ sequence (list, tuple, iterable) และ `**` สำหรับ dictionary
+
+ตัว `*` ใกล้เคียงกับ destructuring และ spread ที่คุณคุ้นอยู่แล้ว แต่ `**` สำหรับ dict ไม่มีตัวเทียบตรง ๆ ใน TypeScript เพราะเป็นของ Python โดยเฉพาะ และยังเป็น syntax สำหรับ variadic keyword argument ใน function signature อีกด้วย
 
 ## Tuple unpacking
 
@@ -44,7 +46,7 @@ print(a, b)  # 10 5`;
 
 <TsGo ts={tsUnpacking} go={pyUnpacking} />
 
-starred assignment ของ Python (`*middle`) มีความยืดหยุ่นกว่า rest element ของ TypeScript — คุณวางมันไว้ตำแหน่งใดก็ได้ (ต้น กลาง หรือท้าย) และ Python จะคิดเองว่าอะไรควรอยู่ที่ไหน
+starred assignment ของ Python (`*middle`) ยืดหยุ่นกว่า rest element ของ TypeScript เพราะวางไว้ตำแหน่งไหนก็ได้ ทั้งต้น กลาง หรือท้าย แล้ว Python จะคำนวณเองว่าค่าไหนควรตกอยู่ที่ใด
 
 ## *args: variadic positional arguments
 
@@ -75,7 +77,7 @@ print(max(*nums))  # 3`;
 
 ## **kwargs: variadic keyword arguments
 
-TypeScript ไม่มีสิ่งที่เทียบเท่า `**kwargs` โดยตรง pattern ที่ใกล้เคียงที่สุดคือการรับ `options` object แล้ว destructure มัน ใน Python `**kwargs` จะรวบรวม keyword argument ทั้งหมดที่ไม่ตรงกับ parameter ที่ระบุชื่อเข้าเป็น dict
+TypeScript ไม่มีตัวเทียบตรง ๆ กับ `**kwargs` ท่าที่ใกล้ที่สุดคือรับ `options` object เข้ามาแล้ว destructure ต่อ ส่วน `**kwargs` ของ Python จะรวบ keyword argument ทุกตัวที่ไม่ตรงกับ parameter ที่ประกาศชื่อไว้ มัดรวมเป็น dict ก้อนเดียว
 
 export const tsKwargs = `// TypeScript: simulate kwargs with an options object
 function greet(options: Record<string, string | number>): void {
@@ -215,7 +217,7 @@ export const quizUnpacking = [
       'จะ raise KeyError',
       'key จาก dict1 ชนะ',
       'key จาก dict2 ชนะ (dict ที่อยู่หลังจะ override dict ที่อยู่ก่อน)',
-      'ทั้งสอง value จะถูกเก็บใน list',
+      'เก็บทั้งสองค่าไว้ใน list',
     ],
     answer: 2,
   },

@@ -10,7 +10,9 @@ import PyOnly from '../../../../components/PyOnly.astro';
 
 ## try/finally ใน TypeScript, with ใน Python
 
-ใน TypeScript เมื่อคุณต้องการรับประกันว่า resource จะถูกคืนไม่ว่าจะเกิด exception หรือไม่ คุณจะใช้บล็อก `try/finally` Python มี pattern เดียวกันแต่ยกระดับขึ้นเป็น syntax ระดับภาษาผ่าน `with` statement `with` รับประกันว่า resource จะถูก setup และ teardown อย่างถูกต้องแม้ว่าโค้ดภายในจะ raise exception โดยไม่ต้องเขียน `try/finally` ด้วยมือทุกครั้ง
+ใน TypeScript ถ้าอยากมั่นใจว่า resource ได้คืนแน่นอนไม่ว่าจะเกิด exception หรือไม่ คุณต้องเขียนบล็อก `try/finally` เอง
+
+Python ใช้แนวคิดเดียวกัน แต่ยกขึ้นมาเป็น syntax ระดับภาษาผ่าน `with` statement ตัว `with` การันตีว่า resource setup และ teardown ครบถ้วน ต่อให้โค้ดข้างในจะ raise exception ก็ตาม โดยที่คุณไม่ต้องมานั่งเขียน `try/finally` ซ้ำ ๆ ทุกครั้ง
 
 ## ตัวอย่างขั้นพื้นฐาน: การเปิดไฟล์
 
@@ -89,7 +91,7 @@ with ManagedResource("database connection") as resource:
 
 <TsGo ts={tsCmContextlib} go={pyCmContextlib} />
 
-`__exit__` รับ argument สามตัวที่อธิบาย exception (ถ้ามี): type, value และ traceback ถ้าคืนค่า `True` exception จะถูก suppress ถ้าคืนค่า `False` หรือ `None` exception จะถูกส่งต่อออกไป
+`__exit__` รับ argument สามตัวที่อธิบาย exception ที่เกิดขึ้น (ถ้ามี) คือ type, value และ traceback ถ้าคืน `True` Python จะกลืน exception นั้นทิ้ง แต่ถ้าคืน `False` หรือ `None` exception จะเด้งต่อออกไปตามปกติ
 
 ## การสร้าง context manager ด้วย @contextmanager
 
@@ -163,7 +165,7 @@ with timer("my block"):
 
 **การดักจับ exception ใน `__exit__`**
 
-`__exit__` ได้รับ exception ที่ยังไม่ถูก handle ถ้าคืนค่า truthy exception จะถูก suppress — ซึ่งมักไม่ใช่สิ่งที่ต้องการ ยกเว้นเมื่อคุณกำลังเขียน suppress context manager โดยเฉพาะ:
+`__exit__` จะได้รับ exception ที่ยังไม่มีใคร handle ถ้าคืนค่า truthy ออกไป Python จะกลืน exception นั้นทิ้ง ซึ่งมักไม่ใช่สิ่งที่คุณต้องการ ยกเว้นตอนที่ตั้งใจเขียน context manager ไว้กลืน exception โดยเฉพาะ:
 
 ```python
 from contextlib import suppress
@@ -214,8 +216,8 @@ export const quizCm = [
     q: '__exit__ คืนค่า True หมายความว่าอะไร?',
     options: [
       'context manager ทำงานสำเร็จ',
-      'exception จะถูก suppress และไม่ถูกส่งต่อออกไป',
-      'resource จะถูกปิดทันที',
+      'Python กลืน exception นั้นทิ้ง ไม่ส่งต่อออกไป',
+      'ปิด resource ทันที',
       'with block จะรันซ้ำ',
     ],
     answer: 1,

@@ -9,7 +9,7 @@ import PyOnly from '../../../../components/PyOnly.astro';
 
 ## eslint + prettier → ruff
 
-ในโลก TypeScript คุณตั้งค่าสอง tools: `eslint` บังคับ code quality rules และ `prettier` บังคับ style พวกมันมี config แยกกัน คำสั่ง CLI แยกกัน และบางครั้งก็ขัดแย้งกัน
+ในโลก TypeScript คุณต้องเซ็ต tool สองตัว คือ `eslint` คุมกฎด้าน code quality และ `prettier` คุม style ทั้งคู่มี config คนละไฟล์ คำสั่ง CLI คนละชุด และบางทีก็ตีกันเองด้วย
 
 นักพัฒนา Python แต่ก่อนก็ใช้วิธีแยกเหมือนกัน: `flake8` (lint) + `black` (format) แต่ `ruff` — เปิดตัวในปี 2022 และเขียนด้วย Rust — ตอนนี้แทนที่ทั้งคู่ หนึ่ง tool หนึ่ง section config ใน `pyproject.toml` และรันใน milliseconds บน codebase ทั้งหมด
 
@@ -72,7 +72,7 @@ quote-style = "double"   # ตรงกับค่าเริ่มต้น�
 
 ## black — formatter แบบ opinionated
 
-ก่อนที่ `ruff format` จะมีอยู่ `black` คือมาตรฐาน de-facto คุณจะพบมันทุกที่ใน Python project ที่มีอยู่แล้ว มันถูกออกแบบมาให้เป็น opinionated โดยเจตนา — มีการตั้งค่าแทบไม่มีเลย — เหมือนกับ `prettier` ที่ล็อก `--no-semi` ไว้ ถ้าคุณรับช่วง project ที่ใช้ black อยู่แล้ว ให้ใช้ต่อไป อย่าผสมกัน
+ก่อนจะมี `ruff format` ตัว `black` คือมาตรฐาน de-facto และยังเจอได้ทั่วไปในโปรเจกต์ Python ที่มีอยู่เดิม จุดขายคือ opinionated โดยตั้งใจ ปรับแต่งได้แทบไม่มีอะไรเลย เหมือน `prettier` ที่ล็อก `--no-semi` ไว้ตายตัว ถ้ารับช่วงโปรเจกต์ที่ใช้ black อยู่แล้วก็ใช้ต่อไป อย่าเอาสองตัวมาผสมกัน
 
 ```bash
 pip install black

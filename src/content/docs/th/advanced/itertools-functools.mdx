@@ -10,7 +10,7 @@ import PyOnly from '../../../../components/PyOnly.astro';
 
 ## itertools: lazy iteration ไม่ต้องพึ่ง dependencies
 
-นักพัฒนา TypeScript มักหยิบ Lodash สำหรับ collection utilities Python ติดตั้ง `itertools` มาใน standard library แล้ว และมันเป็นแบบ **lazy** — ผลิตค่าตาม demand โดยไม่สร้าง intermediate lists สิ่งนี้สำคัญมากสำหรับ datasets ขนาดใหญ่
+เวลาต้องการ collection utility ฝั่ง TypeScript มักหยิบ Lodash มาใช้ ส่วน Python มี `itertools` ติดมาใน standard library อยู่แล้ว และทำงานแบบ **lazy** คือผลิตค่าตอนที่ต้องใช้ ไม่สร้าง list กลางทางทิ้งไว้ จุดนี้สำคัญมากเมื่อเจอ dataset ขนาดใหญ่
 
 ### chain — รวม iterables หลายตัว
 
@@ -62,7 +62,7 @@ print(first_five)   # [1, 2, 3, 4, 5]`;
 
 ### groupby — จัดกลุ่ม items ที่ต่อเนื่องกัน
 
-`groupby` เหมือน SQL `GROUP BY` แต่ต้องการ **input ที่เรียงลำดับแล้ว** — มันจัดกลุ่ม keys ที่เท่ากันที่ต่อเนื่องกัน
+`groupby` ทำงานคล้าย `GROUP BY` ของ SQL แต่ต้องป้อน **input ที่เรียงมาแล้ว** เพราะจับกลุ่มเฉพาะ key ที่เท่ากันและอยู่ติดกันเท่านั้น
 
 export const groupbyTs = `// TypeScript / Lodash
 import _ from 'lodash';
@@ -236,7 +236,7 @@ export const quizItertoolsFunctools = [
     q: 'ทำไม `itertools.groupby` จึงต้องการ input ที่เรียงลำดับแล้ว?',
     options: [
       'เป็น performance optimisation — input ไม่เรียงทำให้เกิด error',
-      'มันจัดกลุ่ม keys ที่เท่ากันที่ต่อเนื่องกัน ดังนั้น input ไม่เรียงจะเกิดกลุ่มซ้ำ',
+      'จับกลุ่มเฉพาะ key ที่เท่ากันและอยู่ติดกัน ถ้า input ไม่เรียงจะได้กลุ่มซ้ำ',
       'เป็น legacy restriction ของ Python 2',
       'ใช้ได้กับ strings เท่านั้น',
     ],

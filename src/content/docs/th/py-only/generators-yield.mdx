@@ -8,9 +8,11 @@ import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
 
-## Generator มีอยู่ในทั้งสองภาษา แต่ Python ใช้งานมันหนักกว่า
+## Generator มีทั้งสองภาษา แต่ Python พึ่งพาหนักกว่ามาก
 
-TypeScript ก็มี generator เช่นกัน: `function*` กับ `yield` ทำงานแทบเหมือนกันในมุมมองแรก คุณได้ lazy iterator, สามารถเรียก `.next()` ได้ และ function จะหยุดทำงานชั่วคราวระหว่าง yield แต่ใน Python นั้น generator ไม่ใช่ฟีเจอร์เฉพาะกลุ่ม — มันถูกถักทอเข้ากับ standard library `range()`, การวนซ้ำไฟล์, `zip()`, `map()`, `filter()` และ module `itertools` ทั้งหมดล้วนคืนค่า lazy iterator ที่สร้างจาก generator protocol เดียวกัน แม้แต่ `async`/`await` ใน Python ก็สร้างอยู่บน generator ภายใน ถ้าคุณเข้าใจ generator ของ Python คุณก็เข้าใจส่วนสำคัญของภาษานี้ไปมากแล้ว
+TypeScript ก็มี generator เหมือนกัน `function*` คู่กับ `yield` ทำงานคล้ายกันมากเมื่อมองผ่าน ๆ คือได้ lazy iterator เรียก `.next()` ได้ และ function หยุดค้างไว้ระหว่าง yield
+
+แต่ใน Python generator ไม่ใช่ฟีเจอร์เฉพาะกลุ่ม เพราะฝังอยู่ทั่ว standard library ทั้ง `range()`, การวนอ่านไฟล์, `zip()`, `map()`, `filter()` และ module `itertools` ล้วนคืน lazy iterator ที่ยืนอยู่บน generator protocol ตัวเดียวกัน แม้แต่ `async`/`await` ก็สร้างทับ generator อยู่ข้างใน เข้าใจ generator ของ Python ได้ ก็เท่ากับเข้าใจแกนสำคัญของภาษาไปแล้วครึ่งหนึ่ง
 
 ## การสร้างและใช้งาน generator
 
@@ -70,7 +72,7 @@ print(first_ten)`;
 <TsGo ts={tsGen} go={pyGen} />
 
 ข้อแตกต่างสำคัญที่ควรสังเกต:
-- Python ใช้ `def` ธรรมดา — ไม่มี syntax แบบ `function*` การมี `yield` อยู่ที่ใดก็ตามใน function body จะทำให้มันกลายเป็น generator โดยอัตโนมัติ
+- Python ใช้ `def` ธรรมดา ไม่มี syntax แบบ `function*` ขอแค่มี `yield` โผล่ที่ไหนสักแห่งใน function body function นั้นก็กลายเป็น generator ทันที
 - ลูป `for` ของ Python ทำงานได้โดยตรงกับ iterable ทุกชนิด รวมถึง generator โดยไม่ต้องเรียก `.next()` เอง
 - TypeScript ต้องระบุ return type เป็น `Generator<T>` แต่ Python จะอนุมานให้โดยอัตโนมัติ
 
@@ -139,12 +141,12 @@ print(first_ten)
 
 <PyOnly title="Generator protocol: __iter__ และ __next__">
 
-เมื่อลูป `for` ของ Python วนซ้ำ object ใดก็ตาม มันจะเรียก dunder method สองตัวเบื้องหลัง:
+เวลาลูป `for` ของ Python วนบน object ใดก็ตาม เบื้องหลังจะเรียก dunder method สองตัวนี้:
 
-1. `__iter__(self)` — ถูกเรียกครั้งเดียวเพื่อรับ iterator object สำหรับ generator มันจะคืนค่า `self`
-2. `__next__(self)` — ถูกเรียกซ้ำเพื่อรับค่าถัดไป เมื่อ generator หมดแล้วจะ raise `StopIteration` ซึ่งเป็นสัญญาณให้ลูป `for` หยุด
+1. `__iter__(self)` — เรียกครั้งเดียวเพื่อขอ iterator object ถ้าเป็น generator จะคืน `self` กลับมา
+2. `__next__(self)` — เรียกซ้ำไปเรื่อย ๆ เพื่อขอค่าถัดไป พอ generator หมดค่าก็ raise `StopIteration` เป็นสัญญาณให้ลูป `for` หยุด
 
-generator object จะ implement ทั้งสองนี้โดยอัตโนมัติ คุณสามารถ implement protocol นี้ด้วยตนเองใน class ใดก็ได้เพื่อทำให้มัน iterable:
+generator object implement ทั้งสองตัวนี้ให้อัตโนมัติ และคุณเขียน protocol นี้เองใน class ไหนก็ได้ เพื่อทำให้ class นั้น iterable:
 
 ```python
 class CountUp:
@@ -180,7 +182,7 @@ def chain(*iterables):
 list(chain([1, 2], [3, 4], [5]))  # [1, 2, 3, 4, 5]
 ```
 
-`yield from` ยังส่งต่อ `.send()` และ `.throw()` ไปยัง inner generator ด้วย ซึ่งเป็นวิธีที่ `asyncio` ของ Python เคยรวม coroutine เข้าด้วยกันก่อนที่จะมี syntax `async`/`await`
+`yield from` ยังส่งต่อ `.send()` และ `.throw()` ลงไปยัง inner generator ด้วย นี่คือกลไกที่ `asyncio` เคยใช้ต่อ coroutine เข้าด้วยกัน ก่อนที่ syntax `async`/`await` จะเข้ามา
 
 </PyOnly>
 

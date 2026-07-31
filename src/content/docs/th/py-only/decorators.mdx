@@ -10,7 +10,9 @@ import PyOnly from '../../../../components/PyOnly.astro';
 
 ## Decorators: การเพิ่มพฤติกรรมโดยไม่แก้ไขโค้ดเดิม
 
-TypeScript มี decorators เช่นกัน แต่เป็น feature ที่ยังทดลองอยู่ ผูกกับ class และพฤติกรรมของมันก็เปลี่ยนแปลงไปตาม TypeScript และ ECMAScript proposal ต่าง ๆ Decorator ของ Python นั้น stable กว่า เรียบง่ายกว่า และทำงานได้กับ function ใด ๆ ก็ตาม ไม่ใช่แค่ class method เท่านั้น Decorator ถูกใช้อย่างแพร่หลายใน Python framework ต่าง ๆ (Flask routes, FastAPI endpoints, Celery tasks, `dataclasses.dataclass`) จนคุณจะพบมันในแทบทุก codebase ของ Python
+TypeScript ก็มี decorator เหมือนกัน แต่ยังเป็นฟีเจอร์ทดลอง ผูกอยู่กับ class และพฤติกรรมยังเปลี่ยนไปมาตาม TypeScript กับ ECMAScript proposal
+
+ส่วน decorator ของ Python นิ่งกว่า เรียบง่ายกว่า และใช้ได้กับ function ทุกแบบ ไม่จำกัดแค่ class method framework ฝั่ง Python ใช้กันหนักมาก ทั้ง Flask route, FastAPI endpoint, Celery task และ `dataclasses.dataclass` จนแทบทุก codebase ต้องมีให้เห็น
 
 Decorator คือ function ที่รับ function มาและคืน function ใหม่กลับไป syntax `@name` เป็นเพียง shorthand ของ `func = name(func)`
 
@@ -147,7 +149,7 @@ def greet(name):
     print(f"Hello, {name}!")
 ```
 
-มันจะ execute `greet = timer_decorator(greet)` ทันที ตอนที่โค้ดใด ๆ เรียก `greet("Alice")` การ decorate เสร็จสิ้นแล้ว — `greet` เป็น wrapper function อยู่แล้ว
+Python จะรัน `greet = timer_decorator(greet)` ทันที ดังนั้นพอโค้ดส่วนอื่นเรียก `greet("Alice")` การ decorate จบไปนานแล้ว และ `greet` ที่เรียกอยู่ก็คือ wrapper function ตัวใหม่
 
 ผลที่ตามมาในทางปฏิบัติ:
 

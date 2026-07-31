@@ -10,7 +10,7 @@ import PyOnly from '../../../../components/PyOnly.astro';
 
 ## HTTPException — เครื่องมือ error หลัก
 
-ใน Express คุณเรียก `res.status(404).json(...)` หรือส่ง error ไปยัง `next(err)` ใน FastAPI คุณ **raise** `HTTPException` ซึ่งเป็น Python exception ที่ FastAPI จับและแปลงเป็น HTTP response สิ่งนี้ทำให้ error path ดูเหมือน Python code ปกติ
+ใน Express คุณเรียก `res.status(404).json(...)` หรือโยน error เข้า `next(err)` ส่วนใน FastAPI คุณ **raise** `HTTPException` ออกไปตรง ๆ เป็น Python exception ธรรมดาที่ FastAPI คอยดักจับแล้วแปลงเป็น HTTP response ให้ ผลคือ error path หน้าตาเหมือนโค้ด Python ปกติ
 
 export const httpExcTs = `// Express — return error response
 app.get('/items/:id', async (req, res) => {
@@ -85,7 +85,7 @@ async def get_item(item_id: int):
 
 ## Override default 422 handler
 
-FastAPI's built-in validation error handler ส่งคืน `RequestValidationError` คุณสามารถ override มันเพื่อให้ตรงกับ error envelope ของ API
+validation error handler ที่ FastAPI ให้มาในตัวจะคืน `RequestValidationError` ออกมา ซึ่งคุณ override เองได้ เพื่อให้รูปแบบตรงกับ error envelope ของ API
 
 export const override422Ts = `// Zod error shaping ใน Express
 app.use((err, req, res, next) => {
@@ -122,7 +122,7 @@ async def validation_exception_handler(
 
 <PyOnly title="Python exceptions เชื่อมกับ HTTP errors ได้อย่างเป็นธรรมชาติ">
 
-เนื่องจาก FastAPI errors เป็น Python `Exception` subclasses พวกมันจึงรวมกับ Python's `try/except` flow ได้อย่างเป็นธรรมชาติ คุณสามารถ catch และ re-raise, log ด้วย standard logging, หรือปล่อยให้ middleware จัดการ ทั้งหมดด้วย Python syntax ปกติ
+เพราะ error ของ FastAPI เป็น subclass ของ `Exception` ใน Python จึงเข้ากับ flow `try/except` ได้อย่างเป็นธรรมชาติ จะ catch แล้ว re-raise ต่อ, log ผ่าน standard logging หรือปล่อยให้ middleware จัดการก็ได้ ทั้งหมดใช้ syntax Python ปกติ
 
 ```python
 @app.post("/items")

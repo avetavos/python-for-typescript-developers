@@ -96,7 +96,7 @@ import multiprocessing  # true parallelism, separate memory
 
 ผลกระทบหลักต่อ threading:
 
-- **Thread แบบ I/O-bound ทำงานได้ดี** ขณะที่ thread หนึ่งรอการตอบสนองจากเครือข่าย GIL จะถูก release และ thread อื่นสามารถทำงานได้
+- **งาน I/O-bound ใช้ thread ได้ผลดี** ระหว่างที่ thread หนึ่งรอ response จาก network อยู่ Python จะปล่อย GIL ออกมาให้ thread อื่นทำงานต่อ
 - **Thread แบบ CPU-bound ไม่ได้เร็วขึ้น** สอง thread ที่คำนวณตัวเลขจะไม่ใช้สอง core — GIL บังคับให้ผลัดกันทำงาน
 
 หากมาจาก JavaScript คุณใช้ชีวิตกับข้อจำกัดนี้อยู่แล้ว (thread เดียว) แต่อาจแปลกใจเมื่อคาดหวังว่า Python thread จะ parallelize งาน CPU เหมือน Java หรือ Go

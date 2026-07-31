@@ -9,7 +9,9 @@ import PyOnly from '../../../../components/PyOnly.astro';
 
 ## DI แก้ปัญหาอะไร?
 
-ใน API ทุกตัวคุณมี shared concerns: การได้รับ DB session, การอ่าน current user จาก token, หรือการตรวจสอบ common query parameters ใน Express คุณแก้ด้วย middleware ใน NestJS คุณใช้ IoC container ที่มี `@Injectable()` providers FastAPI ใช้ `Depends()` ซึ่งเป็นระบบ DI ที่เบาและ composable ประกาศทั้งหมดผ่าน type hints
+ทุก API ล้วนมีงานที่ต้องใช้ร่วมกัน เช่น ขอ DB session, อ่าน current user จาก token หรือตรวจ query parameter ชุดเดิม ๆ ฝั่ง Express แก้ด้วย middleware ส่วน NestJS ใช้ IoC container คู่กับ provider ที่ติด `@Injectable()`
+
+FastAPI เลือกอีกทาง คือใช้ `Depends()` เป็นระบบ DI ที่เบาและ compose ต่อกันได้ โดยประกาศทุกอย่างผ่าน type hints
 
 ## Depends() vs Express middleware vs NestJS providers
 
@@ -159,9 +161,9 @@ async def delete_item(item_id: int, _: dict = Depends(require_admin)):
 
 <PyOnly title="Depends() ใช้ Python's type-hint introspection">
 
-DI ของ FastAPI ทำงานโดยตรวจสอบ function signature ตอน startup โดยใช้ Python's `inspect` module มันอ่าน type hint ของแต่ละ parameter, ค้นหา `Depends()` default values, และสร้าง dependency graph อัตโนมัติ คล้ายกับวิธีที่ Angular หรือ NestJS อ่าน `@Injectable()` metadata แต่ไม่ต้องมี decorators หรือ global container
+DI ของ FastAPI ทำงานด้วยการส่อง function signature ตอน startup ผ่าน module `inspect` ของ Python แล้วอ่าน type hint ของแต่ละ parameter หา default ที่เป็น `Depends()` และประกอบเป็น dependency graph ให้อัตโนมัติ คล้ายกับที่ Angular หรือ NestJS อ่าน metadata จาก `@Injectable()` ต่างกันตรงที่ไม่ต้องมี decorator และไม่ต้องมี global container
 
-นั่นหมายความว่า dependencies คือ plain Python functions หรือ classes ธรรมดา ไม่มี `@Injectable()`, ไม่มี module registration, และไม่มี global container ให้ configure คุณ compose มันโดยส่ง `Depends()` หนึ่งใน `Depends()` อีกอัน
+ผลคือ dependency เป็นแค่ function หรือ class Python ธรรมดา ไม่มี `@Injectable()` ไม่ต้อง register เข้า module และไม่มี global container ให้ตั้งค่า อยากต่อกันก็แค่ส่ง `Depends()` ตัวหนึ่งเข้าไปใน `Depends()` อีกตัว
 
 </PyOnly>
 

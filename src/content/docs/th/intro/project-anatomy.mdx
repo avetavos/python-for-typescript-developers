@@ -1,6 +1,6 @@
 ---
 title: Project Anatomy — Packages, Imports และ pyproject.toml
-description: วิธีที่โปรเจกต์ Python ถูกจัดโครงสร้าง — modules, packages, pyproject.toml vs package.json, venv vs node_modules และระบบ import
+description: โครงสร้างโปรเจกต์ Python — modules, packages, pyproject.toml vs package.json, venv vs node_modules และระบบ import
 ---
 import TsGo from '../../../../components/TsGo.astro';
 import Playground from '../../../../components/Playground.astro';
@@ -10,11 +10,11 @@ import PyOnly from '../../../../components/PyOnly.astro';
 
 ## Files, modules และ packages
 
-ใน Node.js ทุก `.js`/`.ts` file คือ module คุณ import จากมันด้วย `import` Python ทำงานแบบเดียวกัน แต่คำศัพท์แตกต่างกันเล็กน้อย:
+ใน Node.js ทุกไฟล์ `.js`/`.ts` คือ module และคุณดึงของออกมาด้วย `import` ฝั่ง Python ทำงานแบบเดียวกัน ต่างกันแค่คำศัพท์เล็กน้อย:
 
-- **Module** — ไฟล์ `.py` ใดๆ `math.py` คือ module ชื่อ `math`
-- **Package** — ไดเรกทอรีที่มีไฟล์ `__init__.py` มันจัดกลุ่ม modules ที่เกี่ยวข้อง
-- **Namespace package** — ไดเรกทอรีที่ไม่มี `__init__.py` (Python 3.3+) แทบไม่จำเป็น
+- **Module** — ไฟล์ `.py` ไฟล์ไหนก็ได้ เช่น `math.py` คือ module ชื่อ `math`
+- **Package** — ไดเรกทอรีที่มี `__init__.py` อยู่ ใช้จัดกลุ่ม module ที่เกี่ยวข้องกัน
+- **Namespace package** — ไดเรกทอรีที่ไม่มี `__init__.py` (Python 3.3+) ในงานทั่วไปแทบไม่ได้ใช้
 
 export const moduleTs = `// Node/TypeScript module layout
 src/
@@ -46,7 +46,7 @@ from utils.string import capitalize`;
 
 ## ไฟล์ `__init__.py`
 
-`__init__.py` คือ Python เทียบเท่ากับ `index.ts` ในไดเรกทอรี — มันทำเครื่องหมายไดเรกทอรีเป็น package และ re-export symbols ได้ตามต้องการ `__init__.py` ที่ว่างเปล่าถูกต้องตามหลักและเป็นสิ่งขั้นต่ำที่จำเป็น
+`__init__.py` ทำหน้าที่เดียวกับ `index.ts` ที่วางไว้ในโฟลเดอร์ คือประกาศว่าไดเรกทอรีนี้เป็น package และจะ re-export symbol ต่อออกไปด้วยก็ได้ ปล่อยให้เป็นไฟล์เปล่าก็ถูกต้องแล้ว และนั่นคือขั้นต่ำที่ต้องมี
 
 export const initTs = `// TypeScript: src/utils/index.ts
 export { capitalize } from "./string";
@@ -66,7 +66,7 @@ from utils import capitalize, clamp`;
 
 ## ไวยากรณ์ Import
 
-Python มีรูปแบบ import สองแบบ ทั้งคู่ใช้กันทั่วไป คุณใช้แบบไหนขึ้นอยู่กับบริบท
+Python มีรูปแบบ import สองแบบ และใช้กันทั่วไปทั้งคู่ เลือกแบบไหนขึ้นอยู่กับบริบทที่ใช้
 
 export const importTs = `// TypeScript import styles
 import path from "path";                          // default import
@@ -86,7 +86,7 @@ from ..utils import helper           # relative: parent package`;
 
 ## pyproject.toml — เทียบเท่ากับ package.json
 
-โปรเจกต์ Python สมัยใหม่ใช้ `pyproject.toml` เป็น project manifest เดียว มันแทนที่ `setup.py`, `setup.cfg` และส่วนหนึ่งของ `requirements.txt`
+โปรเจกต์ Python สมัยใหม่ใช้ `pyproject.toml` เป็น project manifest ไฟล์เดียวจบ เข้ามาแทน `setup.py`, `setup.cfg` และงานบางส่วนของ `requirements.txt`
 
 export const pkgJsonTs = `// package.json (Node)
 {
@@ -133,7 +133,7 @@ build-backend = "hatchling.build"`;
 
 ## requirements.txt — เทียบเท่ากับ package-lock
 
-`requirements.txt` คือ list แบบ flat ของ package versions ที่ pin ไว้ มันง่ายกว่า `package-lock.json` แต่ตอบสนองวัตถุประสงค์เดียวกัน: การติดตั้งที่ reproducible สำหรับเพื่อนร่วมทีมและ CI
+`requirements.txt` คือ list แบบ flat ของ package version ที่ pin ไว้ โครงสร้างเรียบง่ายกว่า `package-lock.json` แต่มีเป้าหมายเดียวกัน คือทำให้เพื่อนร่วมทีมและ CI ติดตั้งได้ผลลัพธ์เหมือนกันทุกครั้ง
 
 export const lockTs = `# Node
 npm install          # reads package.json + package-lock.json
@@ -159,7 +159,7 @@ poetry add fastapi                # adds to pyproject.toml + lock`;
 
 ## Layout โปรเจกต์ทั่วไป
 
-นี่คือ layout โปรเจกต์ Python API ที่สมจริง พร้อม annotation เทียบกับ Node:
+ด้านล่างคือ layout ของโปรเจกต์ Python API แบบที่ใช้งานจริง พร้อมกำกับว่าอะไรเทียบกับอะไรในฝั่ง Node:
 
 export const layoutTs = `# Node/TypeScript project
 my-api/
@@ -196,13 +196,13 @@ my-api/
 
 <PyOnly title="Editable installs — pip install -e .">
 
-เมื่อคุณจัดโครงสร้างโค้ดเป็น package (ด้วย `pyproject.toml`) คุณสามารถติดตั้งในโหมด "editable":
+เมื่อจัดโค้ดเป็น package แล้ว (มี `pyproject.toml`) คุณติดตั้งแบบโหมด "editable" ได้:
 
 ```bash
 pip install -e .
 ```
 
-นี่คือ Python เทียบเท่ากับ `npm link` — มันติดตั้ง package ของคุณลงใน venv แต่ชี้โดยตรงไปยัง source files ของคุณ การเปลี่ยนแปลง source จะสะท้อนทันทีโดยไม่ต้องติดตั้งใหม่ ใช้สิ่งนี้สำหรับการพัฒนา local เพื่อให้ `from my_api.routes import users` resolve ไปยัง source tree จริงของคุณ
+นี่คือตัวเทียบเคียงของ `npm link` ในฝั่ง Python คือลง package ลง venv จริง แต่ให้ชี้ตรงไปที่ source file ของคุณ แก้โค้ดปุ๊บเห็นผลปั๊บโดยไม่ต้องลงใหม่ ใช้ท่านี้ตอน develop บนเครื่อง เพื่อให้ `from my_api.routes import users` resolve ไปที่ source tree ตัวจริง
 
 </PyOnly>
 

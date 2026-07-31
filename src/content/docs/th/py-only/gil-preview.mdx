@@ -15,7 +15,7 @@ Python มี thread แต่ CPython (implementation หลัก) มี lock
 
 ## GIL ไม่ได้หมายความว่า threading ไร้ประโยชน์
 
-GIL จะถูก release ในระหว่าง I/O operations, `time.sleep()` และงาน C extension บางอย่าง (เช่น NumPy) ดังนั้นสำหรับ **I/O-bound concurrency** (network calls, file reads, database queries) thread ของ Python ทำงานได้ดีมาก
+Python ปล่อย GIL ออกระหว่างทำ I/O, ระหว่าง `time.sleep()` และระหว่างงานใน C extension บางตัวอย่าง NumPy ดังนั้นถ้าเป็น **I/O-bound concurrency** เช่น เรียก network, อ่านไฟล์ หรือ query database thread ของ Python ทำงานได้ดีมาก
 
 export const tsGil = `// TypeScript: worker_threads for CPU-bound parallelism
 import { Worker, isMainThread, parentPort } from "worker_threads";
@@ -108,12 +108,12 @@ if __name__ == "__main__":
 
 **PEP 703 — Making the Global Interpreter Lock Optional**
 
-Python 3.13 นำเสนอ **free-threaded CPython** เป็น experimental build (`python3.13t`) GIL จะถูกปิดการใช้งาน ทำให้ thread สามารถรัน Python bytecode แบบขนานได้จริงบน CPU หลายตัว
+Python 3.13 เพิ่ม **free-threaded CPython** เข้ามาเป็น experimental build (`python3.13t`) ซึ่งปิด GIL ทิ้ง ทำให้ thread รัน Python bytecode ขนานกันได้จริงบนหลาย CPU
 
 ในระหว่างนี้ ecosystem ของ Python จัดการกับข้อจำกัดของ GIL ด้วยสามวิธีหลัก:
 
 1. **`asyncio`** — I/O-bound concurrency บน single thread ด้วย event loop (คล้ายกับ Node.js มาก)
-2. **`threading`** — ดีสำหรับ I/O-bound workload, GIL จะถูก release ระหว่างรอ I/O
+2. **`threading`** — เหมาะกับงาน I/O-bound เพราะ Python ปล่อย GIL ระหว่างรอ I/O
 3. **`multiprocessing` / `ProcessPoolExecutor`** — CPU-bound parallelism ที่แท้จริงโดยใช้หลาย process
 
 สำหรับโค้ด data science, NumPy และ pandas ปล่อย GIL ระหว่าง C-level operation ดังนั้น thread ของ Python จึงทำให้ได้ parallelism จริงสำหรับการดำเนินการ array และ DataFrame

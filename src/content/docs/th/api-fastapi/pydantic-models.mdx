@@ -137,7 +137,7 @@ item2 = CreateItem.model_validate({"name": "Gadget", "price": 4.99})
 
 ## ลองเล่น — stdlib dataclasses เป็น runnable stand-in
 
-Pydantic ไม่สามารถรันในเบราว์เซอร์ได้ `dataclasses` จาก standard library ให้รูปร่างเดียวกัน (typed fields, defaults, auto `__init__`) โดยไม่มี validation เพื่อให้สำรวจแนวคิดได้:
+Pydantic ไม่สามารถรันใน browser ได้ `dataclasses` จาก standard library ให้รูปร่างเดียวกัน (typed fields, defaults, auto `__init__`) โดยไม่มี validation เพื่อให้สำรวจแนวคิดได้:
 
 export const dataclassCode = `from dataclasses import dataclass, field, asdict
 from typing import Optional, List

@@ -7,11 +7,11 @@ import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
 
-> หมายเหตุเกี่ยวกับ Playground: บทเรียนนี้เป็นเรื่องของการติดตั้งและตั้งค่า ขั้นตอนต้องการเทอร์มินัลจริง การติดตั้ง Python และการเข้าถึง filesystem — ไม่มีสิ่งใดเหล่านี้ในเบราว์เซอร์ sandbox รันคำสั่งด้านล่างในเทอร์มินัลของคุณเอง
+> หมายเหตุเรื่อง Playground: บทนี้ว่าด้วยการติดตั้งและตั้งค่า ทุกขั้นตอนต้องใช้เทอร์มินัลจริง ต้องมี Python ติดตั้งอยู่ และต้องเข้าถึง filesystem ได้ ซึ่ง sandbox ใน browser ทำให้ไม่ได้สักอย่าง ให้รันคำสั่งด้านล่างในเทอร์มินัลของคุณเอง
 
 ## การเปรียบเทียบ toolchain
 
-ก่อนเขียนโค้ด คุณต้องเข้าใจว่า toolchain ของ Python แมปกับ Node อย่างไร:
+ก่อนลงมือเขียนโค้ด ควรเห็นภาพก่อนว่า toolchain ของ Python เทียบกับฝั่ง Node ตัวไหนเป็นตัวไหน:
 
 export const toolchainTs = `# Node / TypeScript toolchain
 node       → runtime (executes JS)
@@ -53,9 +53,9 @@ python3 --version
 
 ## Virtual environments — venv เทียบเท่ากับ node_modules
 
-ใน Node `npm install` สร้าง `node_modules/` ภายในโปรเจกต์ของคุณ แต่ละโปรเจกต์มีสำเนา dependencies ของตัวเอง Python มีสิ่งเทียบเคียงคือ **virtual environment** (`venv`) — ไดเรกทอรีที่แยกจากกันซึ่งมี Python interpreter และ packages
+ใน Node คำสั่ง `npm install` สร้าง `node_modules/` ไว้ในโปรเจกต์ ทำให้แต่ละโปรเจกต์มี dependency ชุดของตัวเอง ฝั่ง Python ตัวที่ทำหน้าที่เดียวกันคือ **virtual environment** (`venv`) ที่เป็นไดเรกทอรีแยกที่เก็บทั้ง Python interpreter และ package ไว้ในนั้น
 
-หากไม่มี venv `pip install` จะติดตั้ง packages ทั่วโลก (globally) และมันจะชนกันระหว่างโปรเจกต์ ใช้ venv เสมอ
+ถ้าไม่ใช้ venv คำสั่ง `pip install` จะลง package ระดับ global แล้วโปรเจกต์ต่าง ๆ จะชนกันเอง ดังนั้นใช้ venv เสมอ
 
 export const venvTs = `# Node: project isolation is automatic
 mkdir my-project && cd my-project
@@ -74,13 +74,13 @@ python3 script.py`;
 
 <TsGo ts={venvTs} go={venvPy} />
 
-หลังจากรัน `source venv/bin/activate` prompt ของคุณจะเปลี่ยนเพื่อแสดง `(venv)` ตอนนี้ `python` และ `pip` ชี้ไปยัง venv local รัน `deactivate` เพื่อออก
+พอรัน `source venv/bin/activate` แล้ว prompt จะขึ้น `(venv)` ให้เห็น จากจุดนี้ `python` และ `pip` จะชี้ไปที่ venv ของโปรเจกต์ ถ้าจะออกก็สั่ง `deactivate`
 
 <PyOnly title="ทำไม Python ถึงต้องมีขั้นตอน activate ที่ชัดเจน?">
 
-Node resolve packages โดยเดินขึ้นไปใน directory tree เพื่อค้นหา `node_modules/` Python ไม่ทำแบบนี้ — มันค้นหาเฉพาะใน Python installation ที่ active อยู่ script `activate` ตั้งค่า environment variables (`PATH`, `VIRTUAL_ENV`) เพื่อให้คำสั่ง `python` และ `pip` resolve ไปยังสำเนา venv แทนที่จะเป็นสำเนา system
+Node resolve package ด้วยการไล่ขึ้นไปตาม directory tree เพื่อหา `node_modules/` แต่ Python ไม่ทำแบบนั้น เพราะมองหาแค่ใน Python installation ที่ active อยู่เท่านั้น สคริปต์ `activate` จึงมีหน้าที่เซ็ต environment variable (`PATH`, `VIRTUAL_ENV`) ให้คำสั่ง `python` กับ `pip` resolve ไปที่ชุดใน venv แทนชุดของ system
 
-Tools อย่าง `direnv` หรือ `pyenv-virtualenv` สามารถ auto-activate venv ที่ถูกต้องเมื่อคุณ `cd` เข้าไปในไดเรกทอรีโปรเจกต์ ให้ความรู้สึกอัตโนมัติเหมือน Node
+ถ้าอยากได้ความรู้สึกอัตโนมัติแบบ Node ก็มี tool อย่าง `direnv` หรือ `pyenv-virtualenv` ที่ activate venv ให้เองทันทีที่คุณ `cd` เข้าไปในโฟลเดอร์โปรเจกต์
 
 </PyOnly>
 
@@ -118,15 +118,15 @@ pip install .                     # install project deps from pyproject.toml`;
 
 <PyOnly title="pip freeze vs package.json — ความแตกต่างสำคัญ">
 
-`npm install express` จะเพิ่ม `"express"` ลงใน `package.json` อัตโนมัติ `pip install fastapi` ไม่อัปเดต file ใดๆ — มันแค่วาง bytes ลงใน `venv/` คุณต้องรัน `pip freeze > requirements.txt` อย่างชัดเจนเพื่อบันทึก environment ปัจจุบัน
+`npm install express` จะเติม `"express"` ลงใน `package.json` ให้อัตโนมัติ ส่วน `pip install fastapi` ไม่แก้ไฟล์ไหนเลย แค่ก๊อป bytes ลง `venv/` เท่านั้น ถ้าอยากบันทึกสภาพ environment ปัจจุบันคุณต้องสั่ง `pip freeze > requirements.txt` เอง
 
-คำตอบแบบ Python สมัยใหม่คือ `pyproject.toml` พร้อม tool อย่าง `hatch`, `poetry` หรือ `uv` สิ่งเหล่านี้ทำงานเหมือน npm มากขึ้น: `poetry add fastapi` เพิ่ม dependency และอัปเดต `pyproject.toml` ในขั้นตอนเดียว เราครอบคลุม `pyproject.toml` ในบทเรียน Project Anatomy
+ทางออกของ Python ยุคใหม่คือ `pyproject.toml` คู่กับ tool อย่าง `hatch`, `poetry` หรือ `uv` ซึ่งทำงานใกล้เคียง npm มากขึ้น เช่น `poetry add fastapi` เพิ่ม dependency พร้อมอัปเดต `pyproject.toml` ให้ในขั้นตอนเดียว เรื่อง `pyproject.toml` จะลงรายละเอียดในบทเรียน Project Anatomy
 
 </PyOnly>
 
 ## ตัวอย่าง workflow ฉบับสมบูรณ์
 
-นี่คือลำดับ "เริ่มโปรเจกต์ Python ใหม่" ทั้งหมด เปรียบเทียบกับสิ่งที่คุณทำสำหรับโปรเจกต์ Node:
+นี่คือลำดับขั้นตอน "เริ่มโปรเจกต์ Python ใหม่" แบบเต็ม วางเทียบกับสิ่งที่คุณทำตอนเริ่มโปรเจกต์ Node:
 
 export const workflowTs = `# Node project setup
 mkdir api && cd api
@@ -152,21 +152,21 @@ pip freeze > requirements.txt`;
 
 export const quizSetup = [
   {
-    q: 'Python มีสิ่งเทียบเคียงกับ `node_modules/` คืออะไร?',
+    q: 'อะไรคือตัวเทียบเคียง `node_modules/` ในฝั่ง Python?',
     options: [
       'ไดเรกทอรี `packages/` ที่ root ของโปรเจกต์',
       'Virtual environment ที่สร้างด้วย `python3 -m venv`',
-      'ไดเรกทอรี `site-packages/` ทั่วโลก',
+      'ไดเรกทอรี `site-packages/` ระดับ global',
       'โฟลเดอร์ซ่อน `.python/`',
     ],
     answer: 1,
   },
   {
-    q: 'หลังจาก `pip install fastapi` คุณบันทึก dependency อย่างไรเพื่อให้เพื่อนร่วมทีม reproduce ได้?',
+    q: 'หลัง `pip install fastapi` ต้องทำอย่างไรให้เพื่อนร่วมทีม reproduce dependency ตามได้?',
     options: [
-      'pip บันทึกมันลง pyproject.toml อัตโนมัติ',
+      'pip เขียนลง pyproject.toml ให้อัตโนมัติอยู่แล้ว',
       'รัน `pip freeze > requirements.txt` แล้ว commit ไฟล์',
-      'เพิ่มมันด้วยตัวเองใน package.json',
+      'เติมชื่อ package ลง package.json เอง',
       'รัน `pip save fastapi`',
     ],
     answer: 1,

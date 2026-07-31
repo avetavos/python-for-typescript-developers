@@ -10,9 +10,9 @@ import PyOnly from '../../../../components/PyOnly.astro';
 
 ## "TypeScript moment" ของ Python
 
-เมื่อคุณเรียน TypeScript ครั้งแรก คุณอาจเคยประสบกับช่วงเวลาที่ compiler จับ bug จริงก่อนที่คุณจะรัน code เลย type hints ของ Python มอบความสามารถเดียวกันให้ — แต่ตัว interpreter เองไม่เคยตรวจสอบพวกมัน `mypy` คือ static analysis tool แยกต่างหากที่ทำการตรวจสอบนั้น
+ตอนเริ่มเขียน TypeScript ใหม่ ๆ คุณคงเคยเจอวินาทีที่ compiler จับ bug จริงได้ตั้งแต่ยังไม่ได้รันโค้ด type hints ของ Python ให้ประโยชน์แบบเดียวกันได้ ต่างกันตรงที่ interpreter ไม่เคยตรวจให้เลย งานตรวจจึงตกเป็นของ static analysis tool แยกต่างหากอย่าง `mypy`
 
-คิดว่า `mypy` คือ `tsc --noEmit` สำหรับ Python: มันอ่าน annotations ของคุณและรายงาน type errors โดยไม่ต้องรันหรือ compile อะไรเลย
+มอง `mypy` เป็น `tsc --noEmit` เวอร์ชัน Python ได้เลย คืออ่าน annotation ของคุณแล้วรายงาน type error ออกมา โดยไม่ต้องรันหรือ compile อะไรทั้งสิ้น
 
 ## การติดตั้งและรัน
 
@@ -156,8 +156,8 @@ export const quizMypy = [
     q: 'ความสัมพันธ์ระหว่าง Python type hints กับ Python interpreter คืออะไร?',
     options: [
       'Interpreter บังคับ type hints ที่ runtime และ raise TypeError เมื่อไม่ตรงกัน',
-      'Interpreter ละเว้น type hints อย่างสิ้นเชิง — tools อย่าง mypy เท่านั้นที่อ่านพวกมัน',
-      'Type hints ทำให้ execution ช้าลงเพราะ interpreter ตรวจสอบพวกมัน',
+      'interpreter มองข้าม type hints ทั้งหมด มีแค่ tool อย่าง mypy เท่านั้นที่อ่าน',
+      'type hints ทำให้รันช้าลง เพราะ interpreter ต้องคอยตรวจ',
       'Type hints ใช้ได้เฉพาะใน Python 3.12+',
     ],
     answer: 1,

@@ -10,7 +10,9 @@ import PyOnly from '../../../../components/PyOnly.astro';
 
 ## ปัญหาที่ dataclasses แก้ไข
 
-ใน TypeScript คุณมักเขียนคลาสแค่เพื่อเก็บข้อมูลและรับ constructor มาฟรี หรือใช้ `interface` + object literal เมื่อไม่ต้องการเมธอด decorator `@dataclass` ของ Python เชื่อมทั้งสอง: มันคือคลาสที่สร้าง `__init__`, `__repr__`, และ `__eq__` อัตโนมัติจาก field annotations เพื่อให้คุณเขียนแค่ fields
+ใน TypeScript คุณมักเขียน class ขึ้นมาแค่เพื่อเก็บข้อมูลแล้วได้ constructor มาฟรี ๆ หรือไม่ก็ใช้ `interface` คู่กับ object literal ตอนที่ไม่ต้องการ method เลย
+
+ฝั่ง Python ใช้ decorator `@dataclass` เชื่อมสองอย่างนี้เข้าด้วยกัน คือยังเป็น class เต็มตัว แต่สร้าง `__init__`, `__repr__` และ `__eq__` ให้อัตโนมัติจาก field annotation คุณจึงเขียนแค่ field ก็พอ
 
 export const basicTs = `// TypeScript — class as data holder
 class Point {
@@ -243,10 +245,10 @@ export const quizDataclasses = [
   {
     q: 'จุดประสงค์ของ `__post_init__` ใน dataclass คืออะไร?',
     options: [
-      'มันแทนที่ `__init__` ทั้งหมด',
-      'มันรันหลัง `__init__` ที่ถูกสร้างสำหรับ derived fields หรือ validation',
-      'มันถูกเรียกเมื่อ object ถูก garbage-collect',
-      'มันจำเป็นสำหรับ frozen dataclasses',
+      'ใช้แทน `__init__` ทั้งหมด',
+      'รันต่อจาก `__init__` ที่ dataclass สร้างให้ ไว้ทำ derived field หรือ validation',
+      'Python เรียกตอน object โดน garbage-collect',
+      'ต้องมีเสมอถ้าใช้ frozen dataclass',
     ],
     answer: 1,
   },

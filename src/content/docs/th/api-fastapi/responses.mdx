@@ -38,7 +38,7 @@ async def create_item(item: dict):
 
 ## response_model — กรองและกำหนดรูปร่าง output
 
-`response_model` เป็น decorator argument ที่บอก FastAPI ว่าจะใช้ Pydantic model ใดในการ serialize response มันจะกรอง field ที่ไม่อยู่ใน model ออก (มีประโยชน์สำหรับซ่อน password หรือ field ภายใน) และ validate ข้อมูลขาออก
+`response_model` คือ argument ของ decorator ที่บอก FastAPI ว่าจะ serialize response ด้วย Pydantic model ตัวไหน จากนั้น FastAPI จะตัด field ที่ไม่อยู่ใน model ทิ้ง ซึ่งมีประโยชน์มากเวลาต้องซ่อน password หรือ field ภายใน พร้อมกับ validate ข้อมูลขาออกให้ด้วย
 
 export const respModelTs = `// TypeScript — เลือก fields เอง
 interface ItemPublic { id: number; name: string; price: number; }

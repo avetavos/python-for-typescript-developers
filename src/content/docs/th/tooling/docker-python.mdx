@@ -135,9 +135,9 @@ docker run -p 8000:8000 my-python-app
 
 สอง env vars นี้เป็นมาตรฐานใน Python Dockerfile ทุก production:
 
-**`PYTHONUNBUFFERED=1`** — Python buffer stdout/stderr โดยค่าเริ่มต้น ใน container นี้หมายความว่า logs ของคุณอาจไม่ปรากฏเลย (ติดอยู่ใน buffer) การตั้งค่าเป็น `1` บังคับให้ flush ทันที ซึ่งเป็น requirement 12-Factor "log ไปยัง stdout"
+**`PYTHONUNBUFFERED=1`** — ปกติ Python จะ buffer stdout/stderr ไว้ พออยู่ใน container จึงอาจไม่เห็น log โผล่มาเลยเพราะยังค้างอยู่ใน buffer ตั้งเป็น `1` เพื่อบังคับให้ flush ทันที ตรงตามข้อกำหนด 12-Factor ที่ให้ "log ออก stdout"
 
-**`PYTHONDONTWRITEBYTECODE=1`** — Python ปกติเขียนไฟล์ `.pyc` ที่ compile แล้วคู่กับ `.py` source files เพื่อเร่ง startup ใน containers นี้คือ noise: เปลือง layer space และอาจทำให้เกิด stale-cache bugs การปิดมันทำให้ image สะอาด
+**`PYTHONDONTWRITEBYTECODE=1`** — ปกติ Python เขียนไฟล์ `.pyc` ที่ compile แล้ววางคู่กับ source `.py` เพื่อให้ startup เร็วขึ้น แต่ใน container กลายเป็นขยะ เพราะกินพื้นที่ layer และอาจพา stale-cache bug มาด้วย ปิดทิ้งไปแล้ว image สะอาดกว่า
 
 นักพัฒนา Node ไม่ต้องการ flags เหล่านี้เพราะ runtime model ของ Node ทำงานต่างกัน — นี่คือ footgun เฉพาะ Python
 
@@ -175,7 +175,7 @@ export const quizDocker = [
     q: 'PYTHONUNBUFFERED=1 รับประกันอะไรใน containerized Python app?',
     options: [
       'Python รันเร็วขึ้นด้วยการข้าม GIL',
-      'Python logs ถูก flush ไปยัง stdout ทันทีแทนที่จะถูก buffer',
+      'Python flush log ออก stdout ทันที ไม่ค้างไว้ใน buffer',
       'Python ข้ามการเขียนไฟล์ .pyc bytecode',
       'uvicorn รับฟังบน network interfaces ทั้งหมด',
     ],
