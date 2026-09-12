@@ -37,7 +37,7 @@ EXPOSE 3000
 CMD ["node", "dist/main.js"]`;
 
 export const pythonDockerfile = `# ---- Python multi-stage Dockerfile ----
-FROM python:3.12-slim AS builder
+FROM python:3.14-slim AS builder
 WORKDIR /app
 
 # Install build tools, then create venv inside the image
@@ -47,7 +47,7 @@ ENV PATH="/app/.venv/bin:$PATH"
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-FROM python:3.12-slim AS runner
+FROM python:3.14-slim AS runner
 WORKDIR /app
 
 # Copy the pre-built venv from builder
@@ -66,6 +66,40 @@ CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]`;
 
 <TsGo ts={nodeDockerfile} go={pythonDockerfile} />
 
+## The uv variant
+
+If the project uses `uv` (see [venv, pip, uv and Poetry](/python/en/tooling/venv-uv-poetry/)), copy the `uv` binary from its official image and let it build the environment from the lock file. This is the fastest option and keeps the runtime image free of build tooling.
+
+export const uvDockerfile = `# ---- uv multi-stage Dockerfile ----
+FROM python:3.14-slim AS builder
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+WORKDIR /app
+
+ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
+
+# Install dependencies first — cached unless the lock file changes
+COPY pyproject.toml uv.lock ./
+RUN uv sync --locked --no-install-project --no-dev
+
+COPY src/ ./src/
+RUN uv sync --locked --no-dev
+
+FROM python:3.14-slim AS runner
+WORKDIR /app
+COPY --from=builder /app/.venv /app/.venv
+COPY --from=builder /app/src ./src
+ENV PATH="/app/.venv/bin:$PATH"
+
+RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
+USER appuser
+
+EXPOSE 8000
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]`;
+
+<TsGo ts={nodeDockerfile} go={uvDockerfile} />
+
+`--locked` makes the build fail if `uv.lock` is out of date rather than silently resolving new versions — the equivalent of `npm ci` refusing to drift from `package-lock.json`.
+
 ## The full Python Dockerfile explained
 
 Here is the production-grade Dockerfile with comments:
@@ -74,7 +108,7 @@ Here is the production-grade Dockerfile with comments:
 # syntax=docker/dockerfile:1
 
 # ---- Stage 1: Build / dependency installation ----
-FROM python:3.12-slim AS builder
+FROM python:3.14-slim AS builder
 
 WORKDIR /app
 
@@ -96,7 +130,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
 # ---- Stage 2: Runtime image ----
-FROM python:3.12-slim AS runner
+FROM python:3.14-slim AS runner
 
 WORKDIR /app
 

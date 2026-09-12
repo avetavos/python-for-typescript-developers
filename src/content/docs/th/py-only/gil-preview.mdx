@@ -104,11 +104,15 @@ if __name__ == "__main__":
 
 หมายเหตุ: Playground ไม่พร้อมใช้งานสำหรับบทเรียนนี้ เนื่องจากตัวอย่าง multiprocessing ต้องการ `if __name__ == "__main__"` guard และรันได้ถูกต้องเฉพาะในสภาพแวดล้อม process แบบ fork เท่านั้น
 
-<PyOnly title="อนาคตของ GIL: Python 3.13 และ free-threaded mode">
+<PyOnly title="อนาคตของ GIL: free-threaded Python 3.14">
 
-**PEP 703 — Making the Global Interpreter Lock Optional**
+**PEP 703 / PEP 779 — Making the Global Interpreter Lock Optional**
 
-Python 3.13 เพิ่ม **free-threaded CPython** เข้ามาเป็น experimental build (`python3.13t`) ซึ่งปิด GIL ทิ้ง ทำให้ thread รัน Python bytecode ขนานกันได้จริงบนหลาย CPU
+Python 3.13 ปล่อย **free-threaded CPython** ออกมาเป็น experimental build (`python3.13t`) ซึ่งปิด GIL ทิ้ง ทำให้ thread รัน Python bytecode ขนานกันได้จริงบนหลาย CPU และ Python 3.14 เลื่อนขั้นให้เป็น **build ที่รองรับอย่างเป็นทางการ** (PEP 779) — ยังเป็น interpreter แยกตัวชื่อ `python3.14t` และยังไม่ใช่ค่า default แต่ไม่ใช่ของทดลองอีกต่อไป
+
+ราคาที่ต้องจ่ายมีจริง: reference counting เปลี่ยนไปใช้ atomic operation โค้ด single-thread จึงช้าลงราว 5–10% และ C extension ที่แอบพึ่ง GIL อยู่ต้องถูกตรวจและ build ใหม่ เช็กว่ากำลังรัน build ไหนได้ด้วย `sys._is_gil_enabled()`
+
+Python 3.14 ยังเพิ่ม `concurrent.interpreters` (PEP 734) — หลาย interpreter ในหนึ่ง process แต่ละตัวมี GIL ของตัวเอง พร้อม `InterpreterPoolExecutor` ที่เสียบเข้ากับ API ของ `concurrent.futures` ได้เลย มันอยู่ตรงกลางระหว่าง thread (แชร์ memory, GIL เดียว) กับ process (ไม่แชร์ memory, เริ่มช้า) และเป็นสิ่งที่ใกล้เคียง `worker_threads` ของ Node มากที่สุดเท่าที่ Python มี
 
 ในระหว่างนี้ ecosystem ของ Python จัดการกับข้อจำกัดของ GIL ด้วยสามวิธีหลัก:
 

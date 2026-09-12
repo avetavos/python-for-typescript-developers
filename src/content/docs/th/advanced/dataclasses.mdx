@@ -135,6 +135,35 @@ except Exception as e:
 
 <TsGo ts={frozenTs} go={frozenPy} />
 
+## แก้ไข frozen record: replace()
+
+เพราะ instance ที่ frozen แก้ค่าไม่ได้ วิธีทำคือสร้าง **copy** ที่แก้ค่าแล้ว ซึ่งเป็นท่าเดียวกับ object spread ของ TypeScript `dataclasses.replace()` ทำแบบนี้มานานแล้ว ส่วน Python 3.13 ยกระดับเป็น `copy.replace()` ที่ใช้ได้กับ object ใดก็ตามที่ implement `__replace__` (รวมถึง dataclass และ `datetime`)
+
+export const replaceTs = `// TypeScript — spread เพื่อ copy พร้อมแก้ค่า
+const red = { r: 255, g: 0, b: 0 } as const;
+const darker = { ...red, r: 128 };`;
+
+export const replacePy = `from dataclasses import dataclass, replace
+import copy
+
+@dataclass(frozen=True)
+class Color:
+    r: int
+    g: int
+    b: int
+
+red = Color(255, 0, 0)
+
+darker = replace(red, r=128)         # dataclasses.replace
+darker2 = copy.replace(red, r=128)   # Python 3.13+ ผลลัพธ์เดียวกัน
+print(red, darker, darker2)
+
+# copy.replace ใช้กับ type ใน stdlib ที่รองรับได้ด้วย:
+from datetime import date
+print(copy.replace(date(2026, 1, 1), year=2027))   # 2027-01-01`;
+
+<TsGo ts={replaceTs} go={replacePy} />
+
 ## ลองเล่น
 
 export const dataclassPlaygroundCode = `from dataclasses import dataclass, field

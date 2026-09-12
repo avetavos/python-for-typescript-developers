@@ -123,6 +123,34 @@ except AppError as e:
 
 <TsGo ts={customExcTs} go={customExcPy} />
 
+## Two Python 3.14 changes worth knowing
+
+**Parentheses are optional** when you catch several types without binding the exception (PEP 758). If you use `as`, the parentheses stay required — that is what keeps the syntax unambiguous.
+
+```python
+# Python 3.14 — no parentheses needed
+try:
+    connect_to_server()
+except TimeoutError, ConnectionRefusedError:
+    print("Network error!")
+
+# With "as", parentheses are still required
+try:
+    connect_to_server()
+except (TimeoutError, ConnectionRefusedError) as e:
+    print(f"Network error: {e}")
+```
+
+**Leaving a `finally` block now warns** (PEP 765). A `return`, `break`, or `continue` inside `finally` silently throws away whatever exception was in flight — a bug TypeScript developers hit too, since JavaScript behaves the same way. Python 3.14 emits a `SyntaxWarning` when it sees it.
+
+```python
+def read(path: str) -> str:
+    try:
+        raise OSError("disk on fire")
+    finally:
+        return ""   # SyntaxWarning: the OSError disappears
+```
+
 ## Try it
 
 export const errorsCode = `def divide(a: float, b: float) -> float:

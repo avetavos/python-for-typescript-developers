@@ -136,6 +136,8 @@ print(f"Done in {elapsed:.2f}s — NOT faster than one thread")
 
 **The fix for CPU-bound work:** use `multiprocessing` (next lesson). Each process gets its own GIL and its own memory.
 
+**The 3.14 alternatives:** the free-threaded build (`python3.14t`, PEP 779) drops the GIL altogether and is now officially supported, and `concurrent.interpreters` (PEP 734) gives you several interpreters in one process, each with its own GIL. Neither is the default interpreter yet, so `multiprocessing` remains the portable answer.
+
 </PyOnly>
 
 ## When to use threading

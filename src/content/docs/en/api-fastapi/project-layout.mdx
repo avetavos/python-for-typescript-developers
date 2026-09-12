@@ -111,12 +111,12 @@ export const pkgPy = `# pyproject.toml  (PEP 517/518 — used by pip / poetry / 
 [project]
 name = "my-api"
 version = "1.0.0"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
-    "fastapi>=0.115",
-    "uvicorn[standard]>=0.29",
-    "pydantic>=2.0",
-    "sqlalchemy>=2.0",
+    "fastapi>=0.141",
+    "uvicorn[standard]>=0.52",
+    "pydantic>=2.13",
+    "sqlalchemy>=2.0.52",
 ]
 
 [project.optional-dependencies]
@@ -129,7 +129,7 @@ dev = ["pytest", "httpx", "mypy"]
 <TsGo ts={pkgTs} go={pkgPy} />
 
 > **Run this locally — needs FastAPI + a server.**
-> Create the layout above, install deps with `pip install -e ".[dev]"` or `uv sync`, then `uvicorn app.main:app --reload`.
+> Create the layout above, install deps with `uv sync` (or `pip install -e ".[dev]"`), then `uv run uvicorn app.main:app --reload`.
 
 export const quizLayout = [
   {

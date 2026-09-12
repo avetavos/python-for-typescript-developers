@@ -155,6 +155,32 @@ print(c.value())   # 2`;
 
 </PyOnly>
 
+## ตอนนี้ annotation ถูก evaluate แบบ lazy แล้ว (Python 3.14)
+
+type ของ TypeScript ถูกลบทิ้ง — `tsc` เอาออกหมด JavaScript ที่รันจริงไม่รู้ด้วยซ้ำว่าเคยมี ส่วน Python เก็บ annotation ไว้เป็น object จริง ซึ่งเมื่อก่อนแปลว่ามันถูก evaluate ทันทีตอน import ทำให้ type ที่ยังไม่มีตัวตนต้องเขียนครอบด้วย string
+
+Python 3.14 (PEP 649) เปลี่ยนเรื่องนี้: annotation ถูกเก็บเป็นฟังก์ชันที่ evaluate แบบ lazy และจะคำนวณก็ต่อเมื่อมีคนขอใช้จริง
+
+export const lazyAnnTs = `// TypeScript — types are erased before runtime
+interface Node { parent: Node | null; }   // self-reference is free
+
+function walk(n: Node): void { /* ... */ }
+// Compiled JS has no trace of Node at all`;
+
+export const lazyAnnPy = `# Python 3.14 — annotations are evaluated on demand
+class Node:
+    parent: Node | None      # no quotes needed — not evaluated yet
+    def add(self, child: Node) -> Node:   # forward reference just works
+        return child
+
+# Read them when you actually want them:
+from annotationlib import get_annotations
+print(get_annotations(Node.add))`;
+
+<TsGo ts={lazyAnnTs} go={lazyAnnPy} />
+
+ผลที่ได้จริงมีสองข้อ: เลิกใส่ quote ครอบ forward reference ได้ และไม่ต้องพิมพ์ `from __future__ import annotations` ไว้หัวไฟล์ทุกไฟล์อีกต่อไป ส่วนไลบรารีที่อ่าน annotation ตอน runtime — Pydantic, FastAPI, dataclasses — จะอ่านผ่าน `annotationlib` แทนการแตะ `__annotations__` ตรง ๆ
+
 export const playgroundMentalModel = `# Mental model: types live on objects, not variables
 x = 42
 print(type(x).__name__)   # int

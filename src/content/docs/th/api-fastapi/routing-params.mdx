@@ -87,15 +87,14 @@ app.get('/items', (req, res) => {
 
 export const queryPy = `# FastAPI — query params จาก function signature
 from fastapi import FastAPI
-from typing import Optional
 
 app = FastAPI()
 
 @app.get("/items")
 async def search_items(
-    skip: int = 0,           # GET /items?skip=5
-    limit: int = 10,         # GET /items?limit=20
-    q: Optional[str] = None, # GET /items?q=widget
+    skip: int = 0,       # GET /items?skip=5
+    limit: int = 10,     # GET /items?limit=20
+    q: str | None = None,  # GET /items?q=widget
 ):
     return {"skip": skip, "limit": limit, "q": q}`;
 

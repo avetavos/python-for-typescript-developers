@@ -180,8 +180,44 @@ pytest -v --cov=app --cov-report=term-missing
 
 </PyOnly>
 
+## ทดสอบ async route: httpx AsyncClient
+
+`TestClient` รัน async handler บน event loop ของตัวเอง ซึ่งเพียงพอสำหรับ test ส่วนใหญ่ แต่เมื่อตัว test เองต้องเป็น `async` เพราะต้อง await DB fixture หรือสั่งงาน background task ให้ขับ app ด้วย **`AsyncClient` ของ httpx ผ่าน `ASGITransport`** นี่คือวิธีมาตรฐานปัจจุบันสำหรับ async test ของ FastAPI และไม่ต้องรัน server จริง
+
+export const asyncTestTs = `// Node — supertest ค่อนข้าง sync; ถ้า setup เป็น async ก็ await เอง
+import request from 'supertest';
+
+test('GET /items', async () => {
+  await seedDatabase();
+  const res = await request(app).get('/items');
+  expect(res.status).toBe(200);
+});`;
+
+export const asyncTestPy = `# pytest + httpx AsyncClient — test_items_async.py
+import pytest
+from httpx import ASGITransport, AsyncClient
+from app.main import app
+
+@pytest.mark.anyio
+async def test_list_items(seeded_db):
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get("/items")
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+# anyio ต้องระบุ backend; กำหนดครั้งเดียวใน conftest.py:
+@pytest.fixture
+def anyio_backend():
+    return "asyncio"`;
+
+<TsGo ts={asyncTestTs} go={asyncTestPy} />
+
+`pytest.mark.anyio` มากับ plugin `anyio` ที่ติดมากับ test dependencies ของ Starlette ส่วนอีกทางที่นิยมคือ plugin `pytest-asyncio` ที่ใช้ `@pytest.mark.asyncio` ไม่ว่าทางไหนคุณต้องบอก pytest ว่า test function เป็น coroutine ต่างจาก Jest ตรงที่ pytest เปล่า ๆ จะเก็บ coroutine ไว้เฉย ๆ โดยไม่ await
+
 > **รันที่เครื่องตัวเอง — ต้องการ FastAPI + httpx + pytest**
-> ติดตั้ง: `pip install httpx pytest pytest-cov`
+> ติดตั้ง: `uv add --dev pytest pytest-cov httpx anyio` (หรือ `pip install` ชุดเดียวกัน)
 > Playground ข้ามในบทเรียนนี้: TestClient ต้องการ FastAPI app จริงและ HTTP lifecycle
 
 export const quizTesting = [

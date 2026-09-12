@@ -30,6 +30,7 @@ Python ให้คุณ **เครื่องมือ concurrency สาม
 | `asyncio` | Cooperative concurrency แบบ single-threaded | โค้ด I/O-bound async (HTTP, DB, ไฟล์) |
 | `threading` | OS threads ที่แชร์ interpreter เดียวกัน | โค้ด I/O-bound, library แบบ blocking เก่า |
 | `multiprocessing` | Separate OS processes | งาน CPU-bound ที่ต้องการ parallelism จริงๆ |
+| `concurrent.interpreters` | หลาย interpreter ใน process เดียว แต่ละตัวมี GIL ของตัวเอง (3.14) | งาน CPU-bound ที่อยากให้เริ่มเร็วกว่า process |
 
 ## Concurrency vs Parallelism
 
@@ -115,7 +116,7 @@ def compute(n: int) -> int:
     return sum(range(n))  # threads here won't run in parallel
 ```
 
-Python 3.13 เปิดตัว **experimental no-GIL build** (PEP 703) ยังไม่เป็นค่า default แต่ทิศทางนั้นชัดเจนแล้ว
+Python 3.13 เปิดตัว no-GIL build เป็นของทดลอง (PEP 703) และ Python 3.14 เลื่อนขั้นให้เป็น **build ที่รองรับอย่างเป็นทางการ** (PEP 779, `python3.14t`) ยังไม่เป็นค่า default แต่ทิศทางชัดเจนแล้ว นอกจากนี้ Python 3.14 ยังเพิ่ม `concurrent.interpreters` (PEP 734) — process เดียวแต่มีหลาย interpreter แต่ละตัวมี GIL ของตัวเอง ซึ่งเทียบได้ใกล้ `worker_threads` ของ Node ที่สุด
 
 </PyOnly>
 

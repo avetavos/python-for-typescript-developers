@@ -24,6 +24,7 @@ node_modules/ → installed dependencies (per project)`;
 export const toolchainPy = `# Python toolchain
 python3    → runtime (executes Python)
 pip        → package manager (installs packages)
+uv         → installs Python itself + deps (closest to npm)
 pipx       → run a tool without polluting your env
 mypy/pyright → optional type checker (like tsc)
 pyproject.toml → project manifest (modern)
@@ -33,10 +34,19 @@ venv/      → isolated dependency folder (per project)`;
 
 ## Installing Python
 
-**macOS** (recommended — use Homebrew):
+**Any OS** (recommended — use `uv`, which installs Python itself):
 ```bash
-brew install python@3.12
-python3 --version   # Python 3.12.x
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv python install 3.14
+uv run python --version   # Python 3.14.x
+```
+
+`uv` is the closest thing Python has to npm: one tool for the interpreter, the virtual environment, and the dependencies. The rest of this lesson shows the classic `venv` + `pip` workflow, which you will still meet in most existing projects.
+
+**macOS** (classic — Homebrew):
+```bash
+brew install python@3.14
+python3 --version   # Python 3.14.x
 pip3 --version
 ```
 

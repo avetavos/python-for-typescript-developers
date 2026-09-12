@@ -76,7 +76,7 @@ pip install -r requirements.txt            # reproduce จาก snapshot
 
 ## ชั้นที่ 3: uv — tool สมัยใหม่ที่รวดเร็ว
 
-`uv` (โดย Astral ทีมเดียวกับ ruff) คือ replacement ที่เขียนด้วย Rust สำหรับ pip และ venv รวมกัน เร็วกว่า pip 10–100 เท่าและจัดการ virtual environments อัตโนมัติ
+`uv` (จาก Astral ทีมเดียวกับ ruff) เป็นตัวแทนของ pip และ venv รวมกัน เขียนด้วย Rust เร็วกว่า pip 10–100 เท่า จัดการ virtual environment ให้อัตโนมัติ และติดตั้งตัว interpreter ได้ด้วย จึงเป็นตัวเลือกแรกสำหรับโปรเจกต์ใหม่ อ่าน layer 1 และ 2 เพื่อเข้าใจว่ามันทำอะไรให้ แล้วใช้งานจริงที่ layer 3
 
 ```bash
 # ติดตั้ง uv (ครั้งเดียว แบบ global)
@@ -98,6 +98,13 @@ uv sync
 # รัน command ภายใน venv โดยไม่ต้อง activate
 uv run python main.py
 uv run pytest
+
+# uv จัดการ interpreter ให้ด้วย — ไม่ต้องใช้ pyenv
+uv python install 3.14
+uv python pin 3.14            # เขียนไฟล์ .python-version
+
+# อัปเดต lock file โดยไม่ติดตั้ง (เหมือน npm install --package-lock-only)
+uv lock
 ```
 
 ## ชั้นที่ 4: Poetry — ประสบการณ์แบบ npm
@@ -130,7 +137,8 @@ cat poetry.lock               # lock file ที่แน่นอน`;
 | Lock file | requirements.txt (manual) | poetry.lock | uv.lock |
 | pyproject.toml | บางส่วน | เต็มรูปแบบ | เต็มรูปแบบ |
 | Auto-manage venv | manual | ใช่ | ใช่ |
-| ความสมบูรณ์ | เสถียรมาก | เสถียร | ใหม่กว่า (2024+) |
+| ติดตั้ง interpreter | ไม่ได้ | ไม่ได้ | ได้ (`uv python install`) |
+| ความสมบูรณ์ | เสถียรมาก | เสถียร (2.x) | เสถียร ใช้กันแพร่หลาย |
 | คำแนะนำ | legacy projects | projects ที่ใช้ poetry อยู่แล้ว | projects ใหม่ |
 
 > Playground note: Package managers แก้ไข filesystem และ network — ต้องใช้ terminal รันคำสั่งข้างต้นในไดเรกทอรี project ของคุณ

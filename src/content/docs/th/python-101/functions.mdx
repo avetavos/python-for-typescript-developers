@@ -137,6 +137,35 @@ print(result)     # (1, 9)`;
 
 <TsGo ts={multiReturnTs} go={multiReturnPy} />
 
+## Generic function: ประกาศ type parameter ใน signature
+
+TypeScript ใส่ type parameter ไว้ใน angle bracket หลังชื่อฟังก์ชัน ตั้งแต่ Python 3.12 (PEP 695) Python ก็ใส่ไว้ใน square bracket ตำแหน่งเดียวกัน ไม่ต้อง import `TypeVar` ไม่ต้องประกาศไว้ระดับ module
+
+export const genericFnTs = `// TypeScript
+function first<T>(items: T[]): T | undefined {
+  return items[0];
+}
+
+type Pair<T> = [T, T];
+
+const n = first([1, 2, 3]);    // number | undefined
+const s = first(["a", "b"]);   // string | undefined`;
+
+export const genericFnPy = `# Python 3.12+
+def first[T](items: list[T]) -> T | None:
+    return items[0] if items else None
+
+type Pair[T] = tuple[T, T]
+
+n = first([1, 2, 3])     # int | None
+s = first(["a", "b"])    # str | None
+
+print(first([1, 2, 3]), first(["a", "b"]), first([]))`;
+
+<TsGo ts={genericFnTs} go={genericFnPy} />
+
+โค้ดเก่าที่คุณจะยังเจออยู่จะประกาศตัวแปรแยกด้วย `T = TypeVar("T")` แล้ว annotate ด้วย `List[T]` จาก `typing` ทั้งสองแบบยังใช้ได้ แต่แบบ bracket คือแบบที่ควรเขียนในโค้ดใหม่
+
 ## ลองเล่นดู
 
 export const functionsCode = `def greet(name: str, greeting: str = "Hello") -> str:
@@ -157,7 +186,7 @@ low, high = stats(3, 1, 4, 1, 5, 9, 2, 6)
 print(f"min={low}, max={high}")
 
 print("User info:")
-describe(language="Python", version="3.12", tier="backend")
+describe(language="Python", version="3.14", tier="backend")
 `;
 
 <Playground code={functionsCode} />

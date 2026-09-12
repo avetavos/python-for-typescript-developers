@@ -135,6 +135,34 @@ print(Counter.get_count())   # 2`;
 
 <TsGo ts={classMethodTs} go={classMethodPy} />
 
+## Generic classes
+
+The same PEP 695 bracket syntax works on classes, so a generic container reads almost identically in both languages.
+
+export const genericClsTs = `// TypeScript
+class Box<T> {
+  constructor(private value: T) {}
+  get(): T { return this.value; }
+}
+
+const b = new Box<string>("hi");
+console.log(b.get());`;
+
+export const genericClsPy = `# Python 3.12+
+class Box[T]:
+    def __init__(self, value: T) -> None:
+        self._value = value
+
+    def get(self) -> T:
+        return self._value
+
+b: Box[str] = Box("hi")   # no "new", and no Generic[T] base class
+print(b.get())`;
+
+<TsGo ts={genericClsTs} go={genericClsPy} />
+
+Before 3.12 you had to inherit from `Generic[T]` and declare `T = TypeVar("T")` above the class. You will still see that in libraries that support older Pythons.
+
 ## Try it
 
 export const classesCode = `class Animal:

@@ -172,6 +172,17 @@ print("Event loop managed both without blocking")
 
 <Playground code={asyncBasicsCode} />
 
+## Inspecting a running event loop
+
+Node gives you `--inspect` and the Chrome DevTools async stack traces. Python 3.14 added the equivalent for asyncio, built into the standard library: point it at a running process and it prints the live task tree.
+
+```bash
+python -m asyncio ps 12345        # flat table of every running task
+python -m asyncio pstree 12345    # the same tasks as an await tree
+```
+
+There is nothing to install and nothing to add to your code — it attaches to a process that is already running, which makes it the first thing to reach for when a service is stuck and you want to know which coroutine is holding everything up.
+
 export const quizAsyncioBasics = [
   {
     q: 'What does an `async def` function return when called without `await`?',

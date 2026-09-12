@@ -134,6 +134,8 @@ print(f"Done in {elapsed:.2f}s — NOT faster than one thread")
 # Also: counter may be < 2_000_000 due to race condition!
 ```
 
+**ทางแก้ใน 3.14:** free-threaded build (`python3.14t`, PEP 779) ตัด GIL ทิ้งไปเลยและตอนนี้รองรับอย่างเป็นทางการแล้ว ส่วน `concurrent.interpreters` (PEP 734) ให้หลาย interpreter ใน process เดียว แต่ละตัวมี GIL ของตัวเอง ทั้งคู่ยังไม่ใช่ interpreter ค่า default ดังนั้น `multiprocessing` จึงยังเป็นคำตอบที่พกพาได้ที่สุด
+
 **ทางแก้สำหรับงาน CPU-bound:** ใช้ `multiprocessing` (บทเรียนถัดไป) แต่ละ process มี GIL ของตัวเองและ memory ของตัวเอง ดังนั้นงาน CPU-bound จึงสามารถ run บนทุก core ที่มีได้จริงๆ
 
 </PyOnly>

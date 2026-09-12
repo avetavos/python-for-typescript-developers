@@ -133,6 +133,35 @@ except Exception as e:
 
 <TsGo ts={frozenTs} go={frozenPy} />
 
+## Updating a frozen record: replace()
+
+Because a frozen instance cannot be mutated, you produce a modified **copy** — the same move as TypeScript's object spread. `dataclasses.replace()` has done this for years; Python 3.13 generalised it as `copy.replace()`, which works on any object implementing `__replace__` (dataclasses and `datetime` among them).
+
+export const replaceTs = `// TypeScript — spread to copy with changes
+const red = { r: 255, g: 0, b: 0 } as const;
+const darker = { ...red, r: 128 };`;
+
+export const replacePy = `from dataclasses import dataclass, replace
+import copy
+
+@dataclass(frozen=True)
+class Color:
+    r: int
+    g: int
+    b: int
+
+red = Color(255, 0, 0)
+
+darker = replace(red, r=128)         # dataclasses.replace
+darker2 = copy.replace(red, r=128)   # Python 3.13+, same result
+print(red, darker, darker2)
+
+# copy.replace also works on stdlib types that support it:
+from datetime import date
+print(copy.replace(date(2026, 1, 1), year=2027))   # 2027-01-01`;
+
+<TsGo ts={replaceTs} go={replacePy} />
+
 ## Try it
 
 export const dataclassPlaygroundCode = `from dataclasses import dataclass, field

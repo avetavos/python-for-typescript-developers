@@ -111,12 +111,12 @@ export const pkgPy = `# pyproject.toml  (PEP 517/518 — ใช้กับ pip 
 [project]
 name = "my-api"
 version = "1.0.0"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
-    "fastapi>=0.115",
-    "uvicorn[standard]>=0.29",
-    "pydantic>=2.0",
-    "sqlalchemy>=2.0",
+    "fastapi>=0.141",
+    "uvicorn[standard]>=0.52",
+    "pydantic>=2.13",
+    "sqlalchemy>=2.0.52",
 ]
 
 [project.optional-dependencies]
@@ -129,7 +129,7 @@ dev = ["pytest", "httpx", "mypy"]
 <TsGo ts={pkgTs} go={pkgPy} />
 
 > **รันที่เครื่องตัวเอง — ต้องการ FastAPI + server**
-> สร้างโครงสร้างด้านบน, ติดตั้ง dependencies ด้วย `pip install -e ".[dev]"` หรือ `uv sync` แล้วรัน `uvicorn app.main:app --reload`
+> สร้างโครงสร้างด้านบน, ติดตั้ง dependencies ด้วย `uv sync` (หรือ `pip install -e ".[dev]"`) แล้วรัน `uv run uvicorn app.main:app --reload`
 
 export const quizLayout = [
   {

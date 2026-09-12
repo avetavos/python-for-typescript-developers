@@ -153,6 +153,32 @@ In practice, you only ever write `__init__`. Think of it as "the constructor bod
 
 </PyOnly>
 
+## Annotations are lazy now (Python 3.14)
+
+TypeScript types are erased: `tsc` deletes them and the JavaScript that runs has no idea they existed. Python keeps its annotations as real objects — which used to mean they were evaluated eagerly, at import time, so a type that did not exist yet had to be quoted as a string.
+
+Python 3.14 (PEP 649) changed that: annotations are stored as a lazily evaluated function and only computed when something actually asks for them.
+
+export const lazyAnnTs = `// TypeScript — types are erased before runtime
+interface Node { parent: Node | null; }   // self-reference is free
+
+function walk(n: Node): void { /* ... */ }
+// Compiled JS has no trace of Node at all`;
+
+export const lazyAnnPy = `# Python 3.14 — annotations are evaluated on demand
+class Node:
+    parent: Node | None      # no quotes needed — not evaluated yet
+    def add(self, child: Node) -> Node:   # forward reference just works
+        return child
+
+# Read them when you actually want them:
+from annotationlib import get_annotations
+print(get_annotations(Node.add))`;
+
+<TsGo ts={lazyAnnTs} go={lazyAnnPy} />
+
+Two practical consequences: you can drop the quotes around forward references, and `from __future__ import annotations` is no longer something you add to every file. Libraries that inspect annotations at runtime — Pydantic, FastAPI, dataclasses — read them through `annotationlib` instead of poking at `__annotations__` directly.
+
 export const playgroundMentalModel = `# Mental model: types live on objects, not variables
 x = 42
 print(type(x).__name__)   # int

@@ -1,6 +1,6 @@
 ---
 title: Typing & Protocols
-description: ระบบ structural typing ของ Python — Protocol, TypeVar, Generic, TypedDict, Optional/Union — เปรียบเทียบกับ interfaces และ generics ของ TypeScript โดยตรง
+description: ระบบ structural typing ของ Python — Protocol, generics แบบ PEP 695, TypedDict กับ ReadOnly, TypeIs และ @override — เปรียบเทียบกับ interfaces และ generics ของ TypeScript โดยตรง
 ---
 import TsGo from '../../../../components/TsGo.astro';
 import Playground from '../../../../components/Playground.astro';
@@ -96,7 +96,42 @@ print(stack.pop())   # 2`;
 
 <TsGo ts={genericTs} go={genericPy} />
 
-ตั้งแต่ Python 3.9+ คุณสามารถเขียน `list[T]` ได้โดยตรงในคลาสโดยไม่ต้อง import `List` จาก `typing` และตั้งแต่ 3.12 มี syntax `type T = ...` เพิ่มเข้ามา แต่ `TypeVar` ยังเป็นรูปแบบที่ compatible กว้างที่สุด
+ตั้งแต่ Python 3.9+ คุณสามารถเขียน `list[T]` ได้โดยตรงในคลาสโดยไม่ต้อง import `List` จาก `typing`
+
+### PEP 695: syntax ที่หน้าตาใกล้ TypeScript เสียที
+
+Python 3.12 เพิ่มการประกาศ type parameter ไว้ที่ตัว declaration เลย generic class หรือ function จึงไม่ต้องมี `TypeVar` ระดับ module อีกต่อไป scope เป็นแบบ implicit เหมือน `class Stack<T>` ใน TypeScript เป๊ะ
+
+export const pep695Ts = `// TypeScript — parameter อยู่ที่ declaration
+class Stack<T> {
+  private items: T[] = [];
+  push(item: T): void { this.items.push(item); }
+}
+
+function first<T>(items: T[]): T { return items[0]; }
+
+type Pair<T> = [T, T];`;
+
+export const pep695Py = `# Python 3.12+ — PEP 695 ไม่ต้อง import TypeVar
+class Stack[T]:
+    def __init__(self) -> None:
+        self._items: list[T] = []
+
+    def push(self, item: T) -> None:
+        self._items.append(item)
+
+def first[T](items: list[T]) -> T:
+    return items[0]
+
+type Pair[T] = tuple[T, T]     # type alias statement
+
+# bound และ constraint เขียนแบบ inline ได้เหมือนกัน:
+def largest[T: (int, float)](values: list[T]) -> T:
+    return max(values)`;
+
+<TsGo ts={pep695Ts} go={pep695Py} />
+
+`TypeVar` ยังใช้ได้และเป็นสิ่งที่คุณจะเจอใน library ที่ยังรองรับ Python เก่า อ่านให้ออกทั้งสองแบบ แต่ code ใหม่บน 3.12+ ควรใช้ syntax วงเล็บเหลี่ยม Python 3.13 ยังให้ type parameter มี **default** ได้ด้วย (PEP 696) — `TypeVar('T', default=int)` หรือ `class Box[T = int]` ซึ่งเทียบได้กับ `class Box<T = number>`
 
 ## TypedDict: typed dictionaries
 
@@ -126,6 +161,61 @@ print(user["name"])   # Alice
 # bad: UserRecord = {"name": "Alice"}  # age missing`;
 
 <TsGo ts={tdictTs} go={tdictPy} />
+
+### ReadOnly key
+
+Python 3.13 เพิ่ม `ReadOnly` สำหรับ `TypedDict` ซึ่งเทียบได้กับ modifier `readonly` ของ TypeScript type checker จะไม่ยอมให้เขียนทับ key นั้น แต่ key อื่นยังแก้ไขได้ตามปกติ
+
+export const readonlyTs = `interface Config {
+  readonly name: string;
+  retries: number;
+}`;
+
+export const readonlyPy = `from typing import TypedDict, ReadOnly
+
+class Config(TypedDict):
+    name: ReadOnly[str]
+    retries: int
+
+cfg: Config = {"name": "api", "retries": 3}
+cfg["retries"] = 5      # ได้
+# cfg["name"] = "other" # type checker ฟ้อง`;
+
+<TsGo ts={readonlyTs} go={readonlyPy} />
+
+## การ narrow: TypeIs และ @override
+
+อีกสองชิ้นที่เข้าใกล้สิ่งที่ TypeScript มีอยู่แล้ว `TypeIs` (Python 3.13) เป็น type predicate ที่ narrow **ทั้งสอง** branch ซึ่งเป็นพฤติกรรมที่ `arg is Type` ของ TypeScript ทำมาตลอด ส่วน `TypeGuard` ตัวเดิม narrow ให้เฉพาะ branch ที่เป็นจริง และ `@override` (Python 3.12) สั่งให้ checker ตรวจว่า method นั้น override method ของ base class จริงไหม เหมือน keyword `override` ของ TypeScript ภายใต้ `noImplicitOverride`
+
+export const narrowTs = `// TypeScript — predicate narrow ทั้งสอง branch
+function isString(x: unknown): x is string {
+  return typeof x === "string";
+}
+
+class Base { greet(): void {} }
+class Child extends Base {
+  override greet(): void {}   // ถูกตรวจ
+}`;
+
+export const narrowPy = `from typing import TypeIs, override
+
+def is_string(x: object) -> TypeIs[str]:
+    return isinstance(x, str)
+
+def handle(value: int | str) -> None:
+    if is_string(value):
+        print(value.upper())    # narrow เป็น str
+    else:
+        print(value + 1)        # narrow เป็น int — TypeGuard ทำตรงนี้ไม่ได้
+
+class Base:
+    def greet(self) -> None: ...
+
+class Child(Base):
+    @override
+    def greet(self) -> None: ...   # checker ตรวจว่ามี method นี้ใน base จริง`;
+
+<TsGo ts={narrowTs} go={narrowPy} />
 
 ## Optional และ Union
 
@@ -276,6 +366,21 @@ export const quizTypingProtocols = [
       'ไม่ — แค่ implement เมธอดที่จำเป็น (structural typing)',
       'ต้องเฉพาะเมื่อ Protocol มีมากกว่าหนึ่งเมธอด',
       'เฉพาะใน Python 3.10+',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'Python เวอร์ชันไหนที่เขียน `class Stack[T]:` ได้โดยไม่ต้อง import TypeVar?',
+    options: ['3.10', '3.11', '3.12', '3.13'],
+    answer: 2,
+  },
+  {
+    q: 'TypeIs ให้อะไรที่ TypeGuard ให้ไม่ได้?',
+    options: [
+      'บังคับ type ตอน runtime',
+      'narrow ใน branch else ด้วย ไม่ใช่แค่ branch if',
+      'สร้าง isinstance() ให้อัตโนมัติ',
+      'รองรับ key ของ TypedDict',
     ],
     answer: 1,
   },

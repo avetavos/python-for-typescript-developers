@@ -77,7 +77,7 @@ async def get_item(item_id: int):   # แปลง int + ส่ง 422 อัต
 10. Testing ด้วย `TestClient` + pytest
 
 > **รันที่เครื่องตัวเอง — ต้องการ FastAPI + server**
-> ติดตั้ง: `pip install fastapi uvicorn[standard] pydantic sqlalchemy pytest httpx`
+> ติดตั้ง: `uv add fastapi "uvicorn[standard]" pydantic sqlalchemy` และ `uv add --dev pytest httpx` (หรือ `pip install` ชื่อชุดเดียวกัน)
 
 export const quizIndex = [
   {

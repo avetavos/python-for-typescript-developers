@@ -76,7 +76,7 @@ pip install -r requirements.txt            # reproduce from snapshot
 
 ## Layer 3: uv — the fast modern tool
 
-`uv` (by Astral, the ruff team) is a Rust-powered replacement for pip and venv combined. It is 10–100× faster than pip and handles virtual environments automatically.
+`uv` (by Astral, the ruff team) is a Rust-powered replacement for pip and venv combined. It is 10–100× faster than pip, handles virtual environments automatically, and installs interpreters too — so it is the default recommendation for new projects. Read layers 1 and 2 to understand what it is doing for you; reach for layer 3 in practice.
 
 ```bash
 # Install uv (once, globally)
@@ -98,6 +98,13 @@ uv sync
 # Run a command inside the venv without activating
 uv run python main.py
 uv run pytest
+
+# uv manages interpreters as well — no pyenv needed
+uv python install 3.14
+uv python pin 3.14            # writes .python-version
+
+# Refresh the lock file without installing (like npm install --package-lock-only)
+uv lock
 ```
 
 ## Layer 4: Poetry — the npm-like experience
@@ -130,7 +137,8 @@ cat poetry.lock               # exact lock file`;
 | Lock file | requirements.txt (manual) | poetry.lock | uv.lock |
 | pyproject.toml | partial | full | full |
 | Venv auto-management | manual | yes | yes |
-| Maturity | very stable | stable | newer (2024+) |
+| Installs interpreters | no | no | yes (`uv python install`) |
+| Maturity | very stable | stable (2.x) | stable, widely adopted |
 | Recommendation | legacy projects | existing poetry projects | new projects |
 
 > Playground note: Package managers modify the filesystem and network — they require a terminal. Run the commands above in your project directory.

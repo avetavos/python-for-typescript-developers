@@ -1,6 +1,6 @@
 ---
 title: Typing & Protocols
-description: Python's structural typing system — Protocol, TypeVar, Generic, TypedDict, Optional/Union — compared directly to TypeScript interfaces and generics.
+description: Python's structural typing system — Protocol, PEP 695 generics, TypedDict with ReadOnly, TypeIs and @override — compared directly to TypeScript interfaces and generics.
 ---
 import TsGo from '../../../../components/TsGo.astro';
 import Playground from '../../../../components/Playground.astro';
@@ -96,7 +96,42 @@ print(stack.pop())   # 2`;
 
 <TsGo ts={genericTs} go={genericPy} />
 
-From Python 3.9+ you can also write `list[T]` directly in class bodies without importing `List` from `typing`. From 3.12, `type T = ...` syntax was added as a shorthand — but `TypeVar` remains the most compatible form.
+From Python 3.9+ you can also write `list[T]` directly in class bodies without importing `List` from `typing`.
+
+### PEP 695: the syntax that finally looks like TypeScript
+
+Python 3.12 added declaration-site type parameters, so a generic class or function no longer needs a module-level `TypeVar` at all. The scoping is implicit, exactly like `class Stack<T>` in TypeScript.
+
+export const pep695Ts = `// TypeScript — parameters live on the declaration
+class Stack<T> {
+  private items: T[] = [];
+  push(item: T): void { this.items.push(item); }
+}
+
+function first<T>(items: T[]): T { return items[0]; }
+
+type Pair<T> = [T, T];`;
+
+export const pep695Py = `# Python 3.12+ — PEP 695, no TypeVar import
+class Stack[T]:
+    def __init__(self) -> None:
+        self._items: list[T] = []
+
+    def push(self, item: T) -> None:
+        self._items.append(item)
+
+def first[T](items: list[T]) -> T:
+    return items[0]
+
+type Pair[T] = tuple[T, T]     # type alias statement
+
+# Bounds and constraints go inline too:
+def largest[T: (int, float)](values: list[T]) -> T:
+    return max(values)`;
+
+<TsGo ts={pep695Ts} go={pep695Py} />
+
+`TypeVar` still works and is what you will see in libraries that support older Pythons, so read both. New code on 3.12+ should prefer the bracket syntax. Python 3.13 also gave type parameters **defaults** (PEP 696) — `TypeVar('T', default=int)`, or `class Box[T = int]` — the counterpart of `class Box<T = number>`.
 
 ## TypedDict: typed dictionaries
 
@@ -126,6 +161,61 @@ print(user["name"])   # Alice
 # bad: UserRecord = {"name": "Alice"}  # age missing`;
 
 <TsGo ts={tdictTs} go={tdictPy} />
+
+### ReadOnly keys
+
+Python 3.13 added `ReadOnly` for `TypedDict` — the analogue of TypeScript's `readonly` property modifier. A type checker then rejects writes to that key while still allowing the rest of the dict to be mutated.
+
+export const readonlyTs = `interface Config {
+  readonly name: string;
+  retries: number;
+}`;
+
+export const readonlyPy = `from typing import TypedDict, ReadOnly
+
+class Config(TypedDict):
+    name: ReadOnly[str]
+    retries: int
+
+cfg: Config = {"name": "api", "retries": 3}
+cfg["retries"] = 5      # fine
+# cfg["name"] = "other" # type checker error`;
+
+<TsGo ts={readonlyTs} go={readonlyPy} />
+
+## Narrowing: TypeIs and @override
+
+Two more pieces land close to what TypeScript gives you. `TypeIs` (Python 3.13) is a type predicate that narrows in **both** branches, which is what TypeScript's `arg is Type` already does — the older `TypeGuard` only narrowed the positive branch. And `@override` (Python 3.12) asks the checker to verify that a method really does override a base-class method, like TypeScript's `override` keyword under `noImplicitOverride`.
+
+export const narrowTs = `// TypeScript — predicate narrows both branches
+function isString(x: unknown): x is string {
+  return typeof x === "string";
+}
+
+class Base { greet(): void {} }
+class Child extends Base {
+  override greet(): void {}   // checked
+}`;
+
+export const narrowPy = `from typing import TypeIs, override
+
+def is_string(x: object) -> TypeIs[str]:
+    return isinstance(x, str)
+
+def handle(value: int | str) -> None:
+    if is_string(value):
+        print(value.upper())    # narrowed to str
+    else:
+        print(value + 1)        # narrowed to int — TypeGuard could not do this
+
+class Base:
+    def greet(self) -> None: ...
+
+class Child(Base):
+    @override
+    def greet(self) -> None: ...   # checker verifies the base method exists`;
+
+<TsGo ts={narrowTs} go={narrowPy} />
 
 ## Optional and Union
 
@@ -276,6 +366,21 @@ export const quizTypingProtocols = [
       'No — it only needs to implement the required methods (structural typing)',
       'Only if the Protocol has more than one method',
       'Only in Python 3.10+',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'Which Python version lets you write `class Stack[T]:` without importing TypeVar?',
+    options: ['3.10', '3.11', '3.12', '3.13'],
+    answer: 2,
+  },
+  {
+    q: 'What does TypeIs give you that TypeGuard does not?',
+    options: [
+      'Runtime enforcement of the type',
+      'Narrowing in the else branch as well as the if branch',
+      'Automatic isinstance() generation',
+      'Support for TypedDict keys',
     ],
     answer: 1,
   },

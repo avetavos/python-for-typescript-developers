@@ -34,12 +34,12 @@ constructor(private authService: AuthService) {}`;
 
 export const diPy = `# FastAPI — Depends()
 from fastapi import FastAPI, Depends, HTTPException, Header
-from typing import Optional
+from typing import Annotated
 
 app = FastAPI()
 
 # dependency คือ callable ธรรมดา
-def get_current_user(authorization: Optional[str] = Header(None)):
+def get_current_user(authorization: Annotated[str | None, Header()] = None):
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Unauthorized")
     token = authorization.removeprefix("Bearer ")
@@ -47,7 +47,7 @@ def get_current_user(authorization: Optional[str] = Header(None)):
 
 # Inject ด้วย Depends() — รันก่อน handler
 @app.get("/profile")
-async def get_profile(current_user: dict = Depends(get_current_user)):
+async def get_profile(current_user: Annotated[dict, Depends(get_current_user)]):
     return {"user": current_user}`;
 
 <TsGo ts={diTs} go={diPy} />
@@ -83,11 +83,11 @@ class PaginationParams:
         self.limit = limit
 
 @app.get("/items")
-async def list_items(pagination: PaginationParams = Depends()):
+async def list_items(pagination: Annotated[PaginationParams, Depends()]):
     return {"skip": pagination.skip, "limit": pagination.limit}
 
 @app.get("/users")
-async def list_users(pagination: PaginationParams = Depends()):
+async def list_users(pagination: Annotated[PaginationParams, Depends()]):
     return {"skip": pagination.skip, "limit": pagination.limit}`;
 
 <TsGo ts={paginationTs} go={paginationPy} />
@@ -122,7 +122,7 @@ def get_db():
         db.close()      # ← รันเสมอ แม้จะมี exception
 
 @app.get("/items/{item_id}")
-async def get_item(item_id: int, db: Session = Depends(get_db)):
+async def get_item(item_id: int, db: Annotated[Session, Depends(get_db)]):
     item = db.get(Item, item_id)
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
@@ -145,16 +145,16 @@ from fastapi import FastAPI, Depends
 
 app = FastAPI()
 
-def get_current_user(token: str = Depends(get_token)):
+def get_current_user(token: Annotated[str, Depends(get_token)]):
     return decode_token(token)
 
-def require_admin(user: dict = Depends(get_current_user)):
+def require_admin(user: Annotated[dict, Depends(get_current_user)]):
     if user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
     return user
 
 @app.delete("/items/{item_id}")
-async def delete_item(item_id: int, _: dict = Depends(require_admin)):
+async def delete_item(item_id: int, _: Annotated[dict, Depends(require_admin)]):
     return {"deleted": item_id}`;
 
 <TsGo ts={chainTs} go={chainPy} />

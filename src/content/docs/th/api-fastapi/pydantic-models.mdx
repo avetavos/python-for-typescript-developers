@@ -33,13 +33,12 @@ export class CreateItemDto {
 
 export const schemaPy = `# FastAPI — Pydantic BaseModel
 from pydantic import BaseModel
-from typing import Optional, List
 
 class CreateItem(BaseModel):
     name: str
     price: float
     in_stock: bool = True
-    tags: List[str] = []
+    tags: list[str] = []
 
 # ใช้ใน route — FastAPI parse + validate อัตโนมัติ
 from fastapi import FastAPI
@@ -94,7 +93,7 @@ interface ItemResponse { id: number; name: string; price: number; createdAt: str
 
 export const responseModelPy = `# Pydantic — แยก input / output models
 from pydantic import BaseModel
-from datetime import datetime
+from datetime import datetime, UTC
 
 class CreateItem(BaseModel):       # Request body
     name: str
@@ -114,7 +113,7 @@ app = FastAPI()
 async def create_item(item: CreateItem):
     # ปกติจะบันทึกลง DB แล้ว return row
     return ItemResponse(id=1, name=item.name, price=item.price,
-                        created_at=datetime.utcnow())`;
+                        created_at=datetime.now(UTC))`;
 
 <TsGo ts={responseModelTs} go={responseModelPy} />
 
@@ -135,12 +134,53 @@ item2 = CreateItem.model_validate({"name": "Gadget", "price": 4.99})
 
 </PyOnly>
 
+## Forward reference: ไม่ต้องใส่ quote อีกแล้ว
+
+ใน TypeScript type หนึ่งอ้างถึง type ที่ประกาศทีหลังในไฟล์เดียวกันได้ เพราะ compiler resolve type หลัง parse เสร็จ ส่วน Python เดิมประเมิน annotation ทันที model ที่อ้างถึงตัวเองหรืออ้างถึงชื่อที่ยังไม่ถูกประกาศจึงต้องเขียนเป็น string แล้ว Pydantic ต้องเรียก `model_rebuild()` ตามทีหลัง
+
+Python 3.14 ประเมิน annotation แบบ lazy (PEP 649/749) การอ้างถึงชื่อที่นิยามทีหลังใน module เดียวกันจึงใช้ได้เลย และไม่ต้องพึ่ง `from __future__ import annotations` เพื่อเรื่องนี้อีก
+
+export const forwardRefPy = `# Python 3.14 — ไม่ต้อง quote ไม่ต้อง __future__ import
+from pydantic import BaseModel
+
+class Comment(BaseModel):
+    text: str
+    replies: list[Comment] = []      # อ้างถึงตัวเอง: ใช้ได้บน 3.14
+
+class Order(BaseModel):
+    customer: Customer               # นิยามอยู่ข้างล่าง: ใช้ได้เช่นกัน
+
+class Customer(BaseModel):
+    name: str
+
+# ก่อน 3.14 ต้องเขียน annotation เป็น string:
+#   replies: list["Comment"] = []
+#   customer: "Customer"
+# และบางครั้งต้องเรียก Order.model_rebuild() ตามทีหลัง`;
+
+export const forwardRefTs = `// TypeScript — ลำดับการประกาศไม่เคยมีผล
+interface Comment {
+  text: string;
+  replies: Comment[];     // อ้างถึงตัวเอง
+}
+
+interface Order {
+  customer: Customer;     // ประกาศอยู่ข้างล่าง
+}
+
+interface Customer {
+  name: string;
+}`;
+
+<TsGo ts={forwardRefTs} go={forwardRefPy} />
+
+ถ้าคุณต้องอ่าน annotation เองแทนที่จะปล่อยให้ Pydantic จัดการ module `annotationlib` (ใหม่ใน 3.14 เช่นกัน) ให้คุณดึง annotation ออกมาได้หลายรูปแบบ รวมถึงรูปแบบ string สำหรับเครื่องมือที่ต้องไม่ทำให้เกิดการประเมินค่า
+
 ## ลองเล่น — stdlib dataclasses เป็น runnable stand-in
 
 Pydantic ไม่สามารถรันใน browser ได้ `dataclasses` จาก standard library ให้รูปร่างเดียวกัน (typed fields, defaults, auto `__init__`) โดยไม่มี validation เพื่อให้สำรวจแนวคิดได้:
 
 export const dataclassCode = `from dataclasses import dataclass, field, asdict
-from typing import Optional, List
 import json
 
 @dataclass
@@ -148,8 +188,8 @@ class CreateItem:
     name: str
     price: float
     in_stock: bool = True
-    tags: List[str] = field(default_factory=list)
-    description: Optional[str] = None
+    tags: list[str] = field(default_factory=list)
+    description: str | None = None
 
 # สร้าง instance — รู้สึกเหมือน BaseModel(...)
 item = CreateItem(name="Widget", price=9.99, tags=["sale", "new"])
@@ -197,6 +237,16 @@ export const quizPydantic = [
       'FastAPI ตรวจสอบว่า type hint เป็น BaseModel subclass',
       'ลงทะเบียนใน route decorator',
       'ต้องใช้ Body() จาก fastapi เสมอ',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'ใน Python 3.14 จะ annotate field ของ Pydantic ที่ type ถูกนิยามทีหลังในไฟล์อย่างไร?',
+    options: [
+      'ใส่ quote ชื่อ type แล้วเรียก model_rebuild()',
+      'เขียนชื่อ type ตรง ๆ เพราะ annotation ถูกประเมินแบบ lazy',
+      'เพิ่ม from __future__ import annotations ไว้บนสุด',
+      'ย้าย class definition ไปไว้เหนือจุดที่อ้างถึง',
     ],
     answer: 1,
   },

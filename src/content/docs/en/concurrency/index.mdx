@@ -30,6 +30,7 @@ Python gives you **three different concurrency tools** and you have to choose th
 | `asyncio` | Single-threaded cooperative concurrency | I/O-bound async code (HTTP, DB, files) |
 | `threading` | OS threads sharing one interpreter | I/O-bound code, legacy blocking libraries |
 | `multiprocessing` | Separate OS processes | CPU-bound work that needs true parallelism |
+| `concurrent.interpreters` | Multiple interpreters in one process, one GIL each (3.14) | CPU-bound work with cheaper startup than processes |
 
 ## Concurrency vs parallelism
 
@@ -115,7 +116,7 @@ def compute(n: int) -> int:
     return sum(range(n))  # threads here won't run in parallel
 ```
 
-Python 3.13 introduced an **experimental no-GIL build** (PEP 703). It is not the default yet, but the direction is clear.
+Python 3.13 introduced the no-GIL build as an experiment (PEP 703); Python 3.14 made it an **officially supported build** (PEP 779, `python3.14t`). It is still not the default, but the direction is clear. Python 3.14 also adds `concurrent.interpreters` (PEP 734): one process, several interpreters, a GIL each — the closest Python equivalent of Node's `worker_threads`.
 
 </PyOnly>
 

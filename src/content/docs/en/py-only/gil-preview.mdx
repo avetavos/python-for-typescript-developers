@@ -114,11 +114,13 @@ if __name__ == "__main__":
 
 <TsGo ts={tsMp} go={pyMp} />
 
-## Python 3.13 Free-Threaded mode
+## Free-threaded Python is official (3.14)
 
-Python 3.13 introduced an experimental build option (`--disable-gil`, or `python3.13t` on some platforms) that removes the GIL entirely. This is the result of PEP 703, authored by Sam Gross. The free-threaded build allows multiple threads to genuinely run Python bytecode in parallel on multiple cores.
+Python 3.13 shipped the GIL-free build as an experiment (PEP 703, `python3.13t`). Python 3.14 promoted it to an **officially supported build** (PEP 779): still a separate interpreter, `python3.14t`, and still not the default — but no longer experimental. In that build, threads genuinely run Python bytecode on several cores at once.
 
-The trade-off: reference counting is now done with atomic operations, and many C extensions that assumed the GIL were implicitly thread-safe must be audited and updated. As of 3.13 the feature is opt-in and marked experimental; it is expected to stabilize in Python 3.14 and 3.15.
+The trade-off is real: reference counting uses atomic operations, so single-threaded code runs roughly 5–10% slower, and C extensions that quietly relied on the GIL have to be audited and rebuilt. Check which build you are on with `sys._is_gil_enabled()`.
+
+Python 3.14 also adds `concurrent.interpreters` (PEP 734) — multiple interpreters inside one process, each with its own GIL, plus an `InterpreterPoolExecutor` that plugs into the `concurrent.futures` API. It sits between threads (shared memory, one GIL) and processes (no shared memory, slow to start), which makes it the closest thing Python has to Node's `worker_threads`.
 
 > **Playground note:** Demonstrating GIL effects requires comparing CPU-bound vs I/O-bound thread timing, which is not meaningful in a browser sandbox. Run the examples locally with `python3 -c "import threading; ..."`.
 

@@ -103,7 +103,7 @@ export const pkgJsonTs = `// package.json (Node)
     "express": "^4.18.2"
   },
   "devDependencies": {
-    "typescript": "^5.0.0",
+    "typescript": "^7.0.0",
     "jest": "^29.0.0"
   }
 }`;
@@ -113,14 +113,14 @@ export const pyprojectPy = `# pyproject.toml (Python — PEP 517/518/621)
 name = "my-api"
 version = "1.0.0"
 description = "A REST API"
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 dependencies = [
-    "fastapi>=0.110.0",
-    "uvicorn>=0.27.0",
+    "fastapi>=0.141.0",
+    "uvicorn>=0.52.0",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "mypy>=1.8"]
+dev = ["pytest>=9.0", "mypy>=2.3"]
 
 [project.scripts]
 start = "my_api.main:main"    # like "main" in package.json

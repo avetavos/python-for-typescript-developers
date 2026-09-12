@@ -171,6 +171,21 @@ p.sort_stats('cumulative').print_stats(10)
 # snakeviz profile.stats   # opens browser flame graph
 ```
 
+## Attaching to a process that is already stuck
+
+Profilers answer "why is this slow". A different question — "what is this production process doing *right now*" — used to mean restarting it under a debugger. Python 3.14 added a safe external debugger interface (PEP 768), so you can attach to a live process by PID with zero overhead when unused. Node's equivalent is sending `SIGUSR1` to open the inspector port.
+
+```bash
+# Attach pdb to a running process (Python 3.14+)
+python -m pdb -p 12345
+
+# asyncio apps: see the task tree without stopping anything
+python -m asyncio ps 12345        # flat table of tasks
+python -m asyncio pstree 12345    # tree of awaiting coroutines
+```
+
+`asyncio pstree` is the fastest way to find a hung `await`: it prints which coroutine each task is waiting on, so a deadlocked chain is visible directly. Set `PYTHON_DISABLE_REMOTE_DEBUG=1` (or pass `-X disable-remote-debug`) to turn the attach interface off in hardened deployments.
+
 <PyOnly title="line_profiler: line-by-line profiling">
 
 `cProfile` tells you which function is slow. `line_profiler` tells you which line inside that function. Install with `pip install line_profiler`, then:

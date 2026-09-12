@@ -123,6 +123,34 @@ except AppError as e:
 
 <TsGo ts={customExcTs} go={customExcPy} />
 
+## สองการเปลี่ยนแปลงใน Python 3.14 ที่ควรรู้
+
+**วงเล็บไม่จำเป็นแล้ว** เวลาดักหลาย type โดยไม่ได้ bind ตัว exception (PEP 758) แต่ถ้าใช้ `as` ยังต้องใส่วงเล็บเหมือนเดิม นั่นคือสิ่งที่ทำให้ syntax ไม่กำกวม
+
+```python
+# Python 3.14 — no parentheses needed
+try:
+    connect_to_server()
+except TimeoutError, ConnectionRefusedError:
+    print("Network error!")
+
+# With "as", parentheses are still required
+try:
+    connect_to_server()
+except (TimeoutError, ConnectionRefusedError) as e:
+    print(f"Network error: {e}")
+```
+
+**การออกจากบล็อก `finally` จะมี warning แล้ว** (PEP 765) การใส่ `return`, `break` หรือ `continue` ใน `finally` จะทิ้ง exception ที่กำลังลอยอยู่แบบเงียบ ๆ ซึ่งเป็นบั๊กที่นักพัฒนา TypeScript ก็เจอ เพราะ JavaScript ทำงานแบบเดียวกัน Python 3.14 จะส่ง `SyntaxWarning` ออกมาเมื่อเจอรูปแบบนี้
+
+```python
+def read(path: str) -> str:
+    try:
+        raise OSError("disk on fire")
+    finally:
+        return ""   # SyntaxWarning: the OSError disappears
+```
+
 ## ลองเล่นดู
 
 export const errorsCode = `def divide(a: float, b: float) -> float:

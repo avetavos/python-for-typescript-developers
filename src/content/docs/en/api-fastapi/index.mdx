@@ -77,7 +77,7 @@ Throughout this module you will construct a small **Items API** — the same kin
 10. Testing with `TestClient` + pytest
 
 > **Run this locally — needs FastAPI + a server.**
-> Install the stack: `pip install fastapi uvicorn[standard] pydantic sqlalchemy pytest httpx`
+> Install the stack: `uv add fastapi "uvicorn[standard]" pydantic sqlalchemy` and `uv add --dev pytest httpx` (or `pip install` the same names).
 
 export const quizIndex = [
   {

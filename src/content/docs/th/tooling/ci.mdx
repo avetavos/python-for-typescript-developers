@@ -26,10 +26,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '20'
           cache: 'npm'
@@ -59,12 +59,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
-          python-version: '3.12'
+          python-version: '3.14'
           cache: 'pip'
 
       - name: Install dependencies
@@ -102,12 +102,12 @@ jobs:
     name: Lint & Type Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
-          python-version: '3.12'
+          python-version: '3.14'
           cache: 'pip'
 
       - name: Install dev dependencies
@@ -129,13 +129,13 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.11', '3.12']
+        python-version: ['3.12', '3.13', '3.14']
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
@@ -150,7 +150,7 @@ jobs:
         run: pytest --cov=src --cov-report=xml --cov-fail-under=80 -v
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v7
         with:
           file: ./coverage.xml
 ```
@@ -161,12 +161,12 @@ jobs:
 
 ```yaml
       - name: Install uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@v10
         with:
           version: "latest"
 
       - name: Install dependencies with uv
-        run: uv sync --frozen   # เทียบกับ npm ci — ติดตั้งจาก lockfile อย่างแม่นยำ
+        run: uv sync --locked   # เทียบเท่า npm ci — ล้มเหลวถ้า uv.lock ไม่ตรง
 ```
 
 <PyOnly title="requirements.txt แบบแยก: runtime vs dev">
@@ -182,19 +182,19 @@ requirements-dev.txt   ← dev-only deps (pytest, ruff, mypy, black)
 
 ```
 -r requirements.txt
-pytest>=8.0
-ruff>=0.4
-mypy>=1.9
+pytest>=9.1
+ruff>=0.16
+mypy>=2.3
 ```
 
 ด้วย `pyproject.toml` (uv/poetry) การแยกนี้จัดการอย่างสะอาดผ่าน dependency groups:
 
 ```toml
 [project]
-dependencies = ["fastapi>=0.110"]
+dependencies = ["fastapi>=0.141"]
 
 [dependency-groups]
-dev = ["pytest>=8.0", "ruff>=0.4", "mypy>=1.9"]
+dev = ["pytest>=9.1", "ruff>=0.16", "mypy>=2.3"]
 ```
 
 </PyOnly>
@@ -224,7 +224,7 @@ export const quizCi = [
   },
   {
     q: 'อะไรคือคู่เทียบ uv ของ "npm ci" — reproducible install จาก lockfile?',
-    options: ['uv install --ci', 'uv sync --frozen', 'uv pip install --lock', 'uv reproduce'],
+    options: ['uv install --ci', 'uv sync --locked', 'uv pip install --lock', 'uv reproduce'],
     answer: 1,
   },
   {

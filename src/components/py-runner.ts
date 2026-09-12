@@ -1,7 +1,7 @@
 export type RunResult = { output: string; errors: string };
 
-const PYODIDE_VERSION = 'v0.29.4'; // current stable, verified against CDN + GitHub releases
-const CDN = `https://cdn.jsdelivr.net/pyodide/${PYODIDE_VERSION}/full/`;
+const PYODIDE_VERSION = '314.0.6'; // Pyodide ships CPython 3.14.2; versions now track the CPython minor (314.x)
+const CDN = `https://cdn.jsdelivr.net/npm/pyodide@${PYODIDE_VERSION}/`;
 
 type Runtime = {
   setStdout: (o: { batched: (s: string) => void }) => void;

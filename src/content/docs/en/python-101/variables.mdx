@@ -99,6 +99,38 @@ print(first, rest)  # 10 [20, 30, 40]`;
 
 <TsGo ts={multiTs} go={multiPy} />
 
+## f-strings and t-strings
+
+An f-string interpolates immediately and hands you a finished `str`. Python 3.14 adds the **t-string** (PEP 750): same syntax with a `t` prefix, but it evaluates to a `Template` object that keeps the literal parts and the interpolated values apart. TypeScript has had exactly this split for years — a plain template literal versus a tagged template.
+
+export const tstringTs = `// TypeScript
+const name = "O'Brien";
+
+// Template literal — one finished string
+const msg = \`Hello, \${name}\`;
+
+// Tagged template — the tag sees the pieces
+function sql(strings: TemplateStringsArray, ...values: unknown[]) {
+  return { text: strings.join("?"), values };
+}
+const query = sql\`SELECT * FROM users WHERE name = \${name}\`;`;
+
+export const tstringPy = `# Python 3.14
+name = "O'Brien"
+
+# f-string — one finished string
+msg = f"Hello, {name}"
+
+# t-string — a Template, not a str
+query = t"SELECT * FROM users WHERE name = {name}"
+print(type(query).__name__)   # Template
+print(query.strings)          # ('SELECT * FROM users WHERE name = ', '')
+print([i.value for i in query.interpolations])   # ["O'Brien"]`;
+
+<TsGo ts={tstringTs} go={tstringPy} />
+
+Why it matters is the same reason tagged templates matter in TypeScript: an f-string glues the value into the text, so a quote inside `name` becomes SQL injection. A t-string hands the library the static text and the values separately, so it can bind them as parameters. Rule of thumb: f-string for messages you print, t-string for anything a parser downstream will read — SQL, HTML, shell.
+
 ## Try it
 
 export const variablesCode = `# Experiment with Python variables

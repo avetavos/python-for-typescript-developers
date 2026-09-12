@@ -180,8 +180,44 @@ pytest -v --cov=app --cov-report=term-missing
 
 </PyOnly>
 
+## Testing async routes: httpx AsyncClient
+
+`TestClient` runs your async handlers on its own event loop, which is fine for most tests. But when the test itself needs to be `async` — because it awaits a DB fixture or drives a background task — drive the app with **httpx's `AsyncClient` over `ASGITransport`**. This is the current idiom for async FastAPI tests and needs no running server.
+
+export const asyncTestTs = `// Node — supertest is sync-ish; for async setup you await it yourself
+import request from 'supertest';
+
+test('GET /items', async () => {
+  await seedDatabase();
+  const res = await request(app).get('/items');
+  expect(res.status).toBe(200);
+});`;
+
+export const asyncTestPy = `# pytest + httpx AsyncClient — test_items_async.py
+import pytest
+from httpx import ASGITransport, AsyncClient
+from app.main import app
+
+@pytest.mark.anyio
+async def test_list_items(seeded_db):
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get("/items")
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+# anyio needs a backend; pin it once in conftest.py:
+@pytest.fixture
+def anyio_backend():
+    return "asyncio"`;
+
+<TsGo ts={asyncTestTs} go={asyncTestPy} />
+
+`pytest.mark.anyio` comes with the `anyio` plugin that ships with Starlette's test dependencies; the `pytest-asyncio` plugin with `@pytest.mark.asyncio` is the common alternative. Either way you must tell pytest that the test function is a coroutine — unlike Jest, plain pytest will otherwise collect the coroutine and never await it.
+
 > **Run this locally — needs FastAPI + httpx + pytest.**
-> Install: `pip install httpx pytest pytest-cov`
+> Install: `uv add --dev pytest pytest-cov httpx anyio` (or `pip install` the same).
 > Playground is skipped: TestClient requires a full FastAPI app and HTTP lifecycle.
 
 export const quizTesting = [

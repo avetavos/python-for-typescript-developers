@@ -172,6 +172,17 @@ print("Event loop managed both without blocking")
 
 <Playground code={asyncBasicsCode} />
 
+## ส่องดู event loop ที่กำลังรันอยู่
+
+ฝั่ง Node มี `--inspect` กับ async stack trace ใน Chrome DevTools ส่วน Python 3.14 เพิ่มของเทียบเท่าเข้ามาไว้ใน standard library เลย ชี้ไปที่ process ที่รันอยู่แล้วมันจะพิมพ์ผัง task ที่มีชีวิตอยู่ออกมา
+
+```bash
+python -m asyncio ps 12345        # flat table of every running task
+python -m asyncio pstree 12345    # the same tasks as an await tree
+```
+
+ไม่ต้องติดตั้งอะไรและไม่ต้องแก้โค้ด เพราะมันเข้าไปเกาะ process ที่รันอยู่แล้ว จึงเป็นเครื่องมือแรกที่ควรหยิบใช้เวลา service ค้างแล้วอยากรู้ว่า coroutine ตัวไหนกำลังกั๊กทุกอย่างอยู่
+
 export const quizAsyncioBasics = [
   {
     q: 'ฟังก์ชัน `async def` return อะไรเมื่อถูกเรียกโดยไม่มี `await`?',

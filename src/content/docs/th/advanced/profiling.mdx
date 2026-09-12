@@ -171,6 +171,21 @@ p.sort_stats('cumulative').print_stats(10)
 # snakeviz profile.stats   # เปิด browser flame graph
 ```
 
+## เข้าไปดู process ที่ค้างอยู่แล้ว
+
+Profiler ตอบคำถามว่า "ทำไมช้า" แต่คำถามอีกแบบคือ "ตอนนี้ process บน production กำลังทำอะไรอยู่" ซึ่งเมื่อก่อนแปลว่าต้อง restart แล้วรันใหม่ใต้ debugger Python 3.14 เพิ่ม interface สำหรับ debugger จากภายนอกแบบปลอดภัย (PEP 768) คุณจึง attach เข้า process ที่รันอยู่ด้วย PID ได้ และไม่มี overhead ตอนที่ไม่ได้ใช้ ฝั่ง Node เทียบได้กับการส่ง `SIGUSR1` เพื่อเปิด inspector port
+
+```bash
+# attach pdb เข้า process ที่รันอยู่ (Python 3.14+)
+python -m pdb -p 12345
+
+# แอป asyncio: ดู task tree โดยไม่ต้องหยุดอะไรเลย
+python -m asyncio ps 12345        # ตาราง task แบบแบน
+python -m asyncio pstree 12345    # ต้นไม้ของ coroutine ที่กำลัง await
+```
+
+`asyncio pstree` เป็นวิธีที่เร็วที่สุดในการหา `await` ที่ค้าง เพราะมันพิมพ์ว่าแต่ละ task รออะไรอยู่ สาย deadlock จึงเห็นได้ตรง ๆ ถ้า deployment ต้องการความเข้มงวด ให้ปิด interface นี้ด้วย `PYTHON_DISABLE_REMOTE_DEBUG=1` (หรือส่ง `-X disable-remote-debug`)
+
 <PyOnly title="line_profiler: profiling แบบ line-by-line">
 
 `cProfile` บอกว่า function ใดช้า `line_profiler` บอกว่า line ใดภายใน function นั้น ติดตั้งด้วย `pip install line_profiler` จากนั้น:

@@ -126,7 +126,7 @@ Because FastAPI errors are Python `Exception` subclasses, they integrate natural
 
 ```python
 @app.post("/items")
-async def create_item(item: CreateItem, db: Session = Depends(get_db)):
+async def create_item(item: CreateItem, db: Annotated[Session, Depends(get_db)]):
     try:
         db_item = ItemModel(**item.model_dump())
         db.add(db_item)
