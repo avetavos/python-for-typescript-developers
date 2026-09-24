@@ -173,14 +173,14 @@ Replacing `pip` with `uv` in CI cuts install time from 30–90 seconds to 2–5 
 
 Node separates `dependencies` from `devDependencies` in `package.json`. Python's classic pattern uses two separate requirements files:
 
-```
+```text
 requirements.txt       ← runtime dependencies (fastapi, sqlalchemy, etc.)
 requirements-dev.txt   ← dev-only deps (pytest, ruff, mypy, black)
 ```
 
 `requirements-dev.txt` typically starts with `-r requirements.txt` so installing dev deps also installs runtime deps:
 
-```
+```text
 -r requirements.txt
 pytest>=9.1
 ruff>=0.16

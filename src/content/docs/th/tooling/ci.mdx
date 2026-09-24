@@ -173,14 +173,14 @@ jobs:
 
 Node แยก `dependencies` จาก `devDependencies` ใน `package.json` Python classic pattern ใช้สองไฟล์ requirements แยกกัน:
 
-```
+```text
 requirements.txt       ← runtime dependencies (fastapi, sqlalchemy, ฯลฯ)
 requirements-dev.txt   ← dev-only deps (pytest, ruff, mypy, black)
 ```
 
 `requirements-dev.txt` โดยทั่วไปขึ้นต้นด้วย `-r requirements.txt` เพื่อให้การติดตั้ง dev deps ก็ติดตั้ง runtime deps ด้วย:
 
-```
+```text
 -r requirements.txt
 pytest>=9.1
 ruff>=0.16
