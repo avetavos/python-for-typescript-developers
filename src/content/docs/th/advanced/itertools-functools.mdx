@@ -180,7 +180,7 @@ print("count+islice:", first_six)
 
 # groupby
 words = ["apple", "ant", "bear", "banana", "cat"]
-words.sort(key=lambda w: w[0])   # ต้อง sort ก่อน!
+words.sort(key=lambda w: w[0])   # must sort first!
 for letter, group in itertools.groupby(words, key=lambda w: w[0]):
     print(f"  {letter}: {list(group)}")
 
@@ -213,7 +213,7 @@ print("cubes  :", [cube(x)   for x in range(1, 6)])
 ```python
 import itertools
 
-# Cartesian product (เหมือน nested for-loops)
+# Cartesian product (like nested for-loops)
 for pair in itertools.product([1, 2], ['a', 'b']):
     print(pair)
 # (1, 'a'), (1, 'b'), (2, 'a'), (2, 'b')

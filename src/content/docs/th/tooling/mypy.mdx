@@ -20,16 +20,16 @@ import PyOnly from '../../../../components/PyOnly.astro';
 
 ```bash
 pip install mypy
-# หรือ:
+# or:
 uv add --dev mypy
 
-# ตรวจสอบไฟล์เดียว
+# Check a single file
 mypy src/main.py
 
-# ตรวจสอบทั้ง package
+# Check entire package
 mypy src/
 
-# โหมด strict (เทียบกับ tsconfig "strict: true")
+# Strict mode (equivalent to tsconfig "strict: true")
 mypy --strict src/
 ```
 

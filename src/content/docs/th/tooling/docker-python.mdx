@@ -110,20 +110,20 @@ FROM python:3.14-slim AS builder
 
 WORKDIR /app
 
-# PYTHONDONTWRITEBYTECODE: ไม่เขียน .pyc files (ประหยัด space)
-# PYTHONUNBUFFERED: log output ทันที (12-Factor: log ไปยัง stdout)
+# PYTHONDONTWRITEBYTECODE: don't write .pyc files (saves space)
+# PYTHONUNBUFFERED: log output immediately (12-Factor: log to stdout)
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-# สร้าง virtual environment ภายใน image
-# ทำให้เรา copy ทั้ง /app/.venv ไปยัง final stage ได้
+# Create the virtual environment INSIDE the image
+# This lets us copy the entire /app/.venv to the final stage
 RUN python -m venv /app/.venv
 ENV PATH="/app/.venv/bin:$PATH"
 
-# Copy dependency manifest ก่อน (Docker layer caching)
+# Copy dependency manifest first (Docker layer caching)
 COPY pyproject.toml uv.lock* requirements.txt* ./
 
-# ติดตั้ง dependencies — no cache เพื่อให้ image เล็ก
+# Install dependencies — no cache to keep image small
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
@@ -132,24 +132,24 @@ FROM python:3.14-slim AS runner
 
 WORKDIR /app
 
-# Copy venv ที่มี dependencies ครบจาก builder
+# Copy the fully-populated venv from builder
 COPY --from=builder /app/.venv /app/.venv
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-# Copy application source (หลัง deps — cache hit ที่ดีกว่าเมื่อ rebuild)
+# Copy application source (after deps — better cache hit on rebuilds)
 COPY src/ ./src/
 
-# สร้างและเปลี่ยนไปใช้ non-root user (security best practice)
+# Create and switch to a non-root user (security best practice)
 RUN addgroup --system appgroup && \
     adduser --system --ingroup appgroup --no-create-home appuser
 USER appuser
 
-# Expose port ที่ app รับฟัง
+# Expose the port the app listens on
 EXPOSE 8000
 
-# CMD ใช้ exec form (ไม่มี shell wrapper — signals ส่งตรงถึง process)
+# CMD uses exec form (no shell wrapper — signals go directly to process)
 CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
@@ -161,7 +161,7 @@ CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
 docker build -t my-python-app .
 docker run -p 8000:8000 my-python-app
 
-# หรือด้วย docker compose:
+# Or with docker compose:
 # docker compose up --build
 ```
 

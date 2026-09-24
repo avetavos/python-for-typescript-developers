@@ -170,6 +170,23 @@ C extension modules can call `Py_BEGIN_ALLOW_THREADS` to release the GIL, do CPU
 
 Cython, a Python superset that compiles to C, lets you annotate functions with `with nogil:` to release the GIL for a block of C-level code. This is a common pattern in high-performance Python libraries.
 
+**concurrent.futures: a uniform API**
+
+`concurrent.futures` gives `ThreadPoolExecutor` and `ProcessPoolExecutor` the same interface, so switching between threads (I/O-bound) and processes (CPU-bound) is a one-line change:
+
+```python
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+
+# I/O-bound: use threads
+with ThreadPoolExecutor(max_workers=10) as executor:
+    futures = [executor.submit(fetch_url, url) for url in urls]
+    results = [f.result() for f in futures]
+
+# CPU-bound: use processes
+with ProcessPoolExecutor() as executor:
+    results = list(executor.map(cpu_intensive, data_chunks))
+```
+
 </PyOnly>
 
 export const quizGil = [

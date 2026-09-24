@@ -133,7 +133,7 @@ except TypeError as e:
 
 ```python
 class SingletonMeta(type):
-    """Metaclass ที่ ensure มีแค่หนึ่ง instance ต่อคลาส"""
+    """Metaclass that ensures only one instance per class."""
     _instances: dict = {}
 
     def __call__(cls, *args, **kwargs):

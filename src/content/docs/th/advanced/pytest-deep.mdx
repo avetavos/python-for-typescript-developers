@@ -94,13 +94,13 @@ pytest test_users.py -v
 Fixtures ค่าเริ่มต้นคือ `scope="function"` (สร้างใหม่ต่อ test) scopes ที่กว้างกว่าหลีกเลี่ยง setup ที่ cost สูง:
 
 ```python
-@pytest.fixture(scope="module")   # ครั้งเดียวต่อ test module
+@pytest.fixture(scope="module")   # once per test module
 def db_connection():
     conn = create_db_connection()
     yield conn
     conn.close()
 
-@pytest.fixture(scope="session")  # ครั้งเดียวตลอดการรัน pytest
+@pytest.fixture(scope="session")  # once for the entire test run
 def auth_token():
     return get_test_token()
 ```
@@ -146,7 +146,7 @@ def test_add(a, b, expected):
 ```python
 @pytest.mark.parametrize("role", ["admin", "user", "guest"])
 def test_permissions(role, user_service):
-    # user_service fixture inject; role parametrized
+    # user_service fixture injected; role parametrized
     perms = user_service.get_permissions(role)
     assert isinstance(perms, list)
 ```

@@ -147,9 +147,9 @@ async def create_item(item: CreateItem, db: Annotated[Session, Depends(get_db)])
 
 FastAPI `HTTPException` คือ Python exception ธรรมดา สำรวจวิธีที่ `raise` และ `except` ทำงานด้วย stdlib:
 
-export const exceptionCode = `# Python exceptions — กลไกเดียวกับที่ FastAPI ใช้
+export const exceptionCode = `# Python exceptions — the same mechanism FastAPI uses
 class AppError(Exception):
-    \\"\\"\\"Base class for application errors.\\"\\"\\"
+    """Base class for application errors."""
     def __init__(self, message: str, status_code: int = 500):
         self.message = message
         self.status_code = status_code

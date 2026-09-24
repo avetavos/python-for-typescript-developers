@@ -53,7 +53,7 @@ print(f"map(): {t2:.4f}s")`;
 
 export const timeitPlaygroundCode = `import timeit
 
-# เปรียบเทียบ list comprehension vs map vs generator-to-list
+# Compare list comprehension vs map vs generator-to-list
 approaches = {
     "list comp": '[x**2 for x in range(100)]',
     "map+list ": 'list(map(lambda x: x**2, range(100)))',
@@ -166,9 +166,9 @@ import pstats
 p = pstats.Stats('profile.stats')
 p.sort_stats('cumulative').print_stats(10)
 
-# 3. Visualise (ติดตั้งครั้งเดียว)
+# 3. Visualise (install once)
 # pip install snakeviz
-# snakeviz profile.stats   # เปิด browser flame graph
+# snakeviz profile.stats   # opens browser flame graph
 ```
 
 ## เข้าไปดู process ที่ค้างอยู่แล้ว
@@ -176,12 +176,12 @@ p.sort_stats('cumulative').print_stats(10)
 Profiler ตอบคำถามว่า "ทำไมช้า" แต่คำถามอีกแบบคือ "ตอนนี้ process บน production กำลังทำอะไรอยู่" ซึ่งเมื่อก่อนแปลว่าต้อง restart แล้วรันใหม่ใต้ debugger Python 3.14 เพิ่ม interface สำหรับ debugger จากภายนอกแบบปลอดภัย (PEP 768) คุณจึง attach เข้า process ที่รันอยู่ด้วย PID ได้ และไม่มี overhead ตอนที่ไม่ได้ใช้ ฝั่ง Node เทียบได้กับการส่ง `SIGUSR1` เพื่อเปิด inspector port
 
 ```bash
-# attach pdb เข้า process ที่รันอยู่ (Python 3.14+)
+# Attach pdb to a running process (Python 3.14+)
 python -m pdb -p 12345
 
-# แอป asyncio: ดู task tree โดยไม่ต้องหยุดอะไรเลย
-python -m asyncio ps 12345        # ตาราง task แบบแบน
-python -m asyncio pstree 12345    # ต้นไม้ของ coroutine ที่กำลัง await
+# asyncio apps: see the task tree without stopping anything
+python -m asyncio ps 12345        # flat table of tasks
+python -m asyncio pstree 12345    # tree of awaiting coroutines
 ```
 
 `asyncio pstree` เป็นวิธีที่เร็วที่สุดในการหา `await` ที่ค้าง เพราะมันพิมพ์ว่าแต่ละ task รออะไรอยู่ สาย deadlock จึงเห็นได้ตรง ๆ ถ้า deployment ต้องการความเข้มงวด ให้ปิด interface นี้ด้วย `PYTHON_DISABLE_REMOTE_DEBUG=1` (หรือส่ง `-X disable-remote-debug`)
@@ -192,7 +192,7 @@ python -m asyncio pstree 12345    # ต้นไม้ของ coroutine ที
 
 ```python
 # decorated_function.py
-@profile  # เพิ่มโดย kernprof ที่ runtime
+@profile  # added by kernprof at runtime
 def process_orders(orders):
     results = []
     for order in orders:       # line 4
@@ -200,7 +200,7 @@ def process_orders(orders):
         results.append(tax)    # line 6
     return results
 
-# รัน:
+# Run:
 # kernprof -l -v decorated_function.py
 ```
 

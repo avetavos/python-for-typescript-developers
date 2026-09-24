@@ -20,3 +20,6 @@ pnpm-debug.log*
 # macOS-specific files
 .DS_Store
 .vercel
+
+# scratch dir used by tools/verify-playgrounds.mjs
+.verify/

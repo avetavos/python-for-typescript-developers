@@ -124,11 +124,11 @@ Pydantic v2 (เวอร์ชันปัจจุบัน) เปลี่�
 ```python
 item = CreateItem(name="Widget", price=9.99)
 
-# Serialize เป็น dict
+# Serialize to dict
 data = item.model_dump()
 # {'name': 'Widget', 'price': 9.99, 'in_stock': True, 'tags': []}
 
-# Deserialize จาก dict
+# Deserialize from dict
 item2 = CreateItem.model_validate({"name": "Gadget", "price": 4.99})
 ```
 
@@ -191,15 +191,15 @@ class CreateItem:
     tags: list[str] = field(default_factory=list)
     description: str | None = None
 
-# สร้าง instance — รู้สึกเหมือน BaseModel(...)
+# Instantiate — same feel as BaseModel(...)
 item = CreateItem(name="Widget", price=9.99, tags=["sale", "new"])
 print("item:", item)
 
-# Serialize เป็น dict (เหมือน .model_dump())
+# Serialize to dict (like .model_dump())
 data = asdict(item)
 print("dict :", data)
 
-# Serialize เป็น JSON
+# Serialize to JSON
 print("json :", json.dumps(data, indent=2))
 
 # Nested dataclass

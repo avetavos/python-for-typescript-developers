@@ -7,62 +7,74 @@ import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
 
-## JavaScript ใช้ single thread, Python มี thread แต่มี GIL
+## JavaScript ใช้ single thread — Python มี thread แต่มีข้อแม้
 
-JavaScript ทำงานใน event loop single-threaded โดยการออกแบบ ความสามารถด้าน concurrency ทั้งหมดมาจาก asynchrony (`async`/`await`, Promise, callback) ไม่ใช่การประมวลผลพร้อมกันแบบขนาน ถ้าคุณต้องการใช้ CPU หลายตัวจริง ๆ คุณต้องใช้ `worker_threads`
+ในฐานะนักพัฒนา TypeScript คุณคุ้นเคยกับโมเดล concurrency ของ JavaScript อยู่แล้ว: หนึ่ง thread, หนึ่ง event loop, non-blocking I/O ผ่าน callback และ `async`/`await` ไม่มี data race เกิดขึ้นเพราะมีโค้ด JavaScript รันได้แค่ชิ้นเดียวในเวลาหนึ่ง ๆ เท่านั้น worker threads มีอยู่จริง แต่โดย default จะไม่แชร์ memory กัน — สื่อสารกันผ่าน message passing
 
-Python มี thread แต่ CPython (implementation หลัก) มี lock ชื่อว่า **Global Interpreter Lock (GIL)** ที่อนุญาตให้ Python bytecode ทำงานได้ครั้งละหนึ่ง thread เท่านั้น ซึ่งหมายความว่า thread ของ Python ใน CPython ไม่สามารถรัน CPU-bound code แบบขนานได้จริง ๆ แม้บนเครื่องที่มีหลาย CPU
+Python มี OS thread จริงผ่านโมดูล `threading` คุณ spawn หลาย thread ได้และมันรันอยู่ใน process เดียวกันโดยแชร์ memory ร่วมกัน อย่างไรก็ตาม CPython (Python implementation หลัก) มีกลไกที่เรียกว่า **Global Interpreter Lock** ซึ่งจำกัดสิ่งที่ thread เหล่านั้นทำแบบขนานได้จริง ๆ การเข้าใจ GIL จึงสำคัญมากสำหรับการเขียนโปรแกรม Python ที่ต้อง scale ข้าม CPU core
 
-## GIL ไม่ได้หมายความว่า threading ไร้ประโยชน์
+## GIL คืออะไร
 
-Python ปล่อย GIL ออกระหว่างทำ I/O, ระหว่าง `time.sleep()` และระหว่างงานใน C extension บางตัวอย่าง NumPy ดังนั้นถ้าเป็น **I/O-bound concurrency** เช่น เรียก network, อ่านไฟล์ หรือ query database thread ของ Python ทำงานได้ดีมาก
+GIL คือ mutex — mutual exclusion lock — ที่ปกป้อง internal state ของ CPython การจัดการ memory ของ CPython (reference counting สำหรับ garbage collection) ไม่ thread-safe แทนที่จะเพิ่ม lock แบบละเอียดทั่ว interpreter ทีมของ Guido van Rossum เลือกใช้ lock หยาบตัวเดียว: มีแค่ thread เดียวเท่านั้นที่รัน Python bytecode ได้ในแต่ละขณะ
 
-export const tsGil = `// TypeScript: worker_threads for CPU-bound parallelism
-import { Worker, isMainThread, parentPort } from "worker_threads";
+Thread จะสลับกันทำงาน — GIL ถูกปล่อยและ acquire ใหม่เป็นระยะ (ประมาณทุก 5ms ใน Python 3.2+ หรือเมื่อ thread เรียก I/O system call) แต่สำหรับงาน CPU ล้วน ๆ การมีสอง thread ไม่ได้ให้ throughput เท่ากับสอง CPU core thread หนึ่งรัน อีก thread รอ
+
+export const tsGil = `// TypeScript/Node.js: worker_threads for CPU parallelism
+// Workers share no memory by default — communicate with postMessage
+import { Worker, isMainThread, parentPort } from 'worker_threads';
 
 if (isMainThread) {
   const worker = new Worker(__filename);
-  worker.on("message", (result) => {
-    console.log("result from worker:", result);
+  worker.on('message', (result) => {
+    console.log('result from worker:', result);
   });
-  worker.postMessage("start");
+  worker.postMessage({ start: 0, end: 1_000_000 });
 } else {
-  parentPort?.on("message", () => {
-    // CPU-bound work runs in a real OS thread
-    let total = 0;
-    for (let i = 0; i < 1_000_000; i++) total += i;
-    parentPort?.postMessage(total);
+  parentPort?.on('message', ({ start, end }) => {
+    let sum = 0;
+    for (let i = start; i < end; i++) sum += i;
+    parentPort?.postMessage(sum);
   });
 }`;
 
-export const pyGil = `# Python: threading is effective for I/O-bound work
-# but the GIL limits CPU-bound parallelism in CPython
+export const pyGil = `# Python: threads exist but the GIL limits CPU parallelism
 import threading
 
-results = {}
+results = []
 
-def fetch_data(key, value):
-    # Simulate I/O work (GIL is released during real I/O)
-    import time
-    time.sleep(0.1)
-    results[key] = value * 2
+def cpu_sum(start, end, out, index):
+    total = sum(range(start, end))
+    out[index] = total
 
-threads = [
-    threading.Thread(target=fetch_data, args=(i, i))
-    for i in range(5)
-]
-for t in threads:
-    t.start()
-for t in threads:
-    t.join()
+# Two threads — but only one runs Python bytecode at a time
+t1 = threading.Thread(target=cpu_sum, args=(0, 500_000, results, 0))
+t2 = threading.Thread(target=cpu_sum, args=(500_000, 1_000_000, results, 1))
+results = [None, None]
 
-print(results)  # {0: 0, 1: 2, 2: 4, 3: 6, 4: 8}`;
+t1.start(); t2.start()
+t1.join();  t2.join()
+
+print(sum(results))  # correct answer, but not 2x faster`;
 
 <TsGo ts={tsGil} go={pyGil} />
 
-## เมื่อต้องการ parallelism จริง ๆ ใช้ multiprocessing
+## เมื่อ GIL เป็นปัญหา และเมื่อไม่เป็น
 
-สำหรับงาน CPU-bound ที่ต้องการใช้ CPU หลายตัวจริง ๆ Python มี module `multiprocessing` ซึ่งแต่ละ worker จะเป็น OS process แยกต่างหากพร้อม Python interpreter ของตัวเอง ทำให้แต่ละ process มี GIL ของตัวเองด้วย
+GIL บล็อกเฉพาะการรัน **Python bytecode** พร้อมกันเท่านั้น การทำงานหลายอย่างที่ดูเหมือนโค้ด Python จริง ๆ แล้วลงไปที่ C extension หรือ OS ซึ่งสามารถปล่อย GIL ได้ตามใจสมัคร:
+
+| Workload | ผลของ GIL | เครื่องมือที่แนะนำ |
+|---|---|---|
+| CPU-bound Python loop | บล็อก parallelism | `multiprocessing` หรือ C extension |
+| Network I/O (requests, sockets) | GIL ถูกปล่อยระหว่าง syscall | `threading` หรือ `asyncio` |
+| File I/O | GIL ถูกปล่อยระหว่าง syscall | `threading` หรือ `asyncio` |
+| NumPy / pandas operation | GIL ถูกปล่อยใน C layer | `threading` ใช้ได้สบาย |
+| Subprocess call | GIL ถูกปล่อย | `threading` ใช้ได้สบาย |
+
+กฎที่ใช้ได้จริง: ถ้า bottleneck คือ Python interpreter กำลังรันโค้ดของคุณ thread จะไม่ช่วย — ใช้ `multiprocessing` ถ้า bottleneck คือการรอระบบภายนอก (network, disk, database) thread หรือ `asyncio` ใช้ได้ดี
+
+## หลบ GIL ด้วย multiprocessing
+
+`multiprocessing` spawn Python interpreter process แยกต่างหาก — แต่ละตัวมี GIL และ CPU core ของตัวเอง นี่คือเครื่องมือมาตรฐานสำหรับ CPU-bound parallelism
 
 export const tsMp = `// TypeScript: CPU parallelism via worker_threads pool
 import { Worker } from "worker_threads";
@@ -102,85 +114,121 @@ if __name__ == "__main__":
 
 <TsGo ts={tsMp} go={pyMp} />
 
-หมายเหตุ: Playground ไม่พร้อมใช้งานสำหรับบทเรียนนี้ เนื่องจากตัวอย่าง multiprocessing ต้องการ `if __name__ == "__main__"` guard และรันได้ถูกต้องเฉพาะในสภาพแวดล้อม process แบบ fork เท่านั้น
+## Free-threaded Python เป็นทางการแล้ว (3.14)
 
-<PyOnly title="อนาคตของ GIL: free-threaded Python 3.14">
+Python 3.13 ปล่อย GIL-free build ออกมาเป็นการทดลอง (PEP 703, `python3.13t`) Python 3.14 เลื่อนขั้นให้เป็น **build ที่รองรับอย่างเป็นทางการ** (PEP 779): ยังเป็น interpreter แยกต่างหากชื่อ `python3.14t` และยังไม่ใช่ค่า default — แต่ไม่ใช่ของทดลองอีกต่อไป ใน build นี้ thread รัน Python bytecode บนหลาย core พร้อมกันได้จริง
 
-**PEP 703 / PEP 779 — Making the Global Interpreter Lock Optional**
-
-Python 3.13 ปล่อย **free-threaded CPython** ออกมาเป็น experimental build (`python3.13t`) ซึ่งปิด GIL ทิ้ง ทำให้ thread รัน Python bytecode ขนานกันได้จริงบนหลาย CPU และ Python 3.14 เลื่อนขั้นให้เป็น **build ที่รองรับอย่างเป็นทางการ** (PEP 779) — ยังเป็น interpreter แยกตัวชื่อ `python3.14t` และยังไม่ใช่ค่า default แต่ไม่ใช่ของทดลองอีกต่อไป
-
-ราคาที่ต้องจ่ายมีจริง: reference counting เปลี่ยนไปใช้ atomic operation โค้ด single-thread จึงช้าลงราว 5–10% และ C extension ที่แอบพึ่ง GIL อยู่ต้องถูกตรวจและ build ใหม่ เช็กว่ากำลังรัน build ไหนได้ด้วย `sys._is_gil_enabled()`
+ราคาที่ต้องจ่ายมีจริง: reference counting เปลี่ยนไปใช้ atomic operation โค้ด single-thread จึงช้าลงราว 5–10% และ C extension ที่แอบพึ่ง GIL อยู่ต้องถูกตรวจสอบและ build ใหม่ เช็กว่ากำลังรัน build ไหนได้ด้วย `sys._is_gil_enabled()`
 
 Python 3.14 ยังเพิ่ม `concurrent.interpreters` (PEP 734) — หลาย interpreter ในหนึ่ง process แต่ละตัวมี GIL ของตัวเอง พร้อม `InterpreterPoolExecutor` ที่เสียบเข้ากับ API ของ `concurrent.futures` ได้เลย มันอยู่ตรงกลางระหว่าง thread (แชร์ memory, GIL เดียว) กับ process (ไม่แชร์ memory, เริ่มช้า) และเป็นสิ่งที่ใกล้เคียง `worker_threads` ของ Node มากที่สุดเท่าที่ Python มี
 
-ในระหว่างนี้ ecosystem ของ Python จัดการกับข้อจำกัดของ GIL ด้วยสามวิธีหลัก:
+> **หมายเหตุเรื่อง Playground:** การสาธิตผลของ GIL ต้องเปรียบเทียบเวลาของงาน CPU-bound กับ I/O-bound ซึ่งไม่มีความหมายในแซนด์บ็อกซ์บนเบราว์เซอร์ ให้รันตัวอย่างในเครื่องด้วย `python3 -c "import threading; ..."`
 
-1. **`asyncio`** — I/O-bound concurrency บน single thread ด้วย event loop (คล้ายกับ Node.js มาก)
-2. **`threading`** — เหมาะกับงาน I/O-bound เพราะ Python ปล่อย GIL ระหว่างรอ I/O
-3. **`multiprocessing` / `ProcessPoolExecutor`** — CPU-bound parallelism ที่แท้จริงโดยใช้หลาย process
+<PyOnly title="หลบ GIL ด้วย multiprocessing, asyncio, และ C extension">
 
-สำหรับโค้ด data science, NumPy และ pandas ปล่อย GIL ระหว่าง C-level operation ดังนั้น thread ของ Python จึงทำให้ได้ parallelism จริงสำหรับการดำเนินการ array และ DataFrame
+**multiprocessing**
 
-**`concurrent.futures` — abstraction layer ระดับสูง**
+โมดูล `multiprocessing` spawn Python interpreter process แยกต่างหาก แต่ละ process มี GIL, memory space, และรันบน CPU core ของตัวเองอย่างอิสระ ข้อมูลถูกแลกเปลี่ยนผ่าน `Queue`, `Pipe`, หรือ shared memory (`multiprocessing.shared_memory`) นี่คือคำตอบมาตรฐานสำหรับ CPU-bound parallelism ใน Python:
+
+```python
+from multiprocessing import Pool
+
+def cpu_task(n):
+    return sum(range(n))
+
+with Pool(processes=4) as pool:
+    results = pool.map(cpu_task, [1_000_000] * 4)
+print(results)
+```
+
+ข้อเสีย: process มี startup overhead สูงกว่า thread และการแชร์ state ต้อง serialize ข้อมูลเอง (pickling)
+
+**asyncio: cooperative ไม่ใช่ preemptive**
+
+`asyncio` คือ event loop ของ Python สำหรับ I/O-bound concurrency มันรันอยู่ใน thread เดียวทั้งหมด — ไม่มีปฏิสัมพันธ์กับ GIL เลย เหมือน event loop ของ JavaScript มันใช้ cooperative multitasking: coroutine ปล่อย control อย่างชัดเจนด้วย `await` ซึ่งให้ event loop รัน coroutine ตัวอื่นได้ ไม่มี preemption และไม่มี data race บน Python object
+
+```python
+import asyncio
+
+async def fetch(url):
+    await asyncio.sleep(1)  # simulates an I/O wait
+    return f"result from {url}"
+
+async def main():
+    tasks = [fetch("url1"), fetch("url2"), fetch("url3")]
+    results = await asyncio.gather(*tasks)
+    print(results)  # all three complete in ~1 second
+
+asyncio.run(main())
+```
+
+`asyncio` และ `threading` แก้ปัญหา I/O-bound แบบเดียวกัน `asyncio` มี overhead ต่อ task ต่ำกว่าและเหมาะเมื่อมีการเชื่อมต่อหลักพันวง; `threading` เขียนง่ายกว่าเมื่อมี blocking call ที่ยาวจำนวนไม่มาก
+
+**C extension และ Cython**
+
+C extension module เรียก `Py_BEGIN_ALLOW_THREADS` เพื่อปล่อย GIL ทำงาน CPU ใน C (ซึ่งรันบนหลาย core พร้อมกับ Python thread ได้จริง) แล้ว acquire กลับด้วย `Py_END_ALLOW_THREADS` NumPy, pandas, และไลบรารี scientific Python ส่วนใหญ่ทำแบบนี้ นั่นคือเหตุผลที่ operation ของ NumPy ทำแบบขนานด้วย thread ได้อย่างปลอดภัยแม้จะดูเหมือนโค้ด Python
+
+Cython ซึ่งเป็น superset ของ Python ที่ compile เป็น C ให้คุณ annotate function ด้วย `with nogil:` เพื่อปล่อย GIL สำหรับ block โค้ดระดับ C นี่เป็น pattern ที่พบทั่วไปในไลบรารี Python ประสิทธิภาพสูง
+
+**concurrent.futures: API เดียวกันสำหรับทั้งสองแบบ**
+
+`concurrent.futures` ให้ `ThreadPoolExecutor` และ `ProcessPoolExecutor` มี interface เดียวกัน การสลับระหว่าง thread (I/O-bound) กับ process (CPU-bound) จึงเปลี่ยนแค่บรรทัดเดียว:
 
 ```python
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
-# I/O-bound: ใช้ thread
+# I/O-bound: use threads
 with ThreadPoolExecutor(max_workers=10) as executor:
     futures = [executor.submit(fetch_url, url) for url in urls]
     results = [f.result() for f in futures]
 
-# CPU-bound: ใช้ process
+# CPU-bound: use processes
 with ProcessPoolExecutor() as executor:
     results = list(executor.map(cpu_intensive, data_chunks))
 ```
-
-`concurrent.futures` มี API เดียวกันสำหรับทั้ง thread และ process ทำให้ง่ายต่อการสลับระหว่างกันตามลักษณะของ workload
 
 </PyOnly>
 
 export const quizGil = [
   {
-    q: 'GIL ใน CPython ทำอะไร?',
+    q: 'GIL ป้องกันอะไรใน CPython?',
     options: [
-      'ป้องกันไม่ให้ Python สร้าง thread ได้',
-      'อนุญาตให้ Python bytecode ทำงานได้ครั้งละหนึ่ง thread เท่านั้น',
-      'Lock file system ระหว่าง I/O operations',
-      'ทำให้ Python ทำงานเร็วขึ้นบน CPU เดี่ยว',
+      'ไม่ให้มี Python process มากกว่าหนึ่งตัวรันพร้อมกัน',
+      'ไม่ให้ Python thread มากกว่าหนึ่งตัวรัน Python bytecode พร้อมกัน',
+      'ไม่ให้ asyncio coroutine รันพร้อมกัน',
+      'ไม่ให้ C extension module ใช้หลาย CPU core',
     ],
     answer: 1,
   },
   {
-    q: 'threading ของ Python ให้ประโยชน์จริงสำหรับ workload ประเภทใด?',
+    q: 'GIL สร้างปัญหามากที่สุดกับ workload ประเภทใด?',
     options: [
-      'การคำนวณตัวเลขบน CPU-intensive',
-      'การ compress ข้อมูลขนาดใหญ่',
-      'I/O-bound tasks เช่น network requests และ file reads',
-      'Machine learning training',
+      'งาน I/O-bound เช่น network request',
+      'งาน CPU-bound ที่เขียนด้วย pure Python',
+      'การอ่านและเขียนไฟล์',
+      'การ query database',
     ],
-    answer: 2,
+    answer: 1,
   },
   {
-    q: 'วิธีใดที่ Python แนะนำสำหรับ CPU-bound parallelism จริง ๆ?',
+    q: 'โมดูลใดของ Python เป็นคำตอบมาตรฐานสำหรับ CPU parallelism จริงข้ามหลาย core?',
     options: [
-      'threading.Thread',
-      'asyncio.gather',
-      'multiprocessing.Pool',
-      'concurrent.futures.ThreadPoolExecutor',
-    ],
-    answer: 2,
-  },
-  {
-    q: 'Python version ใดที่แนะนำ free-threaded mode (GIL optional) เป็น experimental?',
-    options: [
-      'Python 3.10',
-      'Python 3.11',
-      'Python 3.12',
-      'Python 3.13',
+      'threading',
+      'asyncio',
+      'concurrent.futures with ThreadPoolExecutor',
+      'multiprocessing',
     ],
     answer: 3,
+  },
+  {
+    q: 'asyncio ทำให้เกิด concurrency ได้อย่างไรโดยไม่ใช้ thread?',
+    options: [
+      'ใช้ OS-level preemptive scheduling',
+      'รันหนึ่ง coroutine ต่อหนึ่ง CPU core',
+      'ใช้ cooperative multitasking: coroutine ปล่อย control อย่างชัดเจนด้วย await',
+      'ปล่อย GIL อัตโนมัติให้ทุก async function',
+    ],
+    answer: 2,
   },
 ];
 

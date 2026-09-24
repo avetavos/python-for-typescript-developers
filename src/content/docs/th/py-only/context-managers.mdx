@@ -8,17 +8,17 @@ import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
 
-## try/finally ใน TypeScript, with ใน Python
+## TypeScript ไม่มี with — Python มี
 
-ใน TypeScript ถ้าอยากมั่นใจว่า resource ได้คืนแน่นอนไม่ว่าจะเกิด exception หรือไม่ คุณต้องเขียนบล็อก `try/finally` เอง
+TypeScript ไม่มี keyword `with` เมื่อต้องการยึด resource แล้วการันตีว่ามันถูกคืนแน่นอน ไม่ว่าจะเป็น file handle, database connection, หรือ lock คุณต้องเขียน `try/finally` เอง ตั้ง resource ก่อน `try` แล้วเก็บกวาดใน `finally` วิธีนี้ใช้ได้ แต่ต้องจำ pattern และเขียนให้ถูกต้องทุกครั้ง
 
-Python ใช้แนวคิดเดียวกัน แต่ยกขึ้นมาเป็น syntax ระดับภาษาผ่าน `with` statement ตัว `with` การันตีว่า resource setup และ teardown ครบถ้วน ต่อให้โค้ดข้างในจะ raise exception ก็ตาม โดยที่คุณไม่ต้องมานั่งเขียน `try/finally` ซ้ำ ๆ ทุกครั้ง
+Python's `with` statement ห่อหุ้ม setup และ teardown ไว้ในตัว object เอง object กำหนดว่าจะเกิดอะไรตอนเข้าและตอนออก และ Python การันตีว่า exit จะทำงาน — แม้จะมี exception เกิดขึ้นในบล็อกก็ตาม logic การเก็บกวาดอยู่ที่ resource ไม่กระจัดกระจายไปทุกจุดที่เรียกใช้
 
 ## ตัวอย่างขั้นพื้นฐาน: การเปิดไฟล์
 
 การเปิดไฟล์คือตัวอย่างที่พบบ่อยที่สุด TypeScript ไม่มี file API ระดับภาษาในตัว แต่ pattern จะมีลักษณะดังนี้:
 
-export const tsCm = `// TypeScript: manual try/finally for resource cleanup
+export const tsCmFile = `// TypeScript: manual try/finally for resource cleanup
 import * as fs from "fs";
 
 function readFile(path: string): string {
@@ -32,21 +32,21 @@ function readFile(path: string): string {
   }
 }`;
 
-export const pyCm = `# Python: with statement handles open/close automatically
+export const pyCmFile = `# Python: with statement handles open/close automatically
 def read_file(path):
     with open(path, "r") as f:
         return f.read()
     # f.close() is called automatically — even if read() raises`;
 
-<TsGo ts={tsCm} go={pyCm} />
+<TsGo ts={tsCmFile} go={pyCmFile} />
 
 บล็อก `with` เรียก `f.close()` โดยอัตโนมัติเมื่อออกจากบล็อก ไม่ว่าจะออกปกติหรือเพราะ exception ไม่ต้องมี `try/finally` ที่ซ้ำซ้อน
 
-## การสร้าง context manager ด้วย class
+## Context manager แบบ class
 
-object ใดก็ตามที่ implement เมธอด `__enter__` และ `__exit__` สามารถใช้กับ `with` statement ได้ นี่คือ context manager protocol
+class จะกลายเป็น context manager ได้โดย implement เมธอด dunder สองตัว: `__enter__` และ `__exit__` Python เรียก `__enter__` ตอนเข้าบล็อก `with` และเรียก `__exit__` ตอนออก — ไม่ว่าจะออกด้วยเหตุผลใดก็ตาม
 
-export const tsCmContextlib = `// TypeScript: class-based resource management
+export const tsCm = `// TypeScript: try/finally for guaranteed cleanup
 class ManagedResource {
   constructor(private name: string) {}
 
@@ -59,21 +59,20 @@ class ManagedResource {
     console.log(\`Releasing \${this.name}\`);
   }
 
-  use<T>(fn: (r: this) => T): T {
-    this.acquire();
-    try {
-      return fn(this);
-    } finally {
-      this.release();
-    }
+  use(): void {
+    console.log(\`Using \${this.name}\`);
   }
 }
 
-new ManagedResource("database connection").use(resource => {
-  console.log(\`Using \${resource}\`);
-});`;
+const resource = new ManagedResource("database connection");
+resource.acquire();
+try {
+  resource.use();
+} finally {
+  resource.release(); // must remember to call this
+}`;
 
-export const pyCmContextlib = `# Python: __enter__ and __exit__ make any class a context manager
+export const pyCm = `# Python: with statement handles acquire and release automatically
 class ManagedResource:
     def __init__(self, name):
         self.name = name
@@ -84,20 +83,21 @@ class ManagedResource:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         print(f"Releasing {self.name}")
-        return False  # False = don't suppress exceptions
+        return False  # do not suppress exceptions
 
 with ManagedResource("database connection") as resource:
-    print(f"Using \${resource.name}")`;
+    print(f"Using {resource.name}")
+# release is guaranteed even if an exception occurs`;
 
-<TsGo ts={tsCmContextlib} go={pyCmContextlib} />
+<TsGo ts={tsCm} go={pyCm} />
 
-`__exit__` รับ argument สามตัวที่อธิบาย exception ที่เกิดขึ้น (ถ้ามี) คือ type, value และ traceback ถ้าคืน `True` Python จะกลืน exception นั้นทิ้ง แต่ถ้าคืน `False` หรือ `None` exception จะเด้งต่อออกไปตามปกติ
+ค่าที่ `__enter__` return จะถูก bind เข้ากับตัวแปรหลัง `as` ส่วน `as` clause นั้นไม่บังคับ — เขียนแค่ `with ManagedResource("x"):` ก็ได้ถ้าไม่ต้องการอ้างอิงถึง resource ในบล็อก
 
-## การสร้าง context manager ด้วย @contextmanager
+## contextlib: generator ที่เป็น context manager
 
-การเขียน class เต็มรูปแบบเพียงเพื่อจัดการ setup/teardown เล็กน้อยอาจดูมากเกินไป `@contextmanager` decorator จาก `contextlib` ให้คุณเขียน generator ธรรมดาแทนได้ โค้ดก่อน `yield` คือ `__enter__` โค้ดหลัง `yield` คือ `__exit__`
+การเขียน class เต็มรูปแบบเพียงเพื่อ context manager ง่าย ๆ มักดูมากเกินไป โมดูล `contextlib` มี decorator `@contextmanager` ให้คุณเขียน context manager เป็น generator function แทนได้ ทุกอย่างก่อน `yield` คือ setup ทุกอย่างหลัง `yield` คือ teardown
 
-export const tsCmGen = `// TypeScript: helper function simulating @contextmanager
+export const tsCmContextlib = `// TypeScript: a utility wrapper function with try/finally
 function withTimer<T>(label: string, fn: () => T): T {
   console.log(\`[\${label}] starting\`);
   try {
@@ -114,20 +114,22 @@ const result = withTimer("my block", () => {
   return total;
 });`;
 
-export const pyCmGen = `# Python: @contextmanager turns a generator into a context manager
-from contextlib import contextmanager
+export const pyCmContextlib = `from contextlib import contextmanager
 
 @contextmanager
 def timer(label):
     print(f"[{label}] starting")
-    yield                          # control passes to the 'with' block here
+    yield          # execution of the with block happens here
     print(f"[{label}] done")
 
 with timer("my block"):
     total = sum(range(1000))
-    print(f"sum = \${total}")`;
+    print(f"sum = {total}")`;
 
-<TsGo ts={tsCmGen} go={pyCmGen} />
+<TsGo ts={tsCmContextlib} go={pyCmContextlib} />
+
+export const tsCmGen = tsCmContextlib;
+export const pyCmGen = pyCmContextlib;
 
 ## ลองด้วยตัวเอง
 
@@ -161,21 +163,64 @@ with timer("my block"):
 
 <Playground code={playgroundCm} />
 
-<PyOnly title="การจัดการ exception ใน __exit__ และการใช้ with หลายตัว">
+<PyOnly title="Exception suppression: สัญญาของ __exit__">
 
-**การดักจับ exception ใน `__exit__`**
+`__exit__` รับ argument สามตัวที่อธิบาย exception ที่เกิดในบล็อก `with` (ถ้ามี):
 
-`__exit__` จะได้รับ exception ที่ยังไม่มีใคร handle ถ้าคืนค่า truthy ออกไป Python จะกลืน exception นั้นทิ้ง ซึ่งมักไม่ใช่สิ่งที่คุณต้องการ ยกเว้นตอนที่ตั้งใจเขียน context manager ไว้กลืน exception โดยเฉพาะ:
+- `exc_type` — exception class (เช่น `ValueError`) หรือ `None` ถ้าไม่มี exception
+- `exc_val` — exception instance หรือ `None`
+- `exc_tb` — traceback object หรือ `None`
+
+ค่าที่ `__exit__` คืนกำหนดว่าจะเกิดอะไรต่อไป:
+
+- คืน `False` (หรือ `None` หรือค่า falsy ใด ๆ) หมายถึง "อย่ากลืน exception" Python จะ re-raise มันหลัง `__exit__` คืนค่า
+- คืน `True` จะกลืน exception ทิ้ง โค้ดหลังบล็อก `with` ทำงานต่อราวกับไม่มีอะไรเกิดขึ้น
+
+การกลืน exception มีประโยชน์เป็นบางครั้ง — เช่น context manager ที่ดักและ log error บางประเภท — แต่ควรใช้อย่างระมัดระวัง การกลืน exception เงียบ ๆ เป็นสาเหตุทั่วไปของบั๊กที่ดีบั๊กยาก
+
+```python
+class SuppressValueError:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type is ValueError:
+            print(f"Suppressed: {exc_val}")
+            return True  # swallow the ValueError
+        return False  # re-raise anything else
+
+with SuppressValueError():
+    raise ValueError("bad input")  # caught and suppressed
+
+print("execution continues here")
+```
+
+`contextlib.suppress(*exceptions)` ทำแบบเดียวกันนี้ให้ในบรรทัดเดียว:
 
 ```python
 from contextlib import suppress
 
 with suppress(FileNotFoundError):
-    os.remove("maybe_exists.txt")
-# ไม่ raise แม้ไม่มีไฟล์นั้นอยู่
+    open("nonexistent.txt")
 ```
 
-**การใช้ context manager หลายตัวในบรรทัดเดียว**
+เมื่อใช้ `@contextmanager` ให้จัดการ exception โดยห่อ `yield` ด้วย `try/except`:
+
+```python
+@contextmanager
+def managed():
+    print("setup")
+    try:
+        yield
+    except ValueError as e:
+        print(f"handled: {e}")
+    finally:
+        print("teardown")  # always runs
+```
+
+</PyOnly>
+
+<PyOnly title="Context manager หลายตัวและ ExitStack">
 
 Python ให้คุณรวม context manager หลายตัวในบรรทัดเดียวโดยใช้เครื่องหมายจุลภาคคั่น:
 
@@ -186,9 +231,7 @@ with open("input.txt") as fin, open("output.txt", "w") as fout:
 
 ซึ่งเทียบเท่ากับการซ้อน `with` สองชั้นพอดี แต่ไม่เยื้องโค้ดออกไปโดยไม่จำเป็น
 
-**`contextlib.ExitStack` สำหรับจำนวน context manager แบบ dynamic**
-
-เมื่อคุณไม่รู้จำนวน context manager ตอน compile time ให้ใช้ `ExitStack`:
+เมื่อคุณไม่รู้จำนวน context manager ตอน compile time ให้ใช้ `contextlib.ExitStack`:
 
 ```python
 from contextlib import ExitStack
@@ -196,44 +239,54 @@ from contextlib import ExitStack
 files = ["a.txt", "b.txt", "c.txt"]
 with ExitStack() as stack:
     handles = [stack.enter_context(open(f)) for f in files]
-    # handles ทั้งหมดจะถูกปิดเมื่อออกจากบล็อก with
+    # every handle is closed automatically on exit, in reverse order
 ```
 
 </PyOnly>
 
 export const quizCm = [
   {
-    q: 'เมธอดใดถูกเรียกเมื่อเข้าสู่บล็อก with?',
+    q: 'class ต้อง implement เมธอด dunder สองตัวใดเพื่อใช้เป็น context manager ได้?',
     options: [
-      '__init__',
-      '__enter__',
-      '__start__',
-      '__open__',
+      '__open__ และ __close__',
+      '__enter__ และ __exit__',
+      '__start__ และ __finish__',
+      '__acquire__ และ __release__',
     ],
     answer: 1,
   },
   {
-    q: '__exit__ คืนค่า True หมายความว่าอะไร?',
+    q: 'ค่าใดถูก bind เข้ากับตัวแปรหลัง "as" ใน with statement?',
     options: [
-      'context manager ทำงานสำเร็จ',
-      'Python กลืน exception นั้นทิ้ง ไม่ส่งต่อออกไป',
-      'ปิด resource ทันที',
-      'with block จะรันซ้ำ',
-    ],
-    answer: 1,
-  },
-  {
-    q: 'ใน @contextmanager decorator โค้ดหลัง yield ทำงานเมื่อไหร่?',
-    options: [
-      'ก่อนที่ with block จะทำงาน',
-      'เมื่อ yield ถูกเรียกครั้งที่สอง',
-      'เมื่อออกจาก with block ไม่ว่าจะปกติหรือจาก exception',
-      'เฉพาะเมื่อไม่มี exception เกิดขึ้น',
+      'context manager object เอง',
+      'ค่าที่ __exit__ คืน',
+      'ค่าที่ __enter__ คืน',
+      'True ถ้าไม่มี exception เกิดขึ้น',
     ],
     answer: 2,
   },
   {
-    q: 'วิธีใดถูกต้องในการใช้ context manager สองตัวพร้อมกัน?',
+    q: 'ใน @contextmanager function บล็อก with จะทำงานตอนไหน?',
+    options: [
+      'ก่อน yield statement',
+      'ที่ตำแหน่ง yield statement',
+      'หลัง yield statement',
+      'ใน thread แยกต่างหาก',
+    ],
+    answer: 1,
+  },
+  {
+    q: '__exit__ กลืน exception ที่เกิดในบล็อก with ได้อย่างไร?',
+    options: [
+      'เรียก exc_val.suppress()',
+      'คืนค่า True',
+      'raise exception อื่นแทน',
+      'คืนค่า None',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'syntax ใดถูกต้องสำหรับใช้ context manager สองตัวพร้อมกันในบรรทัดเดียว โดยตั้งชื่อให้แต่ละตัว?',
     options: [
       'with open("a") and open("b"):',
       'with open("a") as f1, open("b") as f2:',

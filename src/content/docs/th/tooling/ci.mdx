@@ -166,7 +166,7 @@ jobs:
           version: "latest"
 
       - name: Install dependencies with uv
-        run: uv sync --locked   # เทียบเท่า npm ci — ล้มเหลวถ้า uv.lock ไม่ตรง
+        run: uv sync --locked   # equivalent to npm ci — fails if uv.lock is stale
 ```
 
 <PyOnly title="requirements.txt แบบแยก: runtime vs dev">

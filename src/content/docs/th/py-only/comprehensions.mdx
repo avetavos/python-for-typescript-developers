@@ -1,6 +1,6 @@
 ---
 title: "Comprehensions และ Generator Expressions"
-description: List/dict/set comprehension และ lazy generator expression ของ Python vs map/filter ของ TypeScript
+description: List/dict/set comprehension และ lazy generator expression ของ Python vs map/filter/reduce ของ TypeScript
 ---
 import TsGo from '../../../../components/TsGo.astro';
 import Playground from '../../../../components/Playground.astro';
@@ -8,85 +8,137 @@ import Quiz from '../../../../components/Quiz.tsx';
 import ProgressTracker from '../../../../components/ProgressTracker.tsx';
 import PyOnly from '../../../../components/PyOnly.astro';
 
-## จาก `.map()` และ `.filter()` สู่ syntax ที่ built-in
+## Syntax เดียวสำหรับการแปลง collection ทั้งหมด
 
-ใน TypeScript คุณแปลงและกรอง array ด้วยการต่อ method อย่าง `.map()`, `.filter()` และ `.reduce()` เข้าด้วยกัน ใช้ได้ดีอยู่ แต่ทุกขั้นตอนต้องสร้าง array กลางทางขึ้นมาใหม่
+นักพัฒนา TypeScript ใช้ `.map()`, `.filter()`, และ `.reduce()` ต่อกันบน array วิธีนี้ใช้ได้ แต่ต้องสร้าง array กลางทางขึ้นมาใหม่ในแต่ละขั้น และไม่สามารถสร้าง `Set` หรือ object ได้โดยตรงตามธรรมชาติ Python มี **comprehension syntax** ฝังอยู่ในภาษาเลยสำหรับ 4 รูปแบบ ได้แก่ list, dict, set, และ generator แนวคิดหลักคือ `[expression for item in iterable if condition]`
 
-Python เลือกอีกทาง โดยฝังไว้ในภาษาเลย นั่นคือ **comprehension** ที่เป็น syntax กระชับสำหรับสร้าง list, dict หรือ set ใหม่จาก iterable ที่มีอยู่ พร้อมกรองค่าไปในตัวได้ภายในบรรทัดเดียว
+## List comprehension เทียบกับ map/filter
 
-## List comprehension
-
-รูปแบบพื้นฐานคือ `[expression for item in iterable]` และเพิ่ม `if condition` เพื่อกรองได้
+กรณีที่พบบ่อยที่สุดคือการแปลง collection พร้อมกรองค่าไปด้วย ใน TypeScript ต้องเรียก method สองตัวแยกกัน แต่ใน Python เป็น expression เดียว
 
 export const tsComprehensions = `// TypeScript: chained .map() and .filter()
-const squares = [1, 2, 3, 4, 5].map(x => x ** 2);
-console.log(squares); // [1, 4, 9, 16, 25]
+const numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
-const evens = Array.from({ length: 10 }, (_, i) => i).filter(x => x % 2 === 0);
-console.log(evens); // [0, 2, 4, 6, 8]
+// squares of even numbers
+const result = numbers
+  .filter(n => n % 2 === 0)
+  .map(n => n ** 2);
 
-// dict equivalent: Object.fromEntries + .map()
-const words = ["hello", "world", "python"];
-const wordLengths = Object.fromEntries(words.map(w => [w, w.length]));
-console.log(wordLengths); // { hello: 5, world: 5, python: 6 }`;
+console.log(result); // [4, 16, 36, 64, 100]
 
-export const pyComprehensions = `# Python: comprehension syntax — concise and readable
-squares = [x ** 2 for x in range(1, 6)]
-print(squares)  # [1, 4, 9, 16, 25]
+// Building an object from an array requires reduce or Object.fromEntries
+const words = ["hello", "world", "typescript"];
+const wordLengths = Object.fromEntries(
+  words.map(w => [w, w.length])
+);
+console.log(wordLengths); // { hello: 5, world: 5, typescript: 10 }`;
 
-evens = [x for x in range(10) if x % 2 == 0]
-print(evens)  # [0, 2, 4, 6, 8]
+export const pyComprehensions = `# Python: comprehensions for list, dict, set, and generator
 
-# dict comprehension
+numbers = list(range(1, 11))
+
+# squares of even numbers — single expression
+result = [n ** 2 for n in numbers if n % 2 == 0]
+print(result)  # [4, 16, 36, 64, 100]
+
+# Dict comprehension — no need for Object.fromEntries
 words = ["hello", "world", "python"]
 word_lengths = {word: len(word) for word in words}
-print(word_lengths)  # {'hello': 5, 'world': 5, 'python': 6}`;
+print(word_lengths)  # {'hello': 5, 'world': 5, 'python': 6}
+
+# Set comprehension — duplicates are automatically removed
+unique_lengths = {len(word) for word in words}
+print(unique_lengths)  # {5, 6}`;
 
 <TsGo ts={tsComprehensions} go={pyComprehensions} />
 
-## Dict และ set comprehension
+## ครบทั้ง 4 รูปแบบ
 
-นอกจาก list แล้ว Python ยังรองรับ comprehension สำหรับ dict (ใช้ `{}` พร้อม `key: value`) และ set (ใช้ `{}` โดยไม่มี `:`) ด้วย
-
+**List comprehension** — สร้าง `list` แบบ eager:
 ```python
-# set comprehension — ได้ unique values โดยอัตโนมัติ
-unique_lengths = {len(word) for word in ["hi", "hello", "hey", "world"]}
-print(sorted(unique_lengths))  # [2, 5]
+squares = [x ** 2 for x in range(1, 6)]
+# [1, 4, 9, 16, 25]
 ```
 
-ใน TypeScript การได้ผลลัพธ์แบบเดียวกันต้องผ่าน `new Set(array.map(...))` แล้ว spread กลับ ซึ่งยุ่งยากกว่ามาก
-
-## Generator expressions: ความ lazy ที่ไม่ใช้หน่วยความจำเกิน
-
-Comprehension สร้าง collection ทั้งหมดในหน่วยความจำทันที Generator expression ใช้ `()` แทน `[]` และสร้างค่าทีละค่าตามที่ถูกขอ ทำให้เหมาะกับ sequence ขนาดใหญ่หรือ infinite sequence
-
+**Dict comprehension** — สร้าง `dict`:
 ```python
-# generator expression: ไม่สร้าง list จนกว่าจะวนซ้ำ
+word_lengths = {word: len(word) for word in ["hello", "world", "python"]}
+# {'hello': 5, 'world': 5, 'python': 6}
+```
+
+**Set comprehension** — สร้าง `set` (ไม่มีค่าซ้ำ):
+```python
+unique_lengths = {len(word) for word in ["hi", "hello", "hey", "world"]}
+# {2, 3, 5}
+```
+
+**Generator expression** — สร้าง lazy generator (ใช้วงเล็บ ไม่ใช่ bracket):
+```python
 gen = (x ** 2 for x in range(5))
+# Nothing is computed yet. Values are produced only when iterated.
 print(list(gen))  # [0, 1, 4, 9, 16]
 ```
 
-เมื่อคุณส่ง generator expression เป็น argument ตัวเดียวให้ function คุณสามารถละวงเล็บชั้นนอกได้: `sum(x ** 2 for x in range(100))`
+Syntax เหมือนกันทุกรูปแบบ ต่างกันแค่ตัวคั่นด้านนอก: `[]` สำหรับ list, `{}` พร้อม colon สำหรับ dict, `{}` ไม่มี colon สำหรับ set, และ `()` สำหรับ generator
 
 ## ลองทดสอบ
 
-export const playgroundComprehensions = `squares = [x ** 2 for x in range(1, 6)]
+export const playgroundComprehensions = `# List comprehension
+squares = [x ** 2 for x in range(1, 6)]
 print(squares)
 
+# With filter condition
 evens = [x for x in range(10) if x % 2 == 0]
 print(evens)
 
+# Dict comprehension
 word_lengths = {word: len(word) for word in ["hello", "world", "python"]}
 print(word_lengths)
 
+# Set comprehension -- unique values only
 unique_lengths = {len(word) for word in ["hi", "hello", "hey", "world"]}
 print(sorted(unique_lengths))
 
+# Generator expression -- lazy
 gen = (x ** 2 for x in range(5))
 print(list(gen))
 `;
 
 <Playground code={playgroundComprehensions} />
+
+<PyOnly title="Generator expression เป็น lazy — list comprehension ไม่ใช่">
+
+ความต่างนี้สำคัญต่อทั้งประสิทธิภาพและความถูกต้อง
+
+**List comprehension** `[expr for x in iterable]` ทำงานแบบ eager: Python วน iterable ทั้งหมดทันทีและสร้าง list เก็บไว้ในหน่วยความจำ ถ้า iterable มี 10 ล้านรายการ ผลลัพธ์ทั้ง 10 ล้านตัวจะถูกเก็บไว้พร้อมกัน
+
+**Generator expression** `(expr for x in iterable)` ทำงานแบบ lazy: มันคืนค่า generator object ทันทีโดยยังไม่คำนวณอะไรเลย ค่าจะถูกสร้างทีละตัวก็ต่อเมื่อถูกขอผ่านการวนซ้ำ (`for`, `next()`, `list()` ฯลฯ)
+
+```python
+# Eager — builds the full list in memory immediately
+big_list = [x ** 2 for x in range(10_000_000)]
+
+# Lazy — no memory allocated for results yet
+big_gen = (x ** 2 for x in range(10_000_000))
+
+# Only the first value is computed:
+print(next(big_gen))  # 0
+```
+
+**เมื่อควรใช้แต่ละแบบ:**
+
+- ใช้ **list comprehension** เมื่อต้อง index เข้าไปในผลลัพธ์, วนซ้ำมากกว่าหนึ่งครั้ง, ต้องรู้ความยาว, หรือส่งให้อะไรบางอย่างที่ต้องการ list
+- ใช้ **generator expression** เมื่อต้องวนซ้ำแค่ครั้งเดียว, ส่งผลลัพธ์ให้ function ที่รับ iterable ใด ๆ ก็ได้ (`sum()`, `max()`, `join()`, `any()`, `all()`), หรือ iterable ต้นทางใหญ่มากจนการสร้างทั้งหมดพร้อมกันจะเปลืองหน่วยความจำ
+
+หนึ่งใน idiom ที่พบบ่อยของ Python คือการส่ง generator expression เข้า function โดยตรง:
+
+```python
+total = sum(x ** 2 for x in range(1000))   # no extra list created
+```
+
+สังเกตว่า generator จะ **exhausted** หลังวนซ้ำครบหนึ่งรอบ — การวนซ้ำครั้งที่สองจะไม่ได้ค่าอะไรเลย ถ้าต้องการวนซ้ำผลลัพธ์หลายครั้งให้ใช้ list comprehension แทน
+
+</PyOnly>
 
 <PyOnly title="เมื่อควรใช้ comprehension และเมื่อไม่ควรใช้">
 
@@ -106,7 +158,7 @@ Comprehension ทำให้โค้ดอ่านง่ายขึ้นใ
 
 ```python
 # [row[i] for row in matrix for i in range(len(row))]
-# เทียบเท่ากับ:
+# is equivalent to:
 # for row in matrix:
 #     for i in range(len(row)):
 #         yield row[i]
@@ -119,34 +171,44 @@ print(flat)  # [1, 2, 3, 4, 5, 6]
 
 export const quizComprehensions = [
   {
-    q: 'ผลลัพธ์ของ `[x * 2 for x in range(4)]` คืออะไร?',
+    q: 'Syntax ใดให้ Python set comprehension?',
     options: [
-      '[1, 2, 3, 4]',
-      '[0, 2, 4, 6]',
-      '[2, 4, 6, 8]',
-      '[0, 1, 2, 3]',
-    ],
-    answer: 1,
-  },
-  {
-    q: 'อะไรคือความแตกต่างหลักระหว่าง list comprehension และ generator expression?',
-    options: [
-      'Generator expression ใช้ `[]` และ list comprehension ใช้ `()`',
-      'List comprehension สร้างทุกค่าในหน่วยความจำทันที; generator expression สร้างค่าทีละค่าตามที่ถูกขอ',
-      'Generator expressions ไม่รองรับเงื่อนไข `if`',
-      'List comprehensions ทำงานช้ากว่า generator expressions เสมอ',
-    ],
-    answer: 1,
-  },
-  {
-    q: 'syntax ใดที่ถูกต้องสำหรับ dict comprehension?',
-    options: [
-      '[k: v for k, v in items]',
-      '{k, v for k, v in items}',
-      '{k: v for k, v in items}',
-      '(k: v for k, v in items)',
+      '[expr for x in iterable]',
+      '(expr for x in iterable)',
+      '{expr for x in iterable}',
+      '{key: expr for x in iterable}',
     ],
     answer: 2,
+  },
+  {
+    q: 'ความแตกต่างหลักระหว่าง list comprehension กับ generator expression คืออะไร?',
+    options: [
+      'Generator expression ใช้ square bracket; list comprehension ใช้วงเล็บ',
+      'List comprehension ประมวลผลแบบ eager และเก็บผลลัพธ์ทั้งหมด; generator expression ประมวลผลแบบ lazy ตามที่ถูกขอ',
+      'Generator expression สร้างได้แค่ตัวเลขเท่านั้น',
+      'List comprehension ใส่เงื่อนไขกรองไม่ได้',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'ถ้าวนซ้ำ generator expression สองครั้งจะเกิดอะไรขึ้น?',
+    options: [
+      'เกิด StopIteration error ตั้งแต่ item แรกของการวนซ้ำครั้งที่สอง',
+      'มันเริ่มใหม่จากต้นโดยอัตโนมัติ',
+      'การวนซ้ำครั้งที่สองไม่ได้ค่าอะไรเลยเพราะ generator ถูก exhausted ไปแล้ว',
+      'เกิด TypeError',
+    ],
+    answer: 2,
+  },
+  {
+    q: 'วิธีใดประหยัดหน่วยความจำที่สุดในการรวมค่ากำลังสองของเลข 0 ถึง 999?',
+    options: [
+      'sum([x ** 2 for x in range(1000)])',
+      'sum((x ** 2 for x in range(1000)))',
+      'total = 0; [total := total + x**2 for x in range(1000)]',
+      'list(map(lambda x: x**2, range(1000)))',
+    ],
+    answer: 1,
   },
 ];
 

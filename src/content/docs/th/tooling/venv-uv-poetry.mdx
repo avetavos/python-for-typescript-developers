@@ -16,18 +16,18 @@ import PyOnly from '../../../../components/PyOnly.astro';
 > รันในเทอร์มินัลของคุณ:
 
 ```bash
-# สร้าง virtual environment ในโฟลเดอร์ .venv
+# Create a virtual environment in the .venv folder
 python3 -m venv .venv
 
-# เปิดใช้งาน — ต้องทำทุกครั้งที่เปิด terminal ใหม่
+# Activate it — you must do this every new terminal session
 source .venv/bin/activate          # macOS / Linux
 # .venv\Scripts\activate.bat       # Windows CMD
 # .venv\Scripts\Activate.ps1       # Windows PowerShell
 
-# ยืนยัน python ไหนที่ active อยู่
-which python   # ควรชี้ไปที่ .venv/bin/python
+# Confirm which python is active
+which python   # should point to .venv/bin/python
 
-# ปิดใช้งาน
+# Deactivate
 deactivate
 ```
 
@@ -76,34 +76,34 @@ pip install -r requirements.txt            # reproduce จาก snapshot
 
 ## ชั้นที่ 3: uv — tool สมัยใหม่ที่รวดเร็ว
 
-`uv` (จาก Astral ทีมเดียวกับ ruff) เป็นตัวแทนของ pip และ venv รวมกัน เขียนด้วย Rust เร็วกว่า pip 10–100 เท่า จัดการ virtual environment ให้อัตโนมัติ และติดตั้งตัว interpreter ได้ด้วย จึงเป็นตัวเลือกแรกสำหรับโปรเจกต์ใหม่ อ่าน layer 1 และ 2 เพื่อเข้าใจว่ามันทำอะไรให้ แล้วใช้งานจริงที่ layer 3
+`uv` (จาก Astral ทีมเดียวกับ ruff) เป็นตัวแทนของ pip และ venv รวมกัน เขียนด้วย Rust [เร็วกว่า pip 10–100 เท่า](https://docs.astral.sh/uv/) จัดการ virtual environment ให้อัตโนมัติ และติดตั้งตัว interpreter ได้ด้วย จึงเป็นตัวเลือกแรกสำหรับโปรเจกต์ใหม่ อ่าน layer 1 และ 2 เพื่อเข้าใจว่ามันทำอะไรให้ แล้วใช้งานจริงที่ layer 3
 
 ```bash
-# ติดตั้ง uv (ครั้งเดียว แบบ global)
+# Install uv (once, globally)
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# สร้าง project ใหม่ (สร้าง pyproject.toml + .venv)
+# Create a new project (generates pyproject.toml + .venv)
 uv init my-project
 cd my-project
 
-# เพิ่ม dependency (อัพเดต pyproject.toml + uv.lock)
+# Add a dependency (updates pyproject.toml + uv.lock)
 uv add fastapi
 
-# เพิ่ม dev dependency
+# Add a dev dependency
 uv add --dev pytest ruff mypy
 
-# Sync environment จาก pyproject.toml (เหมือน npm ci)
+# Sync environment from pyproject.toml (like npm ci)
 uv sync
 
-# รัน command ภายใน venv โดยไม่ต้อง activate
+# Run a command inside the venv without activating
 uv run python main.py
 uv run pytest
 
-# uv จัดการ interpreter ให้ด้วย — ไม่ต้องใช้ pyenv
+# uv manages interpreters as well — no pyenv needed
 uv python install 3.14
-uv python pin 3.14            # เขียนไฟล์ .python-version
+uv python pin 3.14            # writes .python-version
 
-# อัปเดต lock file โดยไม่ติดตั้ง (เหมือน npm install --package-lock-only)
+# Refresh the lock file without installing (like npm install --package-lock-only)
 uv lock
 ```
 

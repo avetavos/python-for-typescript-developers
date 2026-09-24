@@ -18,21 +18,21 @@ import PyOnly from '../../../../components/PyOnly.astro';
 > รันในเทอร์มินัลของคุณ — ไม่ต้องใช้ Playground สำหรับคำสั่ง CLI
 
 ```bash
-# ติดตั้ง (เพิ่มใน dev dependencies ของ project)
+# Install (add to your project's dev dependencies)
 pip install ruff
-# หรือด้วย uv:
+# or with uv:
 uv add --dev ruff
 
-# Lint ทั้ง project
+# Lint the whole project
 ruff check .
 
-# แก้ไข lint violations ที่แก้ได้อัตโนมัติ
+# Auto-fix fixable lint violations
 ruff check --fix .
 
-# Format ทั้ง project (แทนที่ black)
+# Format the whole project (replaces black)
 ruff format .
 
-# ตรวจสอบ formatting โดยไม่เขียนไฟล์ (โหมด CI)
+# Check formatting without writing (CI mode)
 ruff format --check .
 ```
 
@@ -77,13 +77,13 @@ quote-style = "double"   # ตรงกับค่าเริ่มต้น�
 ```bash
 pip install black
 
-# Format ไฟล์เดียว
+# Format a single file
 black src/main.py
 
-# Format ทั้ง project
+# Format entire project
 black .
 
-# โหมด check-only สำหรับ CI
+# Check-only mode for CI
 black --check .
 ```
 

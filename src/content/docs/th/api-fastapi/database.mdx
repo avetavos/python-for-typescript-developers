@@ -165,13 +165,13 @@ async def read_item(item_id: int, db: Annotated[Session, Depends(get_db)]):
 อย่าใช้ `Base.metadata.create_all()` ใน production เนื่องจากไม่รองรับ schema evolution ใช้ **Alembic** สร้าง versioned migration scripts เหมือนกับที่คุณใช้ `prisma migrate dev` หรือ `typeorm migration:generate`
 
 ```bash
-# ติดตั้ง
+# Install
 pip install alembic
 
-# Initialize (สร้าง alembic/ directory)
+# Initialise (creates alembic/ directory)
 alembic init alembic
 
-# สร้าง migration หลังเปลี่ยน models
+# Generate a migration after changing your models
 alembic revision --autogenerate -m "add items table"
 
 # Apply migrations

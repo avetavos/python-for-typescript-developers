@@ -104,7 +104,7 @@ async def search_items(
 
 browser ไม่สามารถรัน HTTP server จริงได้ แต่สามารถสำรวจวิธีที่ FastAPI จับคู่ handler ด้วย plain dict:
 
-export const routingCode = `# Route registry — สะท้อนวิธีที่ FastAPI map handlers
+export const routingCode = `# Route registry — mirrors how FastAPI maps handlers
 routes = {
     ("GET",    "/items"):          "list_items",
     ("POST",   "/items"):          "create_item",
@@ -114,11 +114,11 @@ routes = {
 }
 
 def match_route(method: str, path: str) -> str:
-    # ตรงทั้งหมดก่อน
+    # exact match first
     key = (method, path)
     if key in routes:
         return routes[key]
-    # template match (แบบง่าย)
+    # template match (naive)
     for (m, tmpl), handler in routes.items():
         if m != method:
             continue

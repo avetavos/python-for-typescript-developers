@@ -18,19 +18,19 @@ import PyOnly from '../../../../components/PyOnly.astro';
 
 ```bash
 pip install pytest
-# หรือ:
+# or:
 uv add --dev pytest
 
-# รัน tests ทั้งหมด
+# Run all tests
 pytest
 
-# รันพร้อม verbose output
+# Run with verbose output
 pytest -v
 
-# รัน file เฉพาะ
+# Run a specific file
 pytest tests/test_math.py
 
-# รัน test เฉพาะโดยชื่อ
+# Run a specific test by name
 pytest tests/test_math.py::test_add
 ```
 

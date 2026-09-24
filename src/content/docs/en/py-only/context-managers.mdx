@@ -14,6 +14,34 @@ TypeScript has no `with` keyword. When you need to acquire a resource and guaran
 
 Python's `with` statement encapsulates the setup and teardown inside the object itself. The object defines what happens on entry and what happens on exit, and Python guarantees the exit runs — even if an exception is raised inside the block. The cleanup logic lives in the resource, not scattered across every call site.
 
+## Basic example: opening a file
+
+Opening a file is the most common example. TypeScript has no language-level file API, but the pattern looks like this:
+
+export const tsCmFile = `// TypeScript: manual try/finally for resource cleanup
+import * as fs from "fs";
+
+function readFile(path: string): string {
+  const fd = fs.openSync(path, "r");
+  try {
+    const buf = Buffer.alloc(1024);
+    const bytesRead = fs.readSync(fd, buf, 0, 1024, 0);
+    return buf.toString("utf8", 0, bytesRead);
+  } finally {
+    fs.closeSync(fd); // always runs
+  }
+}`;
+
+export const pyCmFile = `# Python: with statement handles open/close automatically
+def read_file(path):
+    with open(path, "r") as f:
+        return f.read()
+    # f.close() is called automatically — even if read() raises`;
+
+<TsGo ts={tsCmFile} go={pyCmFile} />
+
+The `with` block calls `f.close()` automatically on exit, whether it exits normally or because of an exception — no duplicated `try/finally` required.
+
 ## Class-based context managers
 
 A class becomes a context manager by implementing two dunder methods: `__enter__` and `__exit__`. Python calls `__enter__` when execution enters the `with` block and `__exit__` when it leaves — for any reason.
@@ -96,7 +124,7 @@ def timer(label):
 
 with timer("my block"):
     total = sum(range(1000))
-    print(f"sum = \${total}")`;
+    print(f"sum = {total}")`;
 
 <TsGo ts={tsCmContextlib} go={pyCmContextlib} />
 
@@ -192,6 +220,30 @@ def managed():
 
 </PyOnly>
 
+<PyOnly title="Multiple context managers and ExitStack">
+
+Python lets you combine several context managers on a single line, separated by commas:
+
+```python
+with open("input.txt") as fin, open("output.txt", "w") as fout:
+    fout.write(fin.read())
+```
+
+This is exactly equivalent to nesting two `with` blocks, without the extra indentation.
+
+When you don't know how many context managers you need until runtime, use `contextlib.ExitStack`:
+
+```python
+from contextlib import ExitStack
+
+files = ["a.txt", "b.txt", "c.txt"]
+with ExitStack() as stack:
+    handles = [stack.enter_context(open(f)) for f in files]
+    # every handle is closed automatically on exit, in reverse order
+```
+
+</PyOnly>
+
 export const quizCm = [
   {
     q: 'What two dunder methods must a class implement to work as a context manager?',
@@ -230,6 +282,16 @@ export const quizCm = [
       'By returning True',
       'By raising a different exception',
       'By returning None',
+    ],
+    answer: 1,
+  },
+  {
+    q: 'What is the correct syntax to use two context managers together on one line, each bound to its own name?',
+    options: [
+      'with open("a") and open("b"):',
+      'with open("a") as f1, open("b") as f2:',
+      'with (open("a"), open("b")):',
+      'with open("a"): with open("b"):',
     ],
     answer: 1,
   },

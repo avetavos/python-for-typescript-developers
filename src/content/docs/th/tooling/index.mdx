@@ -49,10 +49,10 @@ Virtual environments (`venv`) แก้ปัญหานี้ด้วยก�
 
 > รันในเทอร์มินัลของคุณ:
 > ```bash
-> python3 -m venv .venv        # สร้าง env ที่แยกออกมา
-> source .venv/bin/activate    # เปิดใช้งาน (macOS/Linux)
-> # .venv\Scripts\activate     # เปิดใช้งานบน Windows
-> pip install requests         # ติดตั้งแค่ใน .venv เท่านั้น
+> python3 -m venv .venv        # create isolated env
+> source .venv/bin/activate    # activate it (macOS/Linux)
+> # .venv\Scripts\activate     # activate on Windows
+> pip install requests         # installs into .venv only
 > ```
 
 ## Stack สมัยใหม่: ruff + uv
@@ -66,7 +66,7 @@ Virtual environments (`venv`) แก้ปัญหานี้ด้วยก�
 | ติดตั้ง package เร็ว | pip | `uv pip install` |
 | จัดการ project + venv | poetry | `uv` |
 
-ทั้ง `ruff` และ `uv` เขียนด้วย Rust และเร็วกว่าของเดิม 10–100 เท่า ถ้าเริ่มโปรเจกต์ใหม่วันนี้ ให้เลือกสองตัวนี้ไว้ก่อน
+ทั้ง `ruff` และ `uv` เขียนด้วย Rust และเร็วกว่าของเดิม 10–100 เท่า ตามที่ Astral ระบุไว้เอง ([ruff](https://docs.astral.sh/ruff/), [uv](https://docs.astral.sh/uv/)) ถ้าเริ่มโปรเจกต์ใหม่วันนี้ ให้เลือกสองตัวนี้ไว้ก่อน
 
 <PyOnly title="pyproject.toml คือ package.json ของ Python">
 

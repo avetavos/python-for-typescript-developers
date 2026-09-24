@@ -112,14 +112,15 @@ print(text[::-1])
 Python มี built-in type `slice` ที่ช่วยให้คุณสร้างและนำ slice กลับมาใช้ใหม่ได้ มีประโยชน์เมื่อ slice เดิมถูกใช้หลายครั้ง:
 
 ```python
-HEADER = slice(0, 3)
-BODY   = slice(3, -1)
-FOOTER = slice(-1, None)
+every_other = slice(None, None, 2)  # equivalent to [::2]
+data = list(range(10))
+print(data[every_other])            # [0, 2, 4, 6, 8]
 
-data = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-print(data[HEADER])  # [0, 1, 2]
-print(data[BODY])    # [3, 4, 5, 6, 7, 8]
-print(data[FOOTER])  # [9]
+header_row = slice(0, 1)
+body_rows  = slice(1, None)
+table = [[1, 2], [3, 4], [5, 6]]
+print(table[header_row])            # [[1, 2]]
+print(table[body_rows])             # [[3, 4], [5, 6]]
 ```
 
 **การ assign ผ่าน slice**
@@ -127,12 +128,15 @@ print(data[FOOTER])  # [9]
 สำหรับ list (ไม่ใช่ tuple หรือ string ซึ่ง immutable) คุณสามารถ assign ผ่าน slice เพื่อแทนที่ส่วนหนึ่งของ list ได้:
 
 ```python
-data = [0, 1, 2, 3, 4]
-data[1:3] = [10, 20, 30]  # แทนที่ 2 element ด้วย 3 element
-print(data)  # [0, 10, 20, 30, 3, 4]
+original = [1, 2, 3, 4, 5]
+copy = original[:]    # common idiom for a shallow copy
+copy[0] = 99
+print(original)       # [1, 2, 3, 4, 5] — unaffected
 
-data[::2] = [0, 0, 0]  # แทนที่ทุก element ที่ index คู่
-print(data)  # [0, 10, 0, 30, 0, 4]
+nested = [[1, 2], [3, 4]]
+flat_copy = nested[:]
+flat_copy[0][0] = 99
+print(nested)         # [[99, 2], [3, 4]] — inner list IS shared
 ```
 
 **Slice บน NumPy array**
@@ -140,9 +144,9 @@ print(data)  # [0, 10, 0, 30, 0, 4]
 ถ้าคุณทำงานกับ NumPy, PyTorch หรือไลบรารีวิทยาศาสตร์อื่น ๆ syntax slice เดียวกันจะขยายเป็นหลายมิติ:
 
 ```python
-import numpy as np
-matrix = np.arange(16).reshape(4, 4)
-print(matrix[1:3, ::2])  # rows 1-2, every other column
+data = [1, 2, 3, 4, 5]
+data[1:3] = [20, 30, 40]  # replace 2 elements with 3
+print(data)               # [1, 20, 30, 40, 4, 5]
 ```
 
 นี่คือเหตุผลที่ syntax ของ slice เป็นเรื่องที่ต้องเรียนให้แม่น เพราะโผล่อยู่ทั่วทั้ง ecosystem สาย data science
@@ -151,44 +155,44 @@ print(matrix[1:3, ::2])  # rows 1-2, every other column
 
 export const quizSlicing = [
   {
-    q: 'data[2:5] บน list [0,1,2,3,4,5,6,7,8,9] ให้ผลลัพธ์อะไร?',
+    q: 'data[::2] ให้ผลลัพธ์อะไรสำหรับ data = [0, 1, 2, 3, 4]?',
     options: [
-      '[2, 3, 4, 5]',
-      '[2, 3, 4]',
-      '[3, 4, 5]',
-      '[2, 5]',
+      '[1, 3]',
+      '[0, 2, 4]',
+      '[0, 1, 2]',
+      '[2, 4]',
     ],
     answer: 1,
   },
   {
-    q: 'data[::-1] ทำอะไร?',
+    q: 'วิธี idiomatic ของ Python ในการกลับลำดับ list ด้วย slicing คือแบบไหน?',
     options: [
-      'ดึง element สุดท้าย',
-      'ลบ element สุดท้าย',
-      'กลับลำดับ sequence ทั้งหมด',
-      'ดึงทุก element อื่น ๆ จากท้าย',
+      'data[0:-1]',
+      'data[-1:0]',
+      'data[::-1]',
+      'data[::- 1]',
     ],
     answer: 2,
   },
   {
-    q: 'สำหรับ data = [0,1,2,3,4,5,6,7,8,9], data[-3:] ให้ผลลัพธ์อะไร?',
+    q: 'การ slicing คืนค่าแบบไหนในแง่ของ memory?',
     options: [
-      '[0, 1, 2]',
-      '[7, 8, 9]',
-      '[6, 7, 8]',
-      '[8, 9]',
+      'view เข้าไปยัง sequence เดิม (ไม่ copy)',
+      'shallow copy (container ใหม่ แต่ element ยังอ้างอิงร่วมกัน)',
+      'deep copy (container ใหม่และ copy element ใหม่ทั้งหมด)',
+      'sequence เดิมแค่เปลี่ยน index',
     ],
     answer: 1,
   },
   {
-    q: "text = 'Hello'; text[::2] ให้ผลลัพธ์อะไร?",
+    q: 'slice(1, 5, 2) เทียบเท่ากับ slice expression แบบไหน?',
     options: [
-      "'Hlo'",
-      "'elo'",
-      "'Hel'",
-      "'ll'",
+      '[1:5]',
+      '[1:2:5]',
+      '[1:5:2]',
+      '[2:5:1]',
     ],
-    answer: 0,
+    answer: 2,
   },
 ];
 
